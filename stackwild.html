@@ -1731,6 +1731,7 @@ const rbHeld=()=>{const it=inv[sel];return !!(it&&DEF[it.id].rainbow&&isAdmin())
 function pickTier(){const t=heldTool();return t&&t.kind==='pick'?t.tier:0;}
 function mineTime(id){
   if(GM.mode==='creative'||rbHeld())return .05;
+  if(id===CORRUPT_SWORD){const c=meta['#cor'];if(!(c&&!c.done&&target&&target.x===c.x&&target.y===c.y&&target.z===c.z))return .4;}
   let need=HARD[id]!==undefined?HARD[id]:1;
   const t=heldTool(), k=TOOLFOR[id];
   if(t&&k&&t.kind===k)need/=PSPD[t.tier]*(k==='pick'?1:1.4)*tierMul(inv[sel],2.6,1.8)*(1+.35*enchLvl(inv[sel],3));
@@ -1772,7 +1773,7 @@ function breakAt(t){
   if(id===OBSIDIAN||id===PORTAL||id===CINDER_BRICKS||id===DEMON_PORTAL)breakPortalNear(t.x,t.y,t.z);
   if(DEF[id].door===1&&DEF[getBlock(t.x,t.y+1,t.z)].door===2)setBlock(t.x,t.y+1,t.z,AIR);
   if(DEF[id].door===2&&DEF[getBlock(t.x,t.y-1,t.z)].door===1){setBlock(t.x,t.y-1,t.z,AIR);if(GM.mode!=='creative')spawnDrop(DOOR_ITEM,t.x+.5,t.y-.5,t.z+.5);}
-  if(id===CORRUPT_SWORD&&meta['#cor']&&(!MP.connected||MP.isHost)){meta['#cor'].pulled=1;corBroadcast();}
+  if(id===CORRUPT_SWORD&&meta['#cor']&&t.x===meta['#cor'].x&&t.y===meta['#cor'].y&&t.z===meta['#cor'].z&&(!MP.connected||MP.isHost)){meta['#cor'].pulled=1;corBroadcast();}
   if(id===END_CRYSTAL){explode(t.x+.5,t.y+.5,t.z+.5,2.5);toast('End Crystal destroyed!');}
   if(id===PISTON_ON){const d=FACES[meta[t.x+','+t.y+','+t.z]|0].dir;if(getBlock(t.x+d[0],t.y+d[1],t.z+d[2])===PISTON_HEAD)setBlock(t.x+d[0],t.y+d[1],t.z+d[2],AIR);}
   if(id===PISTON_HEAD)for(let f=0;f<6;f++){const d=FACES[f].dir,bx=t.x-d[0],by=t.y-d[1],bz=t.z-d[2];if(getBlock(bx,by,bz)===PISTON_ON&&(meta[bx+','+by+','+bz]|0)===f)setBlock(bx,by,bz,PISTON);}
@@ -1823,7 +1824,7 @@ function doUse(){
     const id=target.id;
     if(id===TABLE||id===FURNACE||id===CHEST||id===DEMONISER||id===ENDERISER||id===ENCHANT_TABLE||id===BREWING_STAND){swing();openBag(id,target);return;}
     if(DEF[id].door){toggleDoor(target);return;}
-    if(id===CORRUPT_SWORD){corPull();return;}
+    if(id===CORRUPT_SWORD){const c=meta['#cor'];if(c&&target.x===c.x&&target.y===c.y&&target.z===c.z)corPull();else toast('Just a fake shrine. Mine it to remove it');return;}
     const hit=inv[sel]?inv[sel].id:0;
     if(hit===HOE&&[GRASS,DIRT,DRY_GRASS,SNOW_GRASS].includes(id)&&getBlock(target.x,target.y+1,target.z)===AIR){swing();setBlock(target.x,target.y,target.z,FARMLAND);useTool();if(id!==DIRT&&Math.random()<.12)spawnDrop(SEEDS,target.x+.5,target.y+1.2,target.z+.5);return;}
     if(id===END_FRAME&&(hit===ENDER_EYE||hit===IGNITER)){activateEndPortal(target);return;}
@@ -1864,6 +1865,7 @@ function doPlace(){
   if(SOFT.has(target.id)){x=target.x;y=target.y;z=target.z;}
   const cur=getBlock(x,y,z);
   if(!(cur===AIR||cur===WATER||cur===LAVA||SOFT.has(cur)))return;
+  if(pid===CORRUPT_SWORD){toast('The shrine can’t be placed. It only appears with The Corruption mod');return;}
   if(pdef.slabOf&&target.id===pid&&target.ny===1&&!SOFT.has(target.id)){if(setBlock(target.x,target.y,target.z,pdef.slabOf)){swing();if(GM.mode!=='creative')takeSel();}return;}
   if(pid===WHEAT_0&&getBlock(x,y-1,z)!==FARMLAND){toast('Plant seeds on farmland (use a hoe on grass)');return;}
   if(pid===SAPLING&&![GRASS,DIRT,DRY_GRASS,SNOW_GRASS,FARMLAND].includes(getBlock(x,y-1,z))){toast('Saplings need grass or dirt');return;}
@@ -3708,7 +3710,7 @@ chatIn.addEventListener('keydown',e=>{
 // ---------- commands ----------
 const ITEM_KEYS={};
 DEF.forEach((d,i)=>{
-  if(!d||!i||[WATER,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE].includes(i))return;
+  if(!d||!i||[WATER,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,CORRUPT_SWORD].includes(i))return;
   const k=d.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); if(ITEM_KEYS[k]===undefined)ITEM_KEYS[k]=i;
 });
 function findItem(q){
