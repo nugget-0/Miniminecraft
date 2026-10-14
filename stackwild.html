@@ -176,6 +176,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <div class="bag-body">
       <div>
         <div id="chestWrap" hidden style="margin-bottom:12px"><p class="label">Chest</p><div class="grid" id="chestGrid"></div></div>
+        <div id="demWrap" hidden style="margin-bottom:12px"><p class="label">Item to demonise on top · Demon Ore below</p><div style="display:flex;align-items:center;gap:16px"><div id="demSlots" style="display:flex;flex-direction:column;gap:8px"></div><div style="flex:1;max-width:240px"><div style="height:10px;border-radius:5px;background:rgba(255,255,255,.12);overflow:hidden"><div id="demBar" style="height:100%;width:0;background:linear-gradient(90deg,#5a0616,#ff2a5a);box-shadow:0 0 10px #ff2a5a"></div></div><p id="demTxt" class="label" style="margin-top:6px">Waiting…</p></div></div></div>
         <p class="label">Armor <span id="armorPts"></span></p>
         <div class="grid armor" id="armorGrid"></div>
         <p class="label" style="margin-top:12px">Backpack</p>
@@ -366,10 +367,34 @@ for(let k=0;k<4;k++)I(GOLD_ARMOR[k],'Gold '+ARM_N[k],148+k,{armor:{slot:k,pts:[2
 B(MEGA_TNT,'Mega TNT',[153,153,152],{rs:true}); B(BOOKSHELF,'Bookshelf',[8,8,154]); B(MOSSY_COBBLE,'Mossy Cobblestone',[155,155,155]);
 B(SMOOTH_STONE,'Smooth Stone',[156,156,156]); B(RED_WOOL,'Red Wool',[157,157,157]); B(YELLOW_WOOL,'Yellow Wool',[158,158,158]); B(BLACK_WOOL,'Black Wool',[159,159,159]);
 B(CARPET,'Carpet',[117,117,117],{transparent:true,flat:true});
+// ---- netherite ----
+const NETHERITE_ORE=142, NETHERITE_BLOCK=143, NETHERITE_SCRAP=168, NETHERITE_INGOT=169;
+TIERN[5]='Netherite'; DUR[5]=2000; PSPD[5]=4.6;
+PICK[5]=160; SWORD[5]=161; AXE[5]=162; SHOVEL[5]=163; ARMOR.netherite=[164,165,166,167];
+I(PICK[5],'Netherite Pickaxe',160,{tool:{kind:'pick',tier:5,max:2000,dmg:6}});
+I(SWORD[5],'Netherite Sword',161,{tool:{kind:'sword',tier:5,max:2000,dmg:9}});
+I(AXE[5],'Netherite Axe',162,{tool:{kind:'axe',tier:5,max:2000,dmg:8}});
+I(SHOVEL[5],'Netherite Shovel',163,{tool:{kind:'shovel',tier:5,max:2000,dmg:5}});
+for(let k=0;k<4;k++)I(ARMOR.netherite[k],'Netherite '+ARM_N[k],164+k,{armor:{slot:k,pts:[4,9,7,4][k]}});
+I(NETHERITE_SCRAP,'Netherite Scrap',168); I(NETHERITE_INGOT,'Netherite Ingot',169);
+B(NETHERITE_ORE,'Netherite Ore',[170,170,171]); B(NETHERITE_BLOCK,'Block of Netherite',[172,172,172]);
+// ---- demon realm ----
+const DEMONROCK=144, DEMON_BRICKS=145, DEMON_LAMP=146, DEMON_ORE=147, DEMON_SPAWNER=148, DEMONISER=149, DEMON_PORTAL=154, ASH_SOIL=155;
+B(DEMONROCK,'Demonrock',[173,173,173]); B(ASH_SOIL,'Ash Soil',[174,173,175]); B(DEMON_BRICKS,'Demon Bricks',[176,176,176]);
+B(DEMON_LAMP,'Demon Lamp',[177,177,177],{glow:true}); B(DEMON_ORE,'Demon Ore',[178,178,178],{glow:true});
+B(DEMON_SPAWNER,'Demon Spawner',[179,179,179],{glow:true,transparent:true,drop:[]});
+B(DEMONISER,'Demoniser',[180,173,181],{glow:true});
+B(DEMON_PORTAL,'Demon Portal',[182,182,182],{glow:true,transparent:true,nosolid:true,drop:[]});
+// demonised items keep their id; the flag rides in the durability number so it survives drops, chests, saves and sync
+const DM=1000000;
+const isDm=s=>!!(s&&typeof s.dur==='number'&&s.dur>=DM);
+const realDur=s=>s.dur>=DM?s.dur-DM:s.dur;
+const itemName=s=>s?(isDm(s)?'Demonised ':'')+DEF[s.id].name:'';
 const rainbowRGB=h=>{const c=new THREE.Color().setHSL(((h%1)+1)%1,1,.58);return[c.r*255,c.g*255,c.b*255];};
 const bladeHeld=()=>!!(inv[sel]&&inv[sel].id===RAINBOW_BLADE);
-const NETHER_MIN=50000, NETHER_X=100000;
-const isNetherX=x=>x>=NETHER_MIN;
+const NETHER_MIN=50000, NETHER_X=100000, DEMON_MIN=150000, DEMON_X=200000;
+const isNetherX=x=>x>=NETHER_MIN&&x<DEMON_MIN;
+const isDemonX=x=>x>=DEMON_MIN;
 const opaque=id=>id!==AIR&&!DEF[id].transparent;
 const solid=id=>id!==AIR&&id!==WATER&&!DEF[id].plant&&!DEF[id].flat&&!DEF[id].nosolid;
 const maxStack=id=>(DEF[id].tool||DEF[id].armor)?1:STACK;
@@ -402,8 +427,11 @@ const deser=s=>s&&s[1]>0&&DEF[s[0]]?{id:s[0],n:s[1],dur:(s[2]===null||s[2]===und
 let spawnPt=state&&Array.isArray(state.spawn)?state.spawn:null;
 let meta=(state&&state.meta)||{};
 let chests={}; if(state&&state.chests)for(const k in state.chests)chests[k]=state.chests[k].map(deser);
+let demonisers={};
+function loadDemonisers(st){demonisers={};if(st&&st.dem)for(const k in st.dem){const v=st.dem[k];if(Array.isArray(v))demonisers[k]={s:[deser(v[0]),deser(v[1])],p:+v[2]||0};}}
+loadDemonisers(state);
 let armor=[0,1,2,3].map(i=>state&&Array.isArray(state.armor)?deser(state.armor[i]):null);
-function armorPts(){let p=0;for(const a of armor)if(a&&DEF[a.id].armor)p+=DEF[a.id].armor.pts;return p;}
+function armorPts(){let p=0;for(const a of armor)if(a&&DEF[a.id].armor)p+=DEF[a.id].armor.pts*(isDm(a)?1.5:1);return Math.round(p);}
 let N;
 function initNoise(){N={base:makeNoise(seed),mount:makeNoise(seed+101),detail:makeNoise(seed+202),temp:makeNoise(seed+303),hum:makeNoise(seed+404)};}
 initNoise();
@@ -428,12 +456,12 @@ let saveTimer=0;
 function saveNow(){
   const ch={}; for(const k in chests)ch[k]=chests[k].map(ser);
   try{ localStorage.setItem(activeKey,JSON.stringify({seed,edits,player:{x:P.x,y:P.y,z:P.z,yaw,pitch},time:dayT,
-    inv:inv.map(ser),sel,health,food,armor:armor.map(ser),chests:ch,spawn:spawnPt,meta})); }catch(e){}
+    inv:inv.map(ser),sel,health,food,armor:armor.map(ser),chests:ch,spawn:spawnPt,meta,dem:Object.fromEntries(Object.entries(demonisers).map(([k,v])=>[k,[ser(v.s[0]),ser(v.s[1]),+v.p.toFixed(3)]]))})); }catch(e){}
 }
 function saveSoon(){clearTimeout(saveTimer);saveTimer=setTimeout(saveNow,800);}
 
 // ---------- texture atlas (procedural, 8x8 tiles of 16px) ----------
-const AW=16, AH=10;
+const AW=16, AH=12;
 const atlas=document.createElement('canvas'); atlas.width=AW*16; atlas.height=AH*16;
 (function paintAtlas(){
   const g=atlas.getContext('2d'), img=g.createImageData(atlas.width,atlas.height), D=img.data, rnd=mulberry32(7);
@@ -608,6 +636,32 @@ const atlas=document.createElement('canvas'); atlas.width=AW*16; atlas.height=AH
     tile(147,(x,y)=>{if(y>=8&&y<=13&&Math.abs(x-7.5)<=7-(y-8)*.6)return y===8?sh([120,80,50],1.1):sh([150,104,64],.85+rnd()*.15);if(y>=6&&y<8&&x>=2&&x<=13)return rnd()<.3?[200,60,40]:rnd()<.5?[110,170,60]:[176,96,50];return T;});
     [[148,[240,200,60]]].forEach(([base,c])=>shapes.forEach((f,k)=>tile(base+k,(x,y)=>{if(!f(x,y))return T;const e2=!f(x-1,y)||!f(x+1,y)||!f(x,y-1)||!f(x,y+1);return sh(c,e2?.68:(.92+rnd()*.12)*(1.08-y*.02));})));
   }
+  // ---- netherite & demon realm ----
+  {
+    const NC=[78,66,72];
+    tile(160,(x,y)=>{const hy=2.6+((x-8.5)*(x-8.5))/14;if(x>=2&&x<=14&&Math.abs(y-hy)<1.1)return sh(NC,y<hy?1.25:.8+rnd()*.25);if(seg(x,y,4,13,9.5,5)<.85)return sh(woodC,.85+rnd()*.2);return T;});
+    tile(161,(x,y)=>{if(seg(x,y,6,9,13,2)<1.05)return sh(NC,x+y<14?1.3:.85);if(seg(x,y,3.5,7.5,7.5,11.5)<.75)return[40,34,38];if(seg(x,y,2,13,5,10)<.8)return sh(woodC,.9);return T;});
+    tile(162,(x,y)=>{if(x>=8&&seg(x,y,9,3,13,6.5)<1.7)return sh(NC,.82+rnd()*.35);if(seg(x,y,3,13,10,4)<.85)return sh(woodC,.85+rnd()*.2);return T;});
+    tile(163,(x,y)=>{if(Math.hypot(x-11,y-4.5)<2.7)return sh(NC,.85+rnd()*.3);if(seg(x,y,3,13,9.5,6.5)<.85)return sh(woodC,.85+rnd()*.2);return T;});
+    shapes.forEach((f,k)=>tile(164+k,(x,y)=>{if(!f(x,y))return T;const e2=!f(x-1,y)||!f(x+1,y)||!f(x,y-1)||!f(x,y+1);return sh(NC,e2?.6:(.95+rnd()*.15)*(1.12-y*.02));}));
+    tile(168,(x,y)=>Math.hypot((x-7.5)/5.5,(y-8)/4.5)<1?sh([110,80,70],.7+rnd()*.5):T);
+    tile(169,(x,y)=>{if(y<6||y>10||x<2||x>13)return T;const f=y===6?1.25:y===10?.7:.95;return sh(NC,f*(.95+rnd()*.1));});
+    tile(170,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);return sh([96,72,62],(Math.floor(d)%3===0?.7:1)*(.85+rnd()*.2));});
+    tile(171,(x,y)=>sh([96,72,62],((y+((x*7)%3))%4===0?.65:1)*(.85+rnd()*.2)));
+    tile(172,(x,y)=>{if(x===0||y===0||x===15||y===15)return sh(NC,.6);if((x+y)%7===0)return sh(NC,1.3);return sh(NC,.85+rnd()*.15);});
+    const drC=[58,18,24];
+    tile(173,()=>sh(drC,rnd()<.15?.6:.8+rnd()*.35));
+    tile(174,()=>rnd()<.06?[255,90,40]:sh([62,52,54],.8+rnd()*.3));
+    const ae=[];for(let x=0;x<16;x++)ae[x]=2+Math.floor(rnd()*3);
+    tile(175,(x,y)=>y<ae[x]?sh([62,52,54],.8+rnd()*.3):sh(drC,.8+rnd()*.35));
+    tile(176,(x,y)=>{const row=y>>2;if(y%4===3||((x+(row%2)*4)%8===7))return[22,6,10];return sh([96,20,32],.8+rnd()*.3);});
+    tile(177,(x,y)=>{if(x<=1||x>=14||y<=1||y>=14)return[30,8,12];if(x===7||x===8||y===7||y===8)return[60,10,20];return sh([255,70,60],.9+rnd()*.15);});
+    {const op=[];for(let i=0;i<7;i++)op.push([1.5+rnd()*13,1.5+rnd()*13]);tile(178,(x,y)=>{for(const p of op){const d=Math.hypot(x-p[0],y-p[1]);if(d<1.7)return d<.8?[255,200,220]:sh([230,30,80],.85+rnd()*.3);}return sh(drC,.75+rnd()*.3);});}
+    tile(179,(x,y)=>{if(x===0||y===0||x===15||y===15)return sh([30,8,12],.9+rnd()*.2);if(x%5===0||y%5===0)return sh([110,20,30],.85+rnd()*.15);const d=Math.hypot(x-7.5,y-7.5);if(d<3.2)return d<1.6?[255,180,200]:[220,20,60];return T;});
+    tile(180,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);if(d<3)return d<1.5?[255,160,200]:[200,20,70];if(x===0||y===0||x===15||y===15)return[20,4,8];if(d<4.2)return[40,10,14];return sh([96,20,32],.8+rnd()*.3);});
+    tile(181,(x,y)=>{if(y<3)return sh([96,20,32],.85+rnd()*.2);if(y>12)return sh(drC,.7+rnd()*.2);if((x+y)%5===0)return[230,40,90];return sh([46,12,18],.85+rnd()*.25);});
+    tile(182,(x,y)=>{const a=Math.atan2(y-7.5,x-7.5), d=Math.hypot(x-7.5,y-7.5), s=Math.sin(a*2-d*1.1);return s>.25?sh([255,60,80],.9+rnd()*.2):sh([120,10,30],.85+rnd()*.25);});
+  }
   tile(152,(x,y)=>(y>=5&&y<=10)?((x%4===1)?[255,240,120]:[30,30,34]):sh([140,20,30],(x%4===0?.7:1)*(.9+rnd()*.12)));
   tile(153,(x,y)=>Math.hypot(x-7.5,y-7.5)<2.5?[255,220,60]:(x+y)%6===0?[30,30,34]:sh([140,20,30],.85+rnd()*.15));
   tile(154,(x,y)=>{if(y<2||y>13||y===7||y===8)return sh([172,132,84],.85+rnd()*.12);if(x===0||x===15)return sh([120,85,45],.9);const bk=[[180,50,50],[60,90,170],[70,140,70],[200,170,70],[120,60,140]][Math.floor((x+(y>8?2:0))/3)%5];return sh(bk,(x%3===0?.7:.9)+rnd()*.1);});
@@ -682,7 +736,7 @@ let genLoot=[];
 function chamberAt(rx,rz){
   const key=rx+','+rz; if(chamberCache.has(key))return chamberCache.get(key);
   let r=null;
-  if(hash2(rx*31+7,rz*17-11)<.7&&!isNetherX(rx*80)){
+  if(hash2(rx*31+7,rz*17-11)<.7&&rx*80<NETHER_MIN){
     const x=rx*80+32, z=rz*80+32;
     let h=99; for(const [a,b] of [[0,0],[-14,-14],[14,-14],[-14,14],[14,14]])h=Math.min(h,heightAt(x+a,z+b));
     if(h>=20)r={x,z,y:Math.max(3,Math.min(18,h-19))};
@@ -702,9 +756,9 @@ function finishChunk(cx,cz,d){
     const lk=(ox+ii%CS)+','+Math.floor(ii/(CS*CS))+','+(oz+Math.floor(ii/CS)%CS);
     if(DEF[id].glow){lights.add(lk);for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const kk=ck(cx+a,cz+b);if(meshes.has(kk))dirty.add(kk);}}
     if(DEF[id].rs){rsSet.add(lk);rsDirty=true;}
-    if(id===SPAWNER)spawners.add(lk);
+    if(id===SPAWNER||id===DEMON_SPAWNER)spawners.add(lk);
   }
-  for(const [lk,i,sd] of genLoot)if(d[i]===CHEST&&!chests[lk])chests[lk]=lootFor(sd);
+  for(const [lk,i,sd,kind] of genLoot)if(d[i]===CHEST&&!chests[lk])chests[lk]=kind==='demon'?demonLoot(sd):lootFor(sd);
   genLoot=[];
   chunks.set(ck(cx,cz),d);
   return d;
@@ -731,6 +785,7 @@ function genNether(cx,cz){
   }
   const rr=mulberry32((seed^Math.imul(cx,91815541)^Math.imul(cz,46835711)^0x5eed)|0);
   for(let v=0;v<8;v++){let x=Math.floor(rr()*CS),z=Math.floor(rr()*CS),y=4+Math.floor(rr()*54);for(let s=0;s<5;s++){if(x>=0&&x<CS&&z>=0&&z<CS&&y>0&&y<H-1){const i=x+z*CS+y*CS*CS;if(d[i]===EMBERROCK)d[i]=EMBER_ORE;}const dir=Math.floor(rr()*6);if(dir===0)x++;else if(dir===1)x--;else if(dir===2)z++;else if(dir===3)z--;else if(dir===4)y++;else y--;}}
+  for(let v=0;v<2;v++){if(rr()<.45)continue;const x=Math.floor(rr()*CS),z=Math.floor(rr()*CS),y=6+Math.floor(rr()*16),i=x+z*CS+y*CS*CS;if(d[i]===EMBERROCK)d[i]=NETHERITE_ORE;}
   // gleamstone clusters hanging from the ceiling
   for(let c=0;c<3;c++){
     if(rr()>.55)continue;
@@ -755,8 +810,60 @@ function genNether(cx,cz){
   }
   return d;
 }
+// ---------- the Demon Realm: crimson wasteland with a lit, four-level fortress every 96 blocks ----------
+const DFY=16;
+function demonLoot(sd){
+  const r=mulberry32(sd|0), out=new Array(27).fill(null);
+  out[13]={id:DEMONISER,n:1};
+  out[4]={id:NETHERITE_SCRAP,n:2+Math.floor(r()*3)};
+  out[22]={id:GOLD,n:4+Math.floor(r()*6)};
+  if(r()<.5)out[10]={id:TOTEM,n:1};
+  return out;
+}
+function genDemon(cx,cz){
+  const d=new Uint8Array(CS*CS*H), ox=cx*CS, oz=cz*CS, FY=DFY;
+  const S=(x,y,z,id)=>{if(x>=0&&x<CS&&z>=0&&z<CS&&y>=0&&y<H)d[x+z*CS+y*CS*CS]=id;};
+  const rgx=Math.floor((ox+8)/96), rgz=Math.floor((oz+8)/96), fx=rgx*96+48, fz=rgz*96+48;
+  for(let z=0;z<CS;z++)for(let x=0;x<CS;x++){
+    const wx=ox+x, wz=oz+z, lx=wx-fx, lz=wz-fz, ax=lx<0?-lx-1:lx, az=lz<0?-lz-1:lz, am=Math.max(ax,az);
+    let g=Math.max(4,Math.min(30,Math.round(14+fbm(N.base,wx*.02,wz*.02)*8+N.detail(wx*.1,wz*.1)*1.5)));
+    if(am<=13)g=FY; else if(am<=19)g=Math.round(FY+(g-FY)*(am-13)/6);
+    for(let y=0;y<=g;y++)S(x,y,z,y===g?ASH_SOIL:DEMONROCK);
+    if(am>19&&fbm(N.hum,wx*.03,wz*.03)<-.32&&g>4){S(x,g,z,LAVA);S(x,g-1,z,LAVA);}
+    else if(am>19&&hash2(wx*7+3,wz*5+1)<.006){const h=4+Math.floor(hash2(wz,wx)*8);for(let k=1;k<=h;k++)S(x,g+k,z,OBSIDIAN);}
+    if(ax>10||az>10)continue;
+    for(let rel=0;rel<=40;rel++){
+      const y=FY+rel, L=Math.floor(rel/10), ly=rel%10;
+      let id=AIR;
+      if(ly===0){
+        id=DEMON_BRICKS;
+        if(rel>0&&rel<40){const sl=L-1, lane=sl%2===0?(lx===6||lx===7):(lx===-8||lx===-7);if(lane&&lz>=-2&&lz<=1)id=AIR;}
+        if(rel>0&&id!==AIR&&ax<10&&az<10&&ax%5===2&&az%5===2)id=DEMON_LAMP;
+      }else if(ax===10||az===10){
+        id=DEMON_BRICKS;
+        if(ly===5&&((ax===10?az:ax)%4===1))id=DEMON_LAMP;
+        if(L===0&&lz===10&&(lx===0||lx===-1)&&ly<=3)id=AIR;
+        if(L===3&&ly>=3&&ly<=5&&((ax===10?az:ax)%4===3))id=AIR;
+      }else if(L<3){
+        const lane=L%2===0?(lx===6||lx===7):(lx===-8||lx===-7), k=lz+7;
+        if(lane&&k>=0&&k<=8&&ly===1+k)id=DEMON_BRICKS;
+      }
+      S(x,y,z,id);
+      if(id===DEMON_LAMP)lights.add(wx+','+y+','+wz);
+    }
+  }
+  const put=(lx,y,lz,id)=>{const x=fx+lx-ox, z=fz+lz-oz;if(x<0||x>=CS||z<0||z>=CS)return -1;const i=x+z*CS+y*CS*CS;d[i]=id;return i;};
+  for(let L=0;L<4;L++){
+    const sy=FY+L*10+1, sp=L<3?[[-3,4],[3,-4]]:[[5,-5],[5,5]];
+    for(const [lx,lz] of sp)if(put(lx,sy,lz,DEMON_SPAWNER)>=0)spawners.add((fx+lx)+','+sy+','+(fz+lz));
+  }
+  for(let lx=-7;lx<=-3;lx++)for(let lz=3;lz<=7;lz++){const h=3-Math.max(Math.abs(lx+5),Math.abs(lz-5));for(let k=0;k<h;k++)put(lx,FY+31+k,lz,DEMON_ORE);}
+  const ci=put(0,FY+31,0,CHEST); if(ci>=0)genLoot.push([fx+','+(FY+31)+','+fz,ci,hash2(fx,fz)*1e9,'demon']);
+  return d;
+}
 function genChunk(cx,cz){
   genLoot=[];
+  if(isDemonX(cx*CS))return finishChunk(cx,cz,genDemon(cx,cz));
   if(isNetherX(cx*CS))return finishChunk(cx,cz,genNether(cx,cz));
   const d=new Uint8Array(CS*CS*H), ox=cx*CS, oz=cz*CS, hs=new Int16Array(CS*CS), bm=new Uint8Array(CS*CS);
   for(let z=0;z<CS;z++)for(let x=0;x<CS;x++){
@@ -962,7 +1069,10 @@ function setBlock(x,y,z,id,opt){
   (edits[k]||(edits[k]={}))[i]=id;
   const lk=x+','+y+','+z; if(DEF[id].glow)lights.add(lk); else lights.delete(lk);
   if(DEF[id].rs)rsSet.add(lk); else rsSet.delete(lk);
-  if(id===SPAWNER)spawners.add(lk);
+  if(id===SPAWNER||id===DEMON_SPAWNER)spawners.add(lk);
+  if(opt&&opt.dm&&id!==AIR){demonBlocks.add(lk);meta['d'+lk]=1;}
+  else if(demonBlocks.has(lk)){demonBlocks.delete(lk);delete meta['d'+lk];}
+  if(old===DEMONISER&&id!==DEMONISER)spillDemoniser(lk,!!(opt&&opt.remote));
   if(DEF[id].glow||DEF[old].glow)for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const kk=ck(cx+a,cz+b);if(meshes.has(kk))dirty.add(kk);}
   if(DEF[id].rs||DEF[old].rs||rsNear(x,y,z))rsDirty=true;
   if(id===BUTTON_ON)rsTimers.push({x,y,z,t:1,from:BUTTON_ON,to:BUTTON});
@@ -971,10 +1081,13 @@ function setBlock(x,y,z,id,opt){
     const kk=ck(Math.floor((x+dx)/CS),Math.floor((z+dz)/CS));
     if(meshes.has(kk))dirty.add(kk);
   }
-  if(!(opt&&opt.noSync))mpSend({t:'b',x,y,z,id,f:meta[lk]});
+  if(!(opt&&opt.noSync))mpSend({t:'b',x,y,z,id,f:meta[lk],dm:demonBlocks.has(lk)?1:0});
   saveSoon();
   return true;
 }
+const demonBlocks=new Set();
+function rebuildDemonBlocks(){demonBlocks.clear();for(const k in meta)if(k[0]==='d')demonBlocks.add(k.slice(1));}
+rebuildDemonBlocks();
 
 // ---------- meshing ----------
 const FACES=[
@@ -990,6 +1103,7 @@ const AOV=[.48,.66,.83,1];
 function buildMesh(cx,cz){
   const k=ck(cx,cz), d=chunks.get(k); if(!d)return;
   const ox=cx*CS, oz=cz*CS;
+  const dmI=new Set(); if(demonBlocks.size)for(const lk of demonBlocks){const q=lk.split(','),qx=+q[0],qz=+q[2];if(qx>=ox&&qx<ox+CS&&qz>=oz&&qz<oz+CS)dmI.add((qx-ox)+(qz-oz)*CS+(+q[1])*CS*CS);}
   const S={p:[],t:[],c:[],i:[],b:[]}, W={p:[],t:[],c:[],i:[],b:[]}, G={p:[],t:[],c:[],i:[],b:[]};
   const bl=(x,y,z)=>{if(y<0)return STONE;if(y>=H)return AIR;if(x>=0&&x<CS&&z>=0&&z<CS)return d[x+z*CS+y*CS*CS];return getBlock(ox+x,y,oz+z);};
   const op=(x,y,z)=>opaque(bl(x,y,z))?1:0;
@@ -1034,7 +1148,7 @@ function buildMesh(cx,cz){
       }
       continue;
     }
-    const glow=!!def.glow;
+    const glow=!!def.glow, isDmB=dmI.size>0&&dmI.has(x+z*CS+y*CS*CS);
     for(let fi=0;fi<6;fi++){
       const f=FACES[fi], dx=f.dir[0],dy=f.dir[1],dz=f.dir[2];
       const nid=bl(x+dx,y+dy,z+dz);
@@ -1063,7 +1177,7 @@ function buildMesh(cx,cz){
           const a=(s1&&s2)?0:3-(s1+s2+cr);
           ao[ci]=a; s*=AOV[a];
         }
-        M.c.push(s,s,s); M.b.push(fl);
+        if(isDmB)M.c.push(s,s*.42,s*.5); else M.c.push(s,s,s); M.b.push(fl);
       }
       if(id!==WATER&&!glow&&ao[0]+ao[3]>ao[1]+ao[2]) M.i.push(base,base+1,base+3,base,base+3,base+2);
       else M.i.push(base,base+1,base+2,base+2,base+1,base+3);
@@ -1250,8 +1364,9 @@ function paintSlot(e,it,ph){
   if(!it&&ph!==undefined){const g=e.cv.getContext('2d');g.globalAlpha=.22;g.drawImage(atlas,(ph%AW)*16,(ph/AW|0)*16,16,16,0,0,32,32);g.globalAlpha=1;}
   e.cnt.textContent=it&&it.n>1?it.n:'';
   const tool=it&&DEF[it.id].tool;
-  if(tool&&it.dur<tool.max){
-    const g=e.cv.getContext('2d'), r=Math.max(0,it.dur/tool.max);
+  if(isDm(it)){const g=e.cv.getContext('2d');g.fillStyle='rgba(200,0,40,.28)';g.fillRect(0,0,32,32);g.fillStyle='#ff2a5a';g.beginPath();g.moveTo(32,0);g.lineTo(22,0);g.lineTo(32,10);g.fill();g.strokeStyle='rgba(255,40,90,.85)';g.lineWidth=2;g.strokeRect(1,1,30,30);}
+  if(tool&&realDur(it)<tool.max){
+    const g=e.cv.getContext('2d'), r=Math.max(0,realDur(it)/tool.max);
     g.fillStyle='#000'; g.fillRect(3,27,26,3);
     g.fillStyle='hsl('+Math.round(r*120)+',80%,50%)'; g.fillRect(3,27,Math.max(1,Math.round(26*r)),2);
   }
@@ -1265,19 +1380,21 @@ function drawSlot(i){ if(i<9)paintSlot(slotEls[i],inv[i]); if(panelEls[i])paintS
 function drawAll(){for(let i=0;i<INV;i++)drawSlot(i);}
 let toastT=0;
 function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('show'),1400);}
-function select(i){sel=(i+9)%9;slotEls.forEach((e,j)=>e.s.classList.toggle('on',j===sel));const it=inv[sel];toast(it?DEF[it.id].name+(it.n>1?' × '+it.n:''):'Empty slot');saveSoon();}
+function select(i){sel=(i+9)%9;slotEls.forEach((e,j)=>e.s.classList.toggle('on',j===sel));const it=inv[sel];toast(it?itemName(it)+(it.n>1?' × '+it.n:''):'Empty slot');saveSoon();}
 function canAdd(id){const m=maxStack(id);return inv.some(s=>!s||(s.id===id&&s.n<m));}
 function addItem(id,dur){
   const tool=DEF[id].tool;
-  for(let i=0;i<INV;i++){const s=inv[i];if(s&&s.id===id&&s.n<maxStack(id)){s.n++;drawSlot(i);saveSoon();if(bagOpen)renderRecipes();return true;}}
-  for(let i=0;i<INV;i++){if(!inv[i]){inv[i]=tool?{id,n:1,dur:dur!==undefined?dur:tool.max}:{id,n:1};drawSlot(i);saveSoon();if(bagOpen)renderRecipes();return true;}}
+  const dm=typeof dur==='number'&&dur>=DM;
+  for(let i=0;i<INV;i++){const s=inv[i];if(s&&s.id===id&&s.n<maxStack(id)&&isDm(s)===dm){s.n++;drawSlot(i);saveSoon();if(bagOpen)renderRecipes();return true;}}
+  for(let i=0;i<INV;i++){if(!inv[i]){inv[i]=tool?{id,n:1,dur:dur!==undefined?dur:tool.max}:dm?{id,n:1,dur:DM}:{id,n:1};drawSlot(i);saveSoon();if(bagOpen)renderRecipes();return true;}}
   return false;
 }
 function takeSel(){const it=inv[sel];if(!it)return null;const out={id:it.id,dur:it.dur};if(--it.n<=0)inv[sel]=null;drawSlot(sel);saveSoon();return out;}
 function heldTool(){const it=inv[sel];if(!it||(DEF[it.id].admin&&!isAdmin()))return null;return DEF[it.id].tool||null;}
 function useTool(){
   const it=inv[sel]; if(!it||!DEF[it.id].tool||GM.mode==='creative'||DEF[it.id].admin)return;
-  it.dur--; if(it.dur<=0){toast(DEF[it.id].name+' broke');inv[sel]=null;}
+  if(isDm(it)&&Math.random()<.5)return;
+  it.dur--; if(realDur(it)<=0){toast(itemName(it)+' broke');inv[sel]=null;}
   drawSlot(sel); saveSoon();
 }
 drawAll();
@@ -1405,14 +1522,19 @@ Object.assign(NEEDPICK,{[TUFF_BRICKS]:1,[COPPER_TILE]:2,[SPAWNER]:4,[OBSIDIAN]:4
 hset(.05,[MEGA_TNT,CARPET]); hset(1.2,[BOOKSHELF]); hset(1.4,[MOSSY_COBBLE]); hset(1.5,[SMOOTH_STONE]); hset(.5,[RED_WOOL,YELLOW_WOOL,BLACK_WOOL]);
 Object.assign(NEEDPICK,{[MOSSY_COBBLE]:1,[SMOOTH_STONE]:1});
 TOOLFOR[MOSSY_COBBLE]=TOOLFOR[SMOOTH_STONE]='pick'; TOOLFOR[BOOKSHELF]='axe';
+hset(6,[NETHERITE_ORE]); hset(8,[NETHERITE_BLOCK]); hset(.8,[DEMONROCK]); hset(.5,[ASH_SOIL]); hset(3,[DEMON_BRICKS]); hset(1,[DEMON_LAMP]);
+hset(5,[DEMON_ORE]); hset(40,[DEMON_SPAWNER]); hset(3,[DEMONISER]); hset(.05,[DEMON_PORTAL]);
+Object.assign(NEEDPICK,{[NETHERITE_ORE]:4,[NETHERITE_BLOCK]:4,[DEMONROCK]:1,[DEMON_BRICKS]:4,[DEMON_ORE]:5,[DEMON_SPAWNER]:5,[DEMONISER]:1});
+[NETHERITE_ORE,NETHERITE_BLOCK,DEMONROCK,DEMON_BRICKS,DEMON_LAMP,DEMON_ORE,DEMON_SPAWNER,DEMONISER].forEach(i=>TOOLFOR[i]='pick'); TOOLFOR[ASH_SOIL]='shovel';
 const rbHeld=()=>{const it=inv[sel];return !!(it&&DEF[it.id].rainbow&&isAdmin());};
 function pickTier(){const t=heldTool();return t&&t.kind==='pick'?t.tier:0;}
 function mineTime(id){
   if(GM.mode==='creative'||rbHeld())return .05;
   let need=HARD[id]!==undefined?HARD[id]:1;
   const t=heldTool(), k=TOOLFOR[id];
-  if(t&&k&&t.kind===k)need/=PSPD[t.tier]*(k==='pick'?1:1.4);
+  if(t&&k&&t.kind===k)need/=PSPD[t.tier]*(k==='pick'?1:1.4)*(isDm(inv[sel])?1.8:1);
   else if(NEEDPICK[id])need*=5;
+  if(target&&demonBlocks.has(target.x+','+target.y+','+target.z))need*=4;
   return need;
 }
 function dropsOf(id){
@@ -1439,17 +1561,17 @@ let mineCd=0;
 function startLatch(){if(!target||mineCd>0)return;mineCd=.15;swing();breakAt(target);}
 function toggleLatch(){startLatch();}
 function breakAt(t){
-  const id=t.id, req=NEEDPICK[id]||0, ok=pickTier()>=req||rbHeld();
+  const id=t.id, req=NEEDPICK[id]||0, ok=pickTier()>=req||rbHeld(), wasDm=demonBlocks.has(t.x+','+t.y+','+t.z);
   if(!setBlock(t.x,t.y,t.z,id===ICE?WATER:AIR))return;
   burst(id,t.x,t.y,t.z);
   if(heldTool()&&!DEF[id].plant)useTool();
   if(id===CHEST)spillChest(t.x,t.y,t.z);
-  if(id===OBSIDIAN||id===PORTAL)breakPortalNear(t.x,t.y,t.z);
+  if(id===OBSIDIAN||id===PORTAL||id===CINDER_BRICKS||id===DEMON_PORTAL)breakPortalNear(t.x,t.y,t.z);
   if(id===PISTON_ON){const d=FACES[meta[t.x+','+t.y+','+t.z]|0].dir;if(getBlock(t.x+d[0],t.y+d[1],t.z+d[2])===PISTON_HEAD)setBlock(t.x+d[0],t.y+d[1],t.z+d[2],AIR);}
   if(id===PISTON_HEAD)for(let f=0;f<6;f++){const d=FACES[f].dir,bx=t.x-d[0],by=t.y-d[1],bz=t.z-d[2];if(getBlock(bx,by,bz)===PISTON_ON&&(meta[bx+','+by+','+bz]|0)===f)setBlock(bx,by,bz,PISTON);}
   if(id===BED&&spawnPt&&spawnPt[0]===t.x&&spawnPt[1]===t.y&&spawnPt[2]===t.z){spawnPt=null;toast('Spawn point cleared');}
   if(GM.mode==='creative'){}
-  else if(ok){for(const dd of dropsOf(id))spawnDrop(dd,t.x+.5,t.y+.5,t.z+.5);}
+  else if(ok){for(const dd of (wasDm?[id]:dropsOf(id)))spawnDrop(dd,t.x+.5,t.y+.5,t.z+.5,undefined,undefined,undefined,undefined,1,wasDm?DM:undefined);}
   else toast(req>1?'Needs a better pickaxe':'Needs a pickaxe');
   for(let y=t.y+1;y<H;y++){
     const a=getBlock(t.x,y,t.z); if(!(DEF[a].plant||DEF[a].flat||a===CACTUS)||a===DRIP_DOWN)break;
@@ -1490,7 +1612,7 @@ function doUse(){
   if(target){
     if(DEF[target.id].rs||[TABLE,FURNACE,CHEST,BED].includes(target.id))swing();
     const id=target.id;
-    if(id===TABLE||id===FURNACE||id===CHEST){openBag(id,target);return;}
+    if(id===TABLE||id===FURNACE||id===CHEST||id===DEMONISER){swing();openBag(id,target);return;}
     if(id===BED){useBed(target);return;}
     if(id===LEVER||id===LEVER_ON){setBlock(target.x,target.y,target.z,id===LEVER?LEVER_ON:LEVER);return;}
     if(id===BUTTON){setBlock(target.x,target.y,target.z,BUTTON_ON);return;}
@@ -1499,7 +1621,7 @@ function doUse(){
   doPlace();
 }
 function useBed(t){
-  if(isNetherX(t.x)){setBlock(t.x,t.y,t.z,AIR);toast('Beds don’t work down here…');explode(t.x,t.y,t.z,3);return;}
+  if(t.x>=NETHER_MIN){setBlock(t.x,t.y,t.z,AIR);toast('Beds don’t work down here…');explode(t.x,t.y,t.z,3);return;}
   spawnPt=[t.x,t.y,t.z];
   if(curLight<.35){
     if(mobs.some(m=>Math.hypot(m.x-P.x,m.z-P.z)<8)){toast('You can’t sleep, monsters are nearby');saveSoon();return;}
@@ -1513,8 +1635,9 @@ function doPlace(){
     const def=DEF[it.id], fv=def.food; if(!fv)return;
     if(performance.now()<eatT)return;
     if(food>=20&&!def.heal){toast('Not hungry');return;}
-    eatT=performance.now()+800; swing(); takeSel(); food=Math.min(20,food+fv); if(def.heal)health=Math.min(20,health+def.heal);
-    toast('Ate '+def.name.toLowerCase()); return;
+    const dmf=isDm(it);
+    eatT=performance.now()+800; swing(); takeSel(); food=Math.min(20,food+fv*(dmf?1.5:1)); if(def.heal||dmf)health=Math.min(20,health+(def.heal||0)+(dmf?4:0));
+    toast('Ate '+itemName(it).toLowerCase()); return;
   }
   if(!target)return;
   if(!it){toast('Nothing to place');return;}
@@ -1538,19 +1661,20 @@ function doPlace(){
     const ax=Math.abs(camDir.x),ay=Math.abs(camDir.y),az=Math.abs(camDir.z);
     meta[x+','+y+','+z]=ay>=ax&&ay>=az?(camDir.y<0?2:3):ax>=az?(camDir.x<0?0:1):(camDir.z<0?4:5);
   }
-  if(setBlock(x,y,z,pid)){swing();if(GM.mode!=='creative')takeSel();if(pid===CHEST)chests[x+','+y+','+z]=new Array(27).fill(null);}
+  if(setBlock(x,y,z,pid,isDm(it)?{dm:true}:undefined)){swing();if(GM.mode!=='creative')takeSel();if(pid===CHEST)chests[x+','+y+','+z]=new Array(27).fill(null);}
 }
 // ---------- portals & the Nether ----------
 const portalEl=document.getElementById('portalFx');
 let portalT=0, portalLock=false, fastMesh=0;
-function portalFill(x,y,z,ax){
+function portalFill(x,y,z,ax,frame){
+  frame=frame||OBSIDIAN;
   const seen=new Set([x+','+y+','+z]), q=[[x,y,z]], out=[];
   const nb=ax==='x'?[[1,0,0],[-1,0,0],[0,1,0],[0,-1,0]]:[[0,0,1],[0,0,-1],[0,1,0],[0,-1,0]];
   while(q.length){
     const c=q.pop(); out.push(c); if(out.length>24)return null;
     for(const d of nb){
       const n=[c[0]+d[0],c[1]+d[1],c[2]+d[2]], k=n.join(','); if(seen.has(k))continue;
-      const b=getBlock(n[0],n[1],n[2]); if(b===OBSIDIAN)continue; if(b!==AIR)return null;
+      const b=getBlock(n[0],n[1],n[2]); if(b===frame)continue; if(b!==AIR)return null;
       seen.add(k); q.push(n);
     }
   }
@@ -1560,68 +1684,88 @@ function useIgniter(t){
   swing();
   if(t.id===TNT||t.id===MEGA_TNT){igniteTNT(t.x,t.y,t.z,3);mpSend({t:'ign',x:t.x,y:t.y,z:t.z});useTool();return;}
   const sx=t.x+t.nx, sy=t.y+t.ny, sz=t.z+t.nz;
-  if(t.id===OBSIDIAN&&getBlock(sx,sy,sz)===AIR){
+  const demonFrame=t.id===CINDER_BRICKS&&(isNetherX(t.x)||isDemonX(t.x));
+  if(t.id===OBSIDIAN&&isDemonX(t.x)){toast('Obsidian portals don’t work in the Demon Realm. Use cinder bricks');return;}
+  if((t.id===OBSIDIAN||demonFrame)&&getBlock(sx,sy,sz)===AIR){
+    const inner=demonFrame?DEMON_PORTAL:PORTAL, col=demonFrame?[255,50,80]:[180,90,255];
     for(const ax of ['x','z']){
-      const cells=portalFill(sx,sy,sz,ax); if(!cells)continue;
-      for(const c of cells)setBlock(c[0],c[1],c[2],PORTAL);
-      for(const c of cells)glowPart([180,90,255],c[0]+.5,c[1]+.5,c[2]+.5,(Math.random()-.5)*3,Math.random()*3,(Math.random()-.5)*3,.8,2);
-      useTool(); toast('The portal hums to life!'); return;
+      const cells=portalFill(sx,sy,sz,ax,t.id); if(!cells)continue;
+      for(const c of cells)setBlock(c[0],c[1],c[2],inner);
+      for(const c of cells)glowPart(col,c[0]+.5,c[1]+.5,c[2]+.5,(Math.random()-.5)*3,Math.random()*3,(Math.random()-.5)*3,.8,2);
+      useTool(); toast(demonFrame?'A demon portal tears open…':'The portal hums to life!'); return;
     }
-    toast('That frame isn’t closed. Build a ring of obsidian (inside 2 wide, 3 tall)'); return;
+    toast('That frame isn’t closed. Build a ring (inside 2 wide, 3 tall)'); return;
   }
+  if(t.id===CINDER_BRICKS){toast('Cinder brick portals only open in the Nether');return;}
   for(let i=0;i<8;i++)glowPart([255,170,60],sx+.5,sy+.2,sz+.5,(Math.random()-.5)*2,Math.random()*2,(Math.random()-.5)*2,.4,4);
-  toast('Sparks… use it on an obsidian portal frame or TNT');
+  toast('Sparks… use it on a portal frame or TNT');
 }
 function breakPortalNear(x,y,z){
   const q=[[x,y,z]], seen=new Set(); let n=0;
   while(q.length&&n<80){
     const c=q.pop();
     for(const f of FACES){
-      const p=[c[0]+f.dir[0],c[1]+f.dir[1],c[2]+f.dir[2]], k=p.join(',');
-      if(seen.has(k)||getBlock(p[0],p[1],p[2])!==PORTAL)continue;
+      const p=[c[0]+f.dir[0],c[1]+f.dir[1],c[2]+f.dir[2]], k=p.join(','), b=getBlock(p[0],p[1],p[2]);
+      if(seen.has(k)||(b!==PORTAL&&b!==DEMON_PORTAL))continue;
       seen.add(k); setBlock(p[0],p[1],p[2],AIR); n++; q.push(p);
     }
   }
 }
-function inPortal(){const fx=Math.floor(P.x),fz=Math.floor(P.z);return getBlock(fx,Math.floor(P.y+.2),fz)===PORTAL||getBlock(fx,Math.floor(P.y+1.2),fz)===PORTAL;}
+function inPortal(){
+  const fx=Math.floor(P.x),fz=Math.floor(P.z);
+  for(const yy of [Math.floor(P.y+.2),Math.floor(P.y+1.2)]){const b=getBlock(fx,yy,fz);if(b===PORTAL||b===DEMON_PORTAL)return b;}
+  return 0;
+}
 function tickPortal(dt){
-  if(inPortal()){
+  const pk=inPortal();
+  if(pk){
     if(!portalLock){
       portalT+=dt;
-      if(Math.random()<.4)glowPart([170,80,255],P.x+(Math.random()-.5)*1.6,P.y+Math.random()*2,P.z+(Math.random()-.5)*1.6,0,.6,0,.9,-.5);
-      if(portalT>=(GM.mode==='creative'?.5:2.2)){portalT=0;portalLock=true;travelDim();}
+      if(Math.random()<.4)glowPart(pk===DEMON_PORTAL?[255,50,80]:[170,80,255],P.x+(Math.random()-.5)*1.6,P.y+Math.random()*2,P.z+(Math.random()-.5)*1.6,0,.6,0,.9,-.5);
+      if(portalT>=(GM.mode==='creative'?.5:2.2)){portalT=0;portalLock=true;travelDim(pk);}
     }
   }else{portalLock=false;portalT=Math.max(0,portalT-dt*2);}
+  portalEl.style.background=pk===DEMON_PORTAL?'radial-gradient(ellipse at center,rgba(255,40,70,.35),rgba(120,0,20,.85))':'';
   portalEl.style.opacity=portalLock?'0':Math.min(1,portalT/2.2).toFixed(2);
 }
-function buildPortal(x,y,z,nether){
-  const filler=nether?EMBERROCK:COBBLE;
+function buildPortal(x,y,z,filler,frame,inner){
   for(let xx=x-1;xx<=x+4;xx++)for(let zz=z-1;zz<=z+1;zz++)for(let yy=y;yy<=y+4;yy++)if(getBlock(xx,yy,zz)!==AIR)setBlock(xx,yy,zz,AIR);
   for(let xx=x-2;xx<=x+5;xx++)for(let zz=z-2;zz<=z+2;zz++)if(!solid(getBlock(xx,y-1,zz)))setBlock(xx,y-1,zz,filler);
-  for(let i=0;i<4;i++){setBlock(x+i,y-1,z,OBSIDIAN);setBlock(x+i,y+3,z,OBSIDIAN);}
-  for(let j=0;j<3;j++){setBlock(x,y+j,z,OBSIDIAN);setBlock(x+3,y+j,z,OBSIDIAN);}
-  for(let i=1;i<=2;i++)for(let j=0;j<3;j++)setBlock(x+i,y+j,z,PORTAL);
+  for(let i=0;i<4;i++){setBlock(x+i,y-1,z,frame);setBlock(x+i,y+3,z,frame);}
+  for(let j=0;j<3;j++){setBlock(x,y+j,z,frame);setBlock(x+3,y+j,z,frame);}
+  for(let i=1;i<=2;i++)for(let j=0;j<3;j++)setBlock(x+i,y+j,z,inner);
 }
-function travelDim(){
-  const toN=!isNetherX(P.x);
-  const tx=toN?NETHER_X+Math.floor(P.x/8):Math.floor((P.x-NETHER_X)*8), tz=toN?Math.floor(P.z/8):Math.floor(P.z*8);
+function travelDim(kind){
+  let tx, tz=Math.floor(P.z), dest, inner, frame, filler;
+  if(kind===DEMON_PORTAL){
+    inner=DEMON_PORTAL; frame=CINDER_BRICKS;
+    if(isDemonX(P.x)){dest='nether';tx=NETHER_X+Math.floor(P.x-DEMON_X);filler=EMBERROCK;}
+    else{dest='demon';tx=DEMON_X+Math.floor(P.x-NETHER_X);filler=DEMONROCK;
+      const fxc=Math.floor(tx/96)*96+48, fzc=Math.floor(tz/96)*96+48;
+      if(Math.abs(tx-fxc)<22&&Math.abs(tz-fzc)<22)tx=fxc+(tx>=fxc?26:-27);}
+  }else{
+    inner=PORTAL; frame=OBSIDIAN;
+    const toN=!isNetherX(P.x); dest=toN?'nether':'over';
+    tx=toN?NETHER_X+Math.floor(P.x/8):Math.floor((P.x-NETHER_X)*8); tz=toN?Math.floor(P.z/8):Math.floor(P.z*8);
+    filler=toN?EMBERROCK:COBBLE;
+  }
   const ccx=Math.floor(tx/CS), ccz=Math.floor(tz/CS);
   for(let dz=-2;dz<=2;dz++)for(let dx=-2;dx<=2;dx++)if(!chunks.has(ck(ccx+dx,ccz+dz)))genChunk(ccx+dx,ccz+dz);
   let best=null, bd=1e9;
   for(let z=tz-16;z<=tz+16;z++)for(let x=tx-16;x<=tx+16;x++){
     const dd=(x-tx)*(x-tx)+(z-tz)*(z-tz); if(dd>=bd)continue;
-    for(let y=1;y<H-1;y++)if(getBlock(x,y,z)===PORTAL&&getBlock(x,y-1,z)!==PORTAL){best=[x+.5,y,z+.5];bd=dd;break;}
+    for(let y=1;y<H-1;y++)if(getBlock(x,y,z)===inner&&getBlock(x,y-1,z)!==inner){best=[x+.5,y,z+.5];bd=dd;break;}
   }
   if(!best){
     let y=-1;
-    if(toN){for(let yy=18;yy<48&&y<0;yy++){const b=getBlock(tx,yy-1,tz);if(solid(b)&&getBlock(tx,yy,tz)===AIR&&getBlock(tx,yy+1,tz)===AIR)y=yy;}if(y<0)y=32;}
-    else{y=H-2;while(y>1&&(getBlock(tx,y,tz)===AIR||!solid(getBlock(tx,y,tz))))y--;y=Math.max(y+1,SEA+1);}
-    buildPortal(tx,y,tz,toN); best=[tx+2,y,tz+.5];
+    if(dest==='nether'){for(let yy=18;yy<48&&y<0;yy++){const b=getBlock(tx,yy-1,tz);if(solid(b)&&getBlock(tx,yy,tz)===AIR&&getBlock(tx,yy+1,tz)===AIR)y=yy;}if(y<0)y=32;}
+    else{y=H-2;while(y>1&&(getBlock(tx,y,tz)===AIR||!solid(getBlock(tx,y,tz))))y--;y=Math.max(y+1,dest==='over'?SEA+1:6);}
+    buildPortal(tx,y,tz,filler,frame,inner); best=[tx+2,y,tz+.5];
   }
   P.x=best[0]; P.y=best[1]+.02; P.z=best[2]; V.x=V.y=V.z=0; airMaxY=P.y; immune=Math.max(immune,1);
   for(const set of [lights,rsSet])for(const k of [...set]){const x=+k.split(',')[0];if(Math.abs(x-P.x)>400)set.delete(k);}
   fastMesh=2;
-  chatSys(toN?'You stepped into the Nether. It’s hot down here.':'You’re back in the Overworld.');
+  chatSys(dest==='nether'?'You’re in the Nether. It’s hot down here.':dest==='demon'?'You entered the Demon Realm. A fortress looms nearby… beat every level, mine the demon ore at the top and take the Demoniser.':'You’re back in the Overworld.');
   saveNow();
 }
 function doPick(){
@@ -1666,7 +1810,7 @@ function makeSkitter(){
   return{g,legs,mats:[body,dark],base:cols.map(c=>new THREE.Color(c)),kind:'crawler'};
 }
 // ---- animals & villagers (original blocky designs) ----
-const MOB_TYPES=['shambler','skitter','cow','pig','sheep','chicken','villager','vaultkeeper','cinder','wisp'];
+const MOB_TYPES=['shambler','skitter','cow','pig','sheep','chicken','villager','vaultkeeper','cinder','wisp','demon','imp','overlord'];
 function makeBrute(cols,eyeC,horns){
   const g=new THREE.Group();
   const [skin,body,legC,trim]=cols.map(c=>new THREE.MeshBasicMaterial({color:c}));
@@ -1681,8 +1825,8 @@ function makeBrute(cols,eyeC,horns){
   else part(g,trim,.56,.12,.56,0,2.1,0);
   return{g,legs,mats:[skin,body,legC,trim],base:cols.map(c=>new THREE.Color(c)),kind:'biped',glowEyes:eye};
 }
-function makeWisp(){
-  const g=new THREE.Group(), cols=[0xffb347,0xff6a1a];
+function makeWisp(cc){
+  const g=new THREE.Group(), cols=cc||[0xffb347,0xff6a1a];
   const [core,orb]=cols.map(c=>new THREE.MeshBasicMaterial({color:c,fog:false}));
   part(g,core,.55,.55,.55,0,.7,0);
   const eye=new THREE.MeshBasicMaterial({color:0x2a0a00,fog:false});
@@ -1738,6 +1882,9 @@ function spawnMob(type,x,y,z,prof){
   else if(type==='vaultkeeper'){v=makeBrute([0x8a8f84,0xb8693f,0x4c5048,0x5fb3a0],0x7ff0e0,false);o={hw:.34,h:2.2,hp:24,speed:1.7,dmg:5,trialMob:true};}
   else if(type==='cinder'){v=makeBrute([0x5a2622,0x2a1a1c,0x3a2224,0xd4882a],0xffa020,true);o={hw:.34,h:2.2,hp:20,speed:1.8,dmg:5,fireproof:true};}
   else if(type==='wisp'){v=makeWisp();o={hw:.32,h:1.1,hp:10,speed:2.6,dmg:3,fly:true,fireproof:true};}
+  else if(type==='demon'){v=makeBrute([0x3a0c10,0x16080a,0x240a0e,0xb01030],0xff2040,true);o={hw:.34,h:2.2,hp:30,speed:2.1,dmg:7,fireproof:true};}
+  else if(type==='imp'){v=makeWisp([0xff3050,0x6a0a40]);o={hw:.32,h:1.1,hp:14,speed:3,dmg:4,fly:true,fireproof:true};}
+  else if(type==='overlord'){v=makeBrute([0x28060a,0x0c0406,0x1a0608,0xff2050],0xffe040,true);v.g.scale.setScalar(1.6);o={hw:.55,h:3.5,hp:120,speed:1.7,dmg:11,fireproof:true};}
   else if(type==='villager'){prof=(prof|0)%3;v=makeVillager(prof);o={hw:.3,h:2.1,hp:20,speed:1,dmg:0,passive:true,prof};}
   else{const A=ANIMALS[type]||ANIMALS.cow;type=ANIMALS[type]?type:'cow';v=makeQuad(A.model);o={hw:A.hw,h:A.h,hp:A.hp,speed:A.speed,dmg:0,passive:true};}
   scene.add(v.g);
@@ -1787,6 +1934,9 @@ function killMob(i,loot){
     else if(m.type==='vaultkeeper'){const n=Math.floor(Math.random()*3);for(let k=0;k<n;k++)spawnDrop(IRON,m.x,m.y+.8,m.z);if(Math.random()<.03)spawnDrop(TOTEM,m.x,m.y+.8,m.z);}
     else if(m.type==='cinder'){if(Math.random()<.5)spawnDrop(GOLD,m.x,m.y+.8,m.z);if(Math.random()<.4)spawnDrop(COAL,m.x,m.y+.8,m.z);}
     else if(m.type==='wisp'){spawnDrop(Math.random()<.5?GLEAMSTONE:COAL,m.x,m.y+.6,m.z);}
+    else if(m.type==='demon'){if(Math.random()<.35)spawnDrop(NETHERITE_SCRAP,m.x,m.y+.8,m.z);if(Math.random()<.5)spawnDrop(GOLD,m.x,m.y+.8,m.z);}
+    else if(m.type==='imp'){if(Math.random()<.5)spawnDrop(GOLD,m.x,m.y+.6,m.z);}
+    else if(m.type==='overlord'){for(let k=0;k<3;k++)spawnDrop(NETHERITE_SCRAP,m.x,m.y+1,m.z);spawnDrop(DEMON_ORE,m.x,m.y+1,m.z);if(Math.random()<.5)spawnDrop(TOTEM,m.x,m.y+1,m.z);}
     else if(ANIMALS[m.type])for(const [id,lo,hi] of ANIMALS[m.type].drops){const n=lo+Math.floor(Math.random()*(hi-lo+1));for(let k=0;k<n;k++)spawnDrop(id,m.x,m.y+.5,m.z);}
   }
   removeMob(i);
@@ -1797,14 +1947,14 @@ function trySpawn(){
     const ang=Math.random()*Math.PI*2, r=16+Math.random()*14;
     const sc=pickSpawnCenter(), x=Math.floor(sc.x+Math.cos(ang)*r), z=Math.floor(sc.z+Math.sin(ang)*r);
     if(!meshes.has(ck(Math.floor(x/CS),Math.floor(z/CS))))continue;
-    if(isNetherX(x)){
+    if(x>=NETHER_MIN){
       let y=Math.max(2,Math.min(H-4,Math.floor((sc.y||32)+(Math.random()-.5)*16)));
       if(getBlock(x,y,z)!==AIR)continue;
       while(y>1&&getBlock(x,y-1,z)===AIR)y--;
       const fl=getBlock(x,y-1,z);
       if(!solid(fl)||getBlock(x,y+1,z)!==AIR)continue;
-      const w=Math.random()<.35;
-      spawnMob(w?'wisp':'cinder',x+.5,y+(w?1.5:0),z+.5); return;
+      const w=Math.random()<.35, dr=isDemonX(x);
+      spawnMob(w?(dr?'imp':'wisp'):(dr?'demon':'cinder'),x+.5,y+(w?1.5:0),z+.5); return;
     }
     if(curLight>=.35)continue;
     let y=H-2; while(y>0&&getBlock(x,y,z)===AIR)y--;
@@ -1841,7 +1991,7 @@ function tryAttack(){
   if(!m)return false;
   const blade=bladeHeld(), rb=blade&&isAdmin();
   if(blade&&!rb)toast('Only admins can wield the Rainbow Fire Blade');
-  const tool=blade&&!rb?null:heldTool(), base=tool?(tool.dmg||tool.tier+1):1, cr=rollCrit();
+  const tool=blade&&!rb?null:heldTool(), dmw=!!tool&&isDm(inv[sel]), base=(tool?(tool.dmg||tool.tier+1):1)*(dmw?1.6:1), cr=rollCrit();
   let dmg=rb?base*(cr?1.5:1):cr===2?18:cr===1?base*1.5:base;
   const mace=!!(tool&&tool.kind==='mace'), rbm=mace&&!!DEF[inv[sel].id].rainbow;
   if(mace){const fall=airMaxY-P.y;if(fall>1.5&&!onGround){const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));dmg+=sm*(rbm?2:1);maceSmash(m,sm,rbm);}}
@@ -1850,8 +2000,9 @@ function tryAttack(){
   atkCd=rb?.3:.45; swing(); if(tool)useTool(); mine.t=-.35; m.flash=.2;
   if(rb){bladeSlash();rainbowBurst(m.x,m.y+m.h*.5,m.z,30);}
   if(rbm)rainbowBurst(m.x,m.y+m.h*.5,m.z,24);
-  if(m.remote){mpSend({t:'mdmg',id:m.nid,dmg,fire:(rb||rbm)?6:0,kx:+(dx/L*kb/7).toFixed(2),kz:+(dz/L*kb/7).toFixed(2)});return true;}
-  m.hp-=dmg; m.vx=dx/L*kb; m.vz=dz/L*kb; m.vy=rb?7:5; if(m.passive)m.flee=4; if(rb||rbm)m.fire=6;
+  if(dmw&&!rb&&!rbm){m.fireDm=true;burstC([255,30,60],m.x-.5,m.y+m.h*.5-.5,m.z-.5,10);}
+  if(m.remote){mpSend({t:'mdmg',id:m.nid,dmg,fire:(rb||rbm)?6:dmw?3:0,fd:dmw&&!rb&&!rbm?1:0,kx:+(dx/L*kb/7).toFixed(2),kz:+(dz/L*kb/7).toFixed(2)});return true;}
+  m.hp-=dmg; m.vx=dx/L*kb; m.vz=dz/L*kb; m.vy=rb?7:5; if(m.passive)m.flee=4; if(rb||rbm){m.fire=6;m.fireDm=false;}else if(dmw)m.fire=3;
   if(m.hp<=0)killMob(mobs.indexOf(m),true);
   return true;
 }
@@ -1992,7 +2143,7 @@ function peerRay(maxT){
 }
 function hitPeer(p){
   if(!pvpOn()){toast('PvP is off on this world');atkCd=.45;return true;}
-  const tool=heldTool(), base=tool?(tool.dmg||tool.tier+1):1, cr=rollCrit(), dmg=cr===2?18:Math.round(base*(cr?1.5:1));
+  const tool=heldTool(), base=(tool?(tool.dmg||tool.tier+1):1)*(tool&&isDm(inv[sel])?1.6:1), cr=rollCrit(), dmg=cr===2?18:Math.round(base*(cr?1.5:1));
   const dx=p.x-P.x,dz=p.z-P.z,L=Math.hypot(dx,dz)||1;
   mpSend({t:'hit',to:p.id,dmg,kx:+(dx/L).toFixed(2),kz:+(dz/L).toFixed(2)});
   atkCd=.45; swing(); if(tool)useTool();
@@ -2048,7 +2199,7 @@ function updateMobMirrors(dt){
 function hostMobDamage(o){
   const i=mobs.findIndex(m=>m.nid===o.id); if(i<0)return;
   const m=mobs[i]; m.hp-=Math.min(120,+o.dmg||0); m.flash=.2; m.vx=(+o.kx||0)*7; m.vz=(+o.kz||0)*7; m.vy=5; if(m.passive)m.flee=4;
-  if(o.fire>0)m.fire=Math.min(8,+o.fire||0);
+  if(o.fire>0){m.fire=Math.min(8,+o.fire||0);m.fireDm=!!o.fd;}
   if(m.hp<=0)killMob(i,true);
 }
 function takeMobHit(o){
@@ -2062,19 +2213,35 @@ function updateMobs(dt){
   if(GM.diff===0)for(let i=mobs.length-1;i>=0;i--)if(!mobs[i].passive)removeMob(i);
   if(GM.diff>0&&spawnT<=0){spawnT=2.5;if(mobs.filter(m=>!m.passive).length<[0,6,10,14][GM.diff])trySpawn();}
   animalT-=dt; if(animalT<=0){animalT=3;trySpawnAnimal();spawnVillagers();}
+  // escape: carrying a Demoniser through the Demon Realm wakes the whole place up
+  if(isDemonX(P.x)&&!dead&&GM.diff>0&&countItem(DEMONISER)>0){
+    if(!escOn){escOn=true;escT=1.5;toast('The fortress awakens… ESCAPE!');chatSys('You took the Demoniser. Demons are hunting you. Get back through the portal!');}
+    escT-=dt;
+    if(escT<=0){
+      escT=3;
+      if(mobs.filter(m=>m.type==='demon'||m.type==='imp').length<12)for(let a=0;a<6;a++){
+        const ang=Math.random()*6.28, r=8+Math.random()*7, x=Math.floor(P.x+Math.cos(ang)*r), z=Math.floor(P.z+Math.sin(ang)*r);
+        let y=Math.floor(P.y)+6, g=0; while(g++<16&&!(solid(getBlock(x,y-1,z))&&getBlock(x,y,z)===AIR&&getBlock(x,y+1,z)===AIR))y--;
+        if(g>=16)continue;
+        const imp=Math.random()<.35; spawnMob(imp?'imp':'demon',x+.5,y+(imp?1:0),z+.5);
+        for(let i=0;i<12;i++)glowPart([255,30,60],x+.5,y+.5,z+.5,(Math.random()-.5)*3,Math.random()*4,(Math.random()-.5)*3,.6,4);
+        break;
+      }
+    }
+  }else if(escOn&&!isDemonX(P.x)){escOn=false;if(countItem(DEMONISER)>0)toast('You escaped with the Demoniser!');}
   for(let i=mobs.length-1;i>=0;i--){
     const m=mobs[i], tg=mobTarget(m), dx=tg.x-m.x, dz=tg.z-m.z, dy=tg.y-m.y, dist=Math.hypot(dx,dz);
     if(tg.far>(m.type==='villager'?400:60)){removeMob(i);continue;}
     if(m.fire>0){
       m.fire-=dt; m.hp-=4*dt; m.flash=Math.max(m.flash,.05);
-      if(Math.random()<dt*25)glowPart(rainbowRGB(performance.now()/600+Math.random()*.3),m.x+(Math.random()-.5)*m.hw*2.4,m.y+Math.random()*m.h,m.z+(Math.random()-.5)*m.hw*2.4,0,2.2,0,.5,-1);
+      if(Math.random()<dt*25)glowPart(m.fireDm?[255,30+Math.random()*60|0,70]:rainbowRGB(performance.now()/600+Math.random()*.3),m.x+(Math.random()-.5)*m.hw*2.4,m.y+Math.random()*m.h,m.z+(Math.random()-.5)*m.hw*2.4,0,2.2,0,.5,-1);
       if(m.hp<=0){killMob(i,true);continue;}
     }
     if(!m.fireproof&&getBlock(Math.floor(m.x),Math.floor(m.y+.3),Math.floor(m.z))===LAVA){
       m.hp-=8*dt; if(Math.random()<dt*6)burstC([255,140,40],m.x-.5,m.y-.2,m.z-.5,2);
       if(m.hp<=0){killMob(i,false);continue;}
     }
-    if(curLight>.6&&!m.passive&&!m.trial&&!m.fireproof&&!isNetherX(m.x)&&skyOpen(m)){
+    if(curLight>.6&&!m.passive&&!m.trial&&!m.fireproof&&m.x<NETHER_MIN&&skyOpen(m)){
       m.hp-=4*dt; m.burnT+=dt;
       if(m.burnT>.3){m.burnT=0;burstC([255,170,60],m.x-.5,m.y+m.h*.5-.5,m.z-.5,3);}
       if(m.hp<=0){killMob(i,false);continue;}
@@ -2111,6 +2278,7 @@ function updateMobs(dt){
 }
 // ---------- trial spawners: wake when a player comes close, spawn a wave, pay out when it's beaten ----------
 const trialState=new Map();
+let escOn=false, escT=0;
 function playersNear(x,y,z,r){
   const c=[{x:P.x,y:P.y,z:P.z,ok:!dead}];
   if(MP.connected&&MP.isHost)for(const p of MP.peers.values())if(p.seen)c.push({x:p.x,y:p.y,z:p.z,ok:true});
@@ -2123,16 +2291,17 @@ function updateTrials(dt){
     const pn=playersNear(x+.5,y,z+.5,14);
     if(pn.best>40)continue;
     const cx=Math.floor(x/CS), cz=Math.floor(z/CS); if(!chunks.has(ck(cx,cz)))continue;
-    if(getBlock(x,y,z)!==SPAWNER){spawners.delete(k);trialState.delete(k);continue;}
-    let st=trialState.get(k); if(!st){st={cd:0,on:false,left:0,t:0,fx:0};trialState.set(k,st);}
+    const sb=getBlock(x,y,z), dem=sb===DEMON_SPAWNER;
+    if(sb!==SPAWNER&&!dem){spawners.delete(k);trialState.delete(k);continue;}
+    let st=trialState.get(k); if(!st){st={cd:0,on:false,left:0,t:0,fx:0,boss:false};trialState.set(k,st);}
     if(st.cd>0){st.cd-=dt;continue;}
     if(!st.on){
-      if(GM.diff>0&&pn.n>0&&pn.best<11){st.on=true;st.left=3+pn.n*2;st.t=.8;if(Math.hypot(P.x-x,P.y-y,P.z-z)<16)toast('A trial spawner awakens!');}
+      if(GM.diff>0&&pn.n>0&&pn.best<(dem?7.5:11)){st.on=true;st.left=(dem?4:3)+pn.n*2;st.t=.8;st.boss=false;if(Math.hypot(P.x-x,P.y-y,P.z-z)<16)toast(dem?'A demon spawner roars to life!':'A trial spawner awakens!');}
       continue;
     }
-    st.fx-=dt; if(st.fx<=0){st.fx=.12;glowPart([255,150+Math.random()*80|0,40],x+.2+Math.random()*.6,y+.3+Math.random()*.6,z+.2+Math.random()*.6,0,1.4,0,.5,0);}
+    st.fx-=dt; if(st.fx<=0){st.fx=.12;glowPart(dem?[255,30,60+Math.random()*60|0]:[255,150+Math.random()*80|0,40],x+.2+Math.random()*.6,y+.3+Math.random()*.6,z+.2+Math.random()*.6,0,1.4,0,.5,0);}
     const alive=mobs.filter(m=>m.trial===k).length;
-    if(pn.best>26||GM.diff===0){st.on=false;continue;}
+    if(pn.best>(dem?18:26)||GM.diff===0){st.on=false;continue;}
     st.t-=dt;
     if(st.left>0&&st.t<=0&&alive<3){
       st.t=1.6;
@@ -2140,11 +2309,17 @@ function updateTrials(dt){
         const sx=x+Math.floor(Math.random()*7)-3, sz=z+Math.floor(Math.random()*7)-3;
         let sy=y+2; while(sy>y-3&&!solid(getBlock(sx,sy-1,sz)))sy--;
         if(getBlock(sx,sy,sz)!==AIR||getBlock(sx,sy+1,sz)!==AIR||!solid(getBlock(sx,sy-1,sz)))continue;
-        const r=Math.random(), t=r<.3?'vaultkeeper':r<.65?'shambler':'skitter';
-        spawnMob(t,sx+.5,sy+.02,sz+.5); const m=mobs[mobs.length-1]; m.trial=k;
+        const r=Math.random(); let t=r<.3?'vaultkeeper':r<.65?'shambler':'skitter';
+        if(dem){t=(!st.boss&&y>=DFY+31)?'overlord':r<.4?'imp':'demon';if(t==='overlord')st.boss=true;}
+        spawnMob(t,sx+.5,sy+(t==='imp'?1:.02),sz+.5); const m=mobs[mobs.length-1]; m.trial=k;
         for(let i=0;i<10;i++)glowPart([255,170,60],sx+.5,sy+.5,sz+.5,(Math.random()-.5)*3,Math.random()*3,(Math.random()-.5)*3,.5,4);
         st.left--; break;
       }
+    }else if(st.left<=0&&alive===0&&dem){
+      st.on=false; st.cd=1e9;
+      for(const [id,p] of [[NETHERITE_SCRAP,.6],[GOLD,.8],[COOKED,.6],[GOLDEN_APPLE,.25]])if(Math.random()<p)spawnDrop(id,x+.5,y+1.3,z+.5,(Math.random()-.5)*3,4,(Math.random()-.5)*3,.6,1+Math.floor(Math.random()*2));
+      for(let i=0;i<40;i++)glowPart(Math.random()<.5?[255,40,80]:[255,180,200],x+.5,y+1,z+.5,(Math.random()-.5)*6,Math.random()*6,(Math.random()-.5)*6,.9,8);
+      if(Math.hypot(P.x-x,P.y-y,P.z-z)<20)toast('Demon spawner defeated!');
     }else if(st.left<=0&&alive===0){
       st.on=false; st.cd=240;
       const R2=[[IRON,.9],[GOLD,.7],[DIAMOND,.35],[GOLDEN_APPLE,.3],[OBSIDIAN,.4],[TOTEM,.12],[COOKED,.6],[REDSTONE,.4]];
@@ -2250,7 +2425,7 @@ function explode(cx,cy,cz,r){
     const bx=Math.floor(cx)+x,by=Math.floor(cy)+y,bz=Math.floor(cz)+z; if(by<=0)continue;
     const id=getBlock(bx,by,bz); if(id===AIR||id===WATER)continue;
     if(id===TNT||id===MEGA_TNT){igniteTNT(bx,by,bz,.4+Math.random()*.6);continue;}
-    if(id===OBSIDIAN||id===SPAWNER||id===LAVA||id===PORTAL)continue;
+    if(id===OBSIDIAN||id===SPAWNER||id===LAVA||id===PORTAL||id===DEMON_PORTAL||id===DEMON_BRICKS||id===DEMON_SPAWNER||id===DEMONISER||id===DEMON_ORE||id===NETHERITE_BLOCK||demonBlocks.has(bx+','+by+','+bz))continue;
     const auth=!MP.connected||MP.isHost;   // explosions run on every player's game; only the host drops loot so items aren't doubled
     if(id===CHEST)spillChest(bx,by,bz,!auth);
     setBlock(bx,by,bz,AIR,{noSync:true});
@@ -2305,6 +2480,11 @@ const RECIPES=[];
   r(RED_WOOL,1,[[WOOL,1],[FLOWER_RED,1]]); r(YELLOW_WOOL,1,[[WOOL,1],[FLOWER_YELLOW,1]]); r(BLACK_WOOL,1,[[WOOL,1],[COAL,1]]); r(CARPET,3,[[WOOL,2]]);
   r(HEARTY_STEW,1,[[COOKED,1],[APPLE,1],[FIBER,2]]); r(GLASS,1,[[ICE,1],['fuel',1]],FURNACE); r(GRAVEL,2,[[COBBLE,2]]);
   for(let k=0;k<4;k++)r(GOLD_ARMOR[k],1,[[GOLD,[5,8,7,4][k]]],TABLE);
+  r(NETHERITE_SCRAP,1,[[NETHERITE_ORE,1],['fuel',2]],FURNACE); r(NETHERITE_INGOT,1,[[NETHERITE_SCRAP,4],[GOLD,4]],TABLE);
+  r(NETHERITE_BLOCK,1,[[NETHERITE_INGOT,9]],TABLE); r(NETHERITE_INGOT,9,[[NETHERITE_BLOCK,1]]);
+  r(PICK[5],1,[[PICK[4],1],[NETHERITE_INGOT,1]],TABLE); r(SWORD[5],1,[[SWORD[4],1],[NETHERITE_INGOT,1]],TABLE);
+  r(AXE[5],1,[[AXE[4],1],[NETHERITE_INGOT,1]],TABLE); r(SHOVEL[5],1,[[SHOVEL[4],1],[NETHERITE_INGOT,1]],TABLE);
+  for(let k=0;k<4;k++)r(ARMOR.netherite[k],1,[[ARMOR.diamond[k],1],[NETHERITE_INGOT,1]],TABLE);
   r(IGNITER,1,[[IRON,1],['fuel',1]]); r(TOTEM,1,[[GOLD_BLOCK,2],[DIAMOND,2],[GOLDEN_APPLE,1]],TABLE);
   r(TUFF_BRICKS,4,[[COBBLE,3],[GRAVEL,1]],TABLE); r(COPPER_BULB,1,[[GOLD,1],[REDSTONE,2],[TORCH,1]],TABLE);
   r(CINDER_BRICKS,4,[[EMBERROCK,4],['fuel',1]],FURNACE); r(GOLD,1,[[EMBER_ORE,1],['fuel',1]],FURNACE);
@@ -2326,12 +2506,49 @@ const chestEls=[], armorEls=[];
   for(let i=0;i<4;i++){const e=makeSlotEl(i,false,i=>{clickArr(armor,i,c=>!!(DEF[c.id].armor&&DEF[c.id].armor.slot===i));paintArmor(i);afterClick();});ag.appendChild(e.s);armorEls.push(e);}
 }
 function paintArmor(i){paintSlot(armorEls[i],armor[i],90+i);}
+// ---------- Demoniser ----------
+let openDemKey=null, demFxT=0;
+const demWrap=document.getElementById('demWrap'), demBar=document.getElementById('demBar'), demTxt=document.getElementById('demTxt'), demEls=[];
+for(let i=0;i<2;i++){const e=makeSlotEl(i,false,i=>{const dm=demonisers[openDemKey];if(!dm)return;clickArr(dm.s,i,i===1?(c=>c.id===DEMON_ORE&&!isDm(c)):null);if(i===0)dm.p=0;paintDem();afterClick();});document.getElementById('demSlots').appendChild(e.s);demEls.push(e);}
+function demReady(dm){return !!(dm&&dm.s[0]&&dm.s[1]&&dm.s[1].id===DEMON_ORE&&!isDm(dm.s[0]));}
+function paintDem(){
+  const dm=demonisers[openDemKey]; if(!dm)return;
+  paintSlot(demEls[0],dm.s[0]); paintSlot(demEls[1],dm.s[1],DEF[DEMON_ORE].t[2]);
+  demBar.style.width=Math.round(dm.p*100)+'%';
+  demTxt.textContent=dm.s[0]&&isDm(dm.s[0])?itemName(dm.s[0])+' is ready. Take it!':demReady(dm)?'Corrupting… '+Math.round(dm.p*100)+'%':!dm.s[0]?'Put an item on top':'Needs Demon Ore in the bottom slot';
+}
+function spillDemoniser(k,silent){
+  const dm=demonisers[k]; if(!dm)return;
+  const q=k.split(',').map(Number);
+  if(!silent)for(const s of dm.s)if(s)spawnDrop(s.id,q[0]+.5,q[1]+.5,q[2]+.5,undefined,undefined,undefined,.5,s.n,s.dur);
+  delete demonisers[k]; if(openDemKey===k)closeBag();
+}
+function updateDemonisers(dt){
+  demFxT-=dt; const fx=demFxT<=0; if(fx)demFxT=.1;
+  for(const k in demonisers){
+    const dm=demonisers[k], q=k.split(',').map(Number);
+    if(!chunks.has(ck(Math.floor(q[0]/CS),Math.floor(q[2]/CS))))continue;
+    if(getBlock(q[0],q[1],q[2])!==DEMONISER)continue;
+    if(!demReady(dm)){if(dm.p&&!(dm.s[0]&&isDm(dm.s[0])))dm.p=0;continue;}
+    dm.p+=dt/6;
+    if(fx)glowPart([255,30+Math.random()*80|0,80],q[0]+.5+(Math.random()-.5)*.8,q[1]+1.05,q[2]+.5+(Math.random()-.5)*.8,0,1.6,0,.7,-.4);
+    if(dm.p>=1){
+      const it=dm.s[0], tl=DEF[it.id].tool;
+      it.dur=tl?DM+tl.max:DM; dm.p=0;
+      if(--dm.s[1].n<=0)dm.s[1]=null;
+      for(let i=0;i<30;i++)glowPart(Math.random()<.6?[255,30,70]:[40,0,10],q[0]+.5,q[1]+1,q[2]+.5,(Math.random()-.5)*5,Math.random()*5,(Math.random()-.5)*5,.8,6);
+      if(Math.hypot(P.x-q[0],P.y-q[1],P.z-q[2])<12)toast(itemName(it)+' is ready!');
+      saveSoon();
+    }
+    if(openDemKey===k)paintDem();
+  }
+}
 function clickArr(arr,i,accept){
   const s=arr[i];
   if(!cursor){if(!s)return;cursor=s;arr[i]=null;return;}
   if(accept&&!accept(cursor))return;
   if(!s){arr[i]=cursor;cursor=null;return;}
-  if(s.id===cursor.id&&maxStack(s.id)>1){const mv=Math.min(STACK-s.n,cursor.n);s.n+=mv;cursor.n-=mv;if(cursor.n<=0)cursor=null;return;}
+  if(s.id===cursor.id&&maxStack(s.id)>1&&isDm(s)===isDm(cursor)){const mv=Math.min(STACK-s.n,cursor.n);s.n+=mv;cursor.n-=mv;if(cursor.n<=0)cursor=null;return;}
   arr[i]=cursor;cursor=s;
 }
 function afterClick(){renderHold();renderRecipes();const ap=armorPts();armorPtsEl.textContent=ap?'· '+ap+' points':'';saveSoon();}
@@ -2426,8 +2643,9 @@ function openBag(mode,t){
     if(!chests[openChestKey])chests[openChestKey]=new Array(27).fill(null);
     for(let i=0;i<27;i++)paintSlot(chestEls[i],chests[openChestKey][i]);
   }
-  chestWrap.hidden=bagMode!==CHEST; recipeCol.hidden=bagMode===CHEST;
-  bagTitle.textContent=bagMode===TABLE?'Crafting table':bagMode===FURNACE?'Furnace':bagMode===CHEST?'Chest':'Backpack';
+  if(bagMode===DEMONISER){openDemKey=t.x+','+t.y+','+t.z;if(!demonisers[openDemKey])demonisers[openDemKey]={s:[null,null],p:0};paintDem();}
+  chestWrap.hidden=bagMode!==CHEST; demWrap.hidden=bagMode!==DEMONISER; recipeCol.hidden=bagMode===CHEST||bagMode===DEMONISER;
+  bagTitle.textContent=bagMode===TABLE?'Crafting table':bagMode===FURNACE?'Furnace':bagMode===CHEST?'Chest':bagMode===DEMONISER?'Demoniser':'Backpack';
   if(bagMode==='trade'){curTrades=TRADES[(t&&t.prof)|0]||TRADES[0];bagTitle.textContent=PROF_N[(t&&t.prof)|0]+' villager';}
   for(let i=0;i<4;i++)paintArmor(i);
   afterClick();
@@ -2440,7 +2658,7 @@ function closeBag(){
     if(i>=0){inv[i]=c;drawSlot(i);}else spawnDrop(c.id,P.x,P.y+1,P.z,0,2,0,1,c.n,c.dur);
   }
   if(bagMode===CHEST&&openChestKey&&chests[openChestKey])mpSend({t:'c',k:openChestKey,d:chests[openChestKey].map(ser)});
-  bagOpen=false; bagEl.hidden=true; openChestKey=null; dragInfo=null; ghostEl.hidden=true; saveSoon();
+  bagOpen=false; bagEl.hidden=true; openChestKey=null; openDemKey=null; dragInfo=null; ghostEl.hidden=true; saveSoon();
 }
 document.getElementById('bagClose').addEventListener('click',closeBag);
 
@@ -2468,8 +2686,9 @@ function useTotem(){
   if(inv[sel]&&inv[sel].id===TOTEM)slot=sel;
   else for(let i=0;i<9;i++)if(inv[i]&&inv[i].id===TOTEM){slot=i;break;}
   if(slot<0)return false;
+  const dmt=isDm(inv[slot]);
   if(--inv[slot].n<=0)inv[slot]=null; drawSlot(slot); saveSoon();
-  health=2; immune=Math.max(immune,1); regenBuffT=10; fireResT=40; buffHealT=0; air=10;
+  health=dmt?12:2; immune=Math.max(immune,1); regenBuffT=10; fireResT=40; buffHealT=0; air=10;
   V.y=Math.max(V.y,4); airMaxY=P.y;
   totemPop(P.x,P.y,P.z,true);
   if(MP.connected)mpSend({t:'totem',x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2)});
@@ -2500,7 +2719,7 @@ function updateTotemFx(dt){
 function die(){
   closeBag(); dead=true;
   for(let i=0;i<INV;i++){const s=inv[i];if(!s)continue;spawnDrop(s.id,P.x,P.y+1,P.z,(Math.random()-.5)*4,Math.random()*3+2,(Math.random()-.5)*4,1,s.n,s.dur);inv[i]=null;}
-  for(let i=0;i<4;i++){const a=armor[i];if(a){spawnDrop(a.id,P.x,P.y+1,P.z,(Math.random()-.5)*4,Math.random()*3+2,(Math.random()-.5)*4,1);armor[i]=null;}}
+  for(let i=0;i<4;i++){const a=armor[i];if(a){spawnDrop(a.id,P.x,P.y+1,P.z,(Math.random()-.5)*4,Math.random()*3+2,(Math.random()-.5)*4,1,1,a.dur);armor[i]=null;}}
   drawAll(); for(const k in keys)keys[k]=false;
   if(GM.mode==='hardcore'){
     current.over=true; saveReg();
@@ -2556,7 +2775,7 @@ newBtn.addEventListener('click',()=>{
   confirmNew=false;newBtn.textContent='New world';newBtn.classList.remove('warn');
   seed=(Math.random()*1e9)|0; edits={}; initNoise();
   for(const k of [...meshes.keys()])disposeMesh(k);
-  chunks.clear(); dirty.clear(); spawnPt=null; chests={}; armor=[null,null,null,null]; lights.clear(); rsSet.clear(); spawners.clear(); chamberCache.clear(); trialState.clear(); wirePow=new Map(); meta={}; respawn(); dayT=.08;
+  chunks.clear(); dirty.clear(); spawnPt=null; chests={}; armor=[null,null,null,null]; lights.clear(); rsSet.clear(); spawners.clear(); chamberCache.clear(); trialState.clear(); wirePow=new Map(); meta={}; demonBlocks.clear(); demonisers={}; respawn(); dayT=.08;
   while(drops.length)removeDrop(drops.length-1);
   while(mobs.length)removeMob(mobs.length-1);
   inv=new Array(INV).fill(null); drawAll();
@@ -2672,13 +2891,13 @@ let cloudDrift=0;
 function updateSky(dt){
   if(!paused)dayT=(dayT+dt/DAY_LEN)%1;
   const ang=dayT*Math.PI*2, sy=Math.sin(ang);
-  const nether=isNetherX(camera.position.x);
+  const demonR=isDemonX(camera.position.x), nether=camera.position.x>=NETHER_MIN;
   const light=nether?0:Math.max(0,Math.min(1,sy*2.5+0.5)); curLight=light;
-  if(nether)skyCol.setRGB(.22,.06,.05);
+  if(demonR)skyCol.setRGB(.16,.01,.04); else if(nether)skyCol.setRGB(.22,.06,.05);
   else{skyCol.copy(skyNight).lerp(skyDay,light);skyCol.lerp(skyDusk,Math.max(0,1-Math.abs(sy)/0.28)*0.55);}
   renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
   sun.visible=moon.visible=clouds.visible=!nether;
-  const b=nether?.42:0.2+0.8*light; curBright=b;
+  const b=demonR?.34:nether?.42:0.2+0.8*light; curBright=b;
   if(matSolid.userData.u)matSolid.userData.u.value=b; if(matWater.userData.u)matWater.userData.u.value=b;
   matItem.color.setScalar(b);
   clouds.material.color.setScalar(0.35+0.65*light);
@@ -2729,6 +2948,7 @@ function updateViewModel(dt){
   if(skinMat.userData.base)skinMat.color.copy(skinMat.userData.base).multiplyScalar(b);
   if(sleeveMat.userData.base)sleeveMat.color.copy(sleeveMat.userData.base).multiplyScalar(b);
   if(heldId>0&&DEF[heldId].admin){const c=rainbowRGB(performance.now()/1500);matHeld.color.setRGB(.7+.3*c[0]/255,.7+.3*c[1]/255,.7+.3*c[2]/255);}
+  else if(isDm(inv[sel])){const f=.75+.25*Math.sin(performance.now()/250);matHeld.color.setRGB(Math.max(b,.6),b*.35*f,b*.45*f);}
   else matHeld.color.setScalar(b);
 }
 
@@ -2758,13 +2978,13 @@ function frame(now){
   if(!paused&&!loading){
     atkCd=Math.max(0,atkCd-dt);
     if(!dead&&!bagOpen)updateMining(dt);else crack.visible=false;
-    updateDrops(dt); updateParts(dt); updateMobs(dt); updateTNT(dt); tickRedstone(dt);
+    updateDrops(dt); updateParts(dt); updateMobs(dt); updateTNT(dt); tickRedstone(dt); updateDemonisers(dt);
   }else crack.visible=false;
   drawVitals();
   const underwater=getBlock(Math.floor(camera.position.x),Math.floor(camera.position.y),Math.floor(camera.position.z))===WATER;
   if(underwater){scene.fog.color.setRGB(.12,.26,.5);scene.fog.near=1;scene.fog.far=18;renderer.setClearColor(scene.fog.color);}
   else if(getBlock(Math.floor(camera.position.x),Math.floor(camera.position.y),Math.floor(camera.position.z))===LAVA){scene.fog.color.setRGB(.9,.35,.05);scene.fog.near=.2;scene.fog.far=3;renderer.setClearColor(scene.fog.color);}
-  else if(isNetherX(P.x)){scene.fog.near=12;scene.fog.far=R*CS*0.7;}
+  else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
   updateTotemFx(dt); if(!paused)updateBlade(dt);
@@ -2775,7 +2995,7 @@ function frame(now){
   statT-=dt;
   if(statT<=0){statT=.2;
     const hr=(dayT*24+6)%24, hh=Math.floor(hr), mm=Math.floor((hr-hh)*60);
-    statsEl.innerHTML='<b>XYZ</b> '+Math.floor(P.x)+' '+Math.floor(P.y)+' '+Math.floor(P.z)+'<br><b>Time</b> '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(curLight<.35?' · Night':'')+'<br><b>Biome</b> '+(isNetherX(P.x)?'Nether':BIOME_NAMES[biomeAt(Math.floor(P.x),Math.floor(P.z))])
+    statsEl.innerHTML='<b>XYZ</b> '+Math.floor(P.x)+' '+Math.floor(P.y)+' '+Math.floor(P.z)+'<br><b>Time</b> '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(curLight<.35?' · Night':'')+'<br><b>Biome</b> '+(isDemonX(P.x)?'Demon Realm':isNetherX(P.x)?'Nether':BIOME_NAMES[biomeAt(Math.floor(P.x),Math.floor(P.z))])
       +(MP.connected?'<br><b>Server</b> '+MP.room+' · '+(MP.peers.size+1)+' online':'')
       +'<br><b>Mode</b> '+modeLabelFor(GM)+(flying?' · flying':'')+(isAdmin()?' · Admin':'');
   }
@@ -2823,7 +3043,7 @@ function runCommand(line){
     case 'help': case '?':
       say('/give <item> [count] · /tp <x y z | player> · /time set <day|noon|night|midnight|0-24>');
       say('/gamemode <survival|creative> · /difficulty <peaceful|easy|normal|hard> · /heal · /kill · /clear');
-      say('/setblock <x y z> <block> · /fill <x1 y1 z1> <x2 y2 z2> <block> · /summon <mob|tnt> · /locate <chamber|nether>');
+      say('/setblock <x y z> <block> · /fill <x1 y1 z1> <x2 y2 z2> <block> · /summon <mob|tnt> · /locate <chamber|nether|fortress>');
       say('/pvp <on|off> · /spawnpoint · /seed · /list · /items  (use ~ for your own position, e.g. /tp ~ ~10 ~)');
       if(isAdmin())say('Admin: /kick <player> [reason] · /ban <player> [reason] · /unban <player> · /banlist · /broadcast <msg> · /perfectcrit <on|off> · /admin');
       break;
@@ -2953,13 +3173,17 @@ function runCommand(line){
       if(!canCheat())break;
       const what=(a[0]||'chamber').toLowerCase();
       if(what==='chamber'||what==='trial'){
-        if(isNetherX(P.x)){say('Trial chambers are only in the Overworld.');break;}
+        if(P.x>=NETHER_MIN){say('Trial chambers are only in the Overworld.');break;}
         const rx0=Math.floor(P.x/80), rz0=Math.floor(P.z/80); let best=null,bd=1e9;
         for(let r=-6;r<=6;r++)for(let q=-6;q<=6;q++){const c=chamberAt(rx0+r,rz0+q);if(!c)continue;const d=Math.hypot(c.x-P.x,c.z-P.z);if(d<bd){bd=d;best=c;}}
         say(best?'Nearest trial chamber: '+best.x+' '+best.y+' '+best.z+' ('+Math.round(bd)+' blocks away). Stairs come up about '+(best.z+20)+'–'+(best.z+46)+' on Z.':'No trial chamber nearby.');
       }else if(what==='nether'){
         say(isNetherX(P.x)?'You’re in the Nether. Overworld spot above you: '+Math.floor((P.x-NETHER_X)*8)+' '+Math.floor(P.z*8):'The Nether spot under you: '+(NETHER_X+Math.floor(P.x/8))+' 32 '+Math.floor(P.z/8)+'. Use /tp to go there, or build a portal.');
-      }else say('Usage: /locate <chamber|nether>');
+      }else if(what==='fortress'){
+        if(!isDemonX(P.x)){say('Demon fortresses are only in the Demon Realm.');break;}
+        const fx=Math.floor(P.x/96)*96+48, fz=Math.floor(P.z/96)*96+48;
+        say('Nearest demon fortress: '+fx+' '+DFY+' '+fz+' (entrance on its south side, about '+Math.round(Math.hypot(fx-P.x,fz-P.z))+' blocks away).');
+      }else say('Usage: /locate <chamber|nether|fortress>');
       break;
     }
     default: say('Unknown command /'+c+'. Type /help.');
@@ -2985,7 +3209,7 @@ function suggFor(){
     case 'gamemode': case 'gm': opts=idx===1?['survival','creative']:[]; break;
     case 'difficulty': opts=idx===1?['peaceful','easy','normal','hard']:[]; break;
     case 'summon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:[]; break;
-    case 'locate': opts=idx===1?['chamber','nether']:[]; break;
+    case 'locate': opts=idx===1?['chamber','nether','fortress']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
     case 'kick': case 'ban': opts=idx===1?[...new Set([...[...MP.peers.values()].map(p=>p.n),...known.values()])]:[]; break;
     case 'unban': opts=idx===1?bans.map(b=>b.n):[]; break;
@@ -3049,7 +3273,7 @@ function loadWorld(key,forcedSeed,opts){
   activeKey=key;
   seed=forcedSeed||(st&&st.seed)||((Math.random()*1e9)|0);
   const fresh=!!(opts&&opts.fresh);
-  edits=(!fresh&&st&&st.edits)||{}; meta=(!fresh&&st&&st.meta)||{};
+  edits=(!fresh&&st&&st.edits)||{}; meta=(!fresh&&st&&st.meta)||{}; rebuildDemonBlocks(); loadDemonisers(fresh?null:st);
   chests={}; if(!fresh&&st&&st.chests)for(const k in st.chests)chests[k]=st.chests[k].map(deser);
   armor=[0,1,2,3].map(i=>st&&Array.isArray(st.armor)?deser(st.armor[i]):null);
   spawnPt=st&&Array.isArray(st.spawn)?st.spawn:null;
@@ -3137,14 +3361,15 @@ function mpRecvWorld(o){
     if(d)for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){const kk=ck(p[0]+dx,p[1]+dz);if(meshes.has(kk))dirty.add(kk);}
   }
   if(o.c)for(const k in o.c)chests[k]=o.c[k].map(deser);
-  if(o.m)Object.assign(meta,o.m);
+  if(o.m){Object.assign(meta,o.m);rebuildDemonBlocks();}
   if(typeof o.d==='number')dayT=o.d;
   rsDirty=true; saveSoon();
 }
 function applyRemoteBlock(o){
   const x=o.x|0,y=o.y|0,z=o.z|0,id=o.id|0; if(!DEF[id]||y<0||y>=H)return;
   const lk=x+','+y+','+z; if(typeof o.f==='number')meta[lk]=o.f;
-  if(!setBlock(x,y,z,id,{noSync:true,remote:true})){
+  if(o.dm){meta['d'+lk]=1;demonBlocks.add(lk);}
+  if(!setBlock(x,y,z,id,{noSync:true,remote:true,dm:!!o.dm})){
     const cx=Math.floor(x/CS),cz=Math.floor(z/CS),k=ck(cx,cz);
     (edits[k]||(edits[k]={}))[(x-cx*CS)+(z-cz*CS)*CS+y*CS*CS]=id;
     if(id!==CHEST)delete chests[lk];
