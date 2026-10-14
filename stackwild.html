@@ -3656,7 +3656,7 @@ function updateSelfAvatar(dt){
   const av=selfAv; av.g.visible=true;
   const key=myChar.join(); if(key!==av.ck){av.ck=key;const m=av.mats;m.shirt.color.set(myChar[0]);m.pants.color.set(myChar[1]);m.skin.color.set(myChar[2]);m.hair.color.set(myChar[3]);}
   const hid=inv[sel]?inv[sel].id:0; if(hid!==av.heldId)setPeerHeld(av,hid);
-  setAvatarArmor(av,myArmorCodes());
+  setAvatarArmor(av,myArmorCodes()); tickArmorFx(av,dt);
   const sp=Math.hypot(V.x,V.z); if(onGround)selfPhase+=dt*sp*3;
   const sw=Math.sin(selfPhase)*Math.min(.7,sp*.25), swing2=swingT>0?Math.sin((1-swingT)*Math.PI)*1.4:0;
   av.g.position.set(P.x,P.y-(sneaking?.15:0),P.z); av.g.rotation.y=yaw;
@@ -4165,18 +4165,48 @@ function armorColor(code){
   const base=ARMOR.iron.includes(id)?0xc8c8d0:ARMOR.diamond.includes(id)?0x5ae0d8:GOLD_ARMOR.includes(id)?0xf0c840:ARMOR.netherite&&ARMOR.netherite.includes(id)?0x4a3e46:0x999999;
   const c=new THREE.Color(base); if(t===1)c.lerp(new THREE.Color(0x8a0a2c),.7); else if(t===2)c.lerp(new THREE.Color(0xffcc33),.55); return c;
 }
+const ARMOR_TILE=id=>ARMOR.iron.includes(id)?73:ARMOR.diamond.includes(id)?75:GOLD_ARMOR.includes(id)?74:172;
+const armorGeoCache={};
+function tiledBox(w,h,d,tile){
+  const k=[w,h,d,tile].join(); if(armorGeoCache[k])return armorGeoCache[k];
+  const g=new THREE.BoxGeometry(w,h,d), uv=g.attributes.uv, tc=tile%AW, tr=tile/AW|0;
+  for(let i=0;i<uv.count;i++)uv.setXY(i,tu(tc,uv.getX(i)),tv(tr,uv.getY(i)));
+  uv.needsUpdate=true; return armorGeoCache[k]=g;
+}
+const armorMats={};
+function armorMat(t){return armorMats[t]||(armorMats[t]=new THREE.MeshBasicMaterial({map:t===1?texC:t===2?texE:tex}));}
 function setAvatarArmor(av,codes){
   const key=codes.join(); if(key===av.armorKey)return; av.armorKey=key;
-  if(av.armorParts)for(const m of av.armorParts){m.parent.remove(m);m.geometry.dispose();m.material.dispose();}
-  av.armorParts=[];
-  const add=(par,code,w,h,d,x,y,z)=>{const mat=new THREE.MeshBasicMaterial({color:armorColor(code)});const m=part(par,mat,w,h,d,x,y,z);av.armorParts.push(m);
-    if(code%10){const trim=new THREE.MeshBasicMaterial({color:code%10===1?0x1a0010:0x16100a});av.armorParts.push(part(par,trim,w*1.02,h*.18,d*1.02,x,y-h*.4,z));}};
-  const [hd,ch,lg,bt]=codes;
-  if(hd){add(av.head,hd,.54,.3,.54,0,.4,0);add(av.head,hd,.54,.1,.1,0,.27,-.23);}
-  if(ch){add(av.g,ch,.56,.76,.34,0,1.11,0);for(const a of av.arms)add(a,ch,.22,.3,.24,0,-.1,0);}
-  if(lg)for(const l of av.legs)add(l,lg,.27,.5,.27,0,-.24,0);
-  if(bt)for(const l of av.legs)add(l,bt,.28,.22,.28,0,-.64,0);
+  if(av.armorParts)for(const m of av.armorParts){if(m.parent)m.parent.remove(m);if(m.userData.own){m.geometry.dispose();m.material.dispose();}}
+  av.armorParts=[]; av.armorFx=[];
+  const keep=m=>{av.armorParts.push(m);return m;};
+  const box=(par,code,w,h,d,x,y,z)=>{const id=Math.floor(code/10),t=code%10,m=new THREE.Mesh(tiledBox(w,h,d,ARMOR_TILE(id)),armorMat(t));m.userData.shared=true;m.position.set(x,y,z);par.add(m);return keep(m);};
+  const solid=(par,col,w,h,d,x,y,z,glow)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshBasicMaterial({color:col,fog:!glow}));m.userData.own=true;m.position.set(x,y,z);par.add(m);return keep(m);};
+  const [hd,ch,lg,bt]=codes, T=c=>c%10;
+  if(hd){
+    box(av.head,hd,.54,.3,.54,0,.4,0); box(av.head,hd,.54,.1,.1,0,.27,-.23);
+    if(T(hd)===1){
+      solid(av.head,0xff2050,.36,.05,.02,0,.21,-.27,true);
+      for(const sd of [-1,1]){let x=sd*.27,y=.42,z=0,a=0;for(let k=0;k<5;k++){const sz=.11-k*.017;const m=solid(av.head,k===4?0xff2a5a:k%2?0x2a0010:0x5a0820,sz,sz,sz*1.6,x,y,z,k===4);m.rotation.x=a;x+=sd*.06;y+=.07-k*.012;z+=.05+k*.02;a+=.35;}}
+    }else if(T(hd)===2){
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(.3,.025,6,24),new THREE.MeshBasicMaterial({color:0xffcc33,fog:false}));ring.userData.own=true;ring.rotation.x=Math.PI/2;ring.position.y=.72;av.head.add(ring);keep(ring);av.armorFx.push(ring);
+      for(let k=0;k<6;k++){const a=k/6*Math.PI*2;const sp=solid(ring,k%2?0x1a1206:0xfff0a0,.06,.06,.1,Math.cos(a)*.3,Math.sin(a)*.3,0,true);sp.position.z=-.04;}
+    }
+  }
+  if(ch){
+    box(av.g,ch,.56,.76,.34,0,1.11,0);
+    for(const a of av.arms){
+      box(a,ch,.24,.3,.26,0,-.1,0);
+      if(T(ch)===1)for(let k=0;k<3;k++)solid(a,k===2?0xff2a5a:0x3a0018,.06-k*.012,.12,.06-k*.012,(a.position.x>0?1:-1)*(.08+k*.03),.08+k*.1,0,k===2);
+      if(T(ch)===2)solid(a,0xffcc33,.28,.06,.3,0,.07,0,true);
+    }
+    if(T(ch)===1){solid(av.g,0xff2050,.14,.14,.02,0,1.2,-.18,true);}
+    if(T(ch)===2){solid(av.g,0xfff0a0,.12,.12,.02,0,1.22,-.18,true);}
+  }
+  if(lg)for(const l of av.legs){box(l,lg,.27,.5,.27,0,-.24,0);if(T(lg)===1)solid(l,0xff2050,.28,.03,.28,0,-.12,0,true);if(T(lg)===2)solid(l,0xffcc33,.28,.03,.28,0,-.12,0,true);}
+  if(bt)for(const l of av.legs){box(l,bt,.29,.22,.3,0,-.64,-.01);if(T(bt)===1)solid(l,0x2a0010,.08,.1,.08,0,-.66,-.17);if(T(bt)===2)solid(l,0xffcc33,.3,.04,.31,0,-.54,-.01,true);}
 }
+function tickArmorFx(av,dt){if(av&&av.armorFx)for(const r of av.armorFx){r.rotation.z+=dt*1.5;r.position.y=.72+Math.sin(performance.now()/450)*.03;}}
 const myArmorCodes=()=>armor.map(a=>a?a.id*10+tierOf(a):0);
 function setPeerHeld(av,id){
   if(av.held){av.arms[1].remove(av.held);av.held=null;}
@@ -4206,7 +4236,7 @@ function removePeer(id){
   const p=MP.peers.get(id); if(!p)return;
   scene.remove(p.av.g);
   if(p.av.held)p.av.arms[1].remove(p.av.held);
-  p.av.g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose();}});
+  p.av.g.traverse(o=>{if(o.userData&&o.userData.shared)return;if(o.geometry)o.geometry.dispose();if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose();}});
   MP.peers.delete(id);
 }
 function mpTick(dt){
@@ -4223,7 +4253,7 @@ function mpTick(dt){
     const ox=p.x,oz=p.z; p.x+=(p.tx-p.x)*k; p.y+=(p.ty-p.y)*k; p.z+=(p.tz-p.z)*k;
     const sp=Math.hypot(p.x-ox,p.z-oz)/Math.max(dt,1e-3); p.phase+=dt*sp*3;
     const sw=Math.sin(p.phase)*Math.min(.7,sp*.25), av=p.av;
-    av.g.position.set(p.x,p.y,p.z); av.g.rotation.y=p.tyaw;
+    av.g.position.set(p.x,p.y,p.z); av.g.rotation.y=p.tyaw; tickArmorFx(av,dt);
     av.legs[0].rotation.x=sw; av.legs[1].rotation.x=-sw; av.arms[0].rotation.x=-sw; av.arms[1].rotation.x=sw-(av.held?.5:0); av.head.rotation.x=p.tpi;
   }
 }
