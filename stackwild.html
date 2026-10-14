@@ -172,6 +172,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
     <button data-key="KeyC">Crouch</button><button data-key="Space">Jump</button>
+    <button data-act="view">View</button>
   </div>
 </div>
 
@@ -229,6 +230,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <dt>Double-tap <kbd>Space</kbd> / <kbd>V</kbd></dt><dd>Fly on or off (Creative)</dd>
       <dt><kbd>R</kbd></dt><dd>Jump to the slot holding the block you're looking at</dd>
       <dt><kbd>1</kbd>–<kbd>9</kbd> / scroll</dt><dd>Choose hotbar slot</dd>
+      <dt><kbd>P</kbd></dt><dd>Switch between first and third person</dd>
       <dt><kbd>H</kbd> / <kbd>Esc</kbd></dt><dd>Open this menu</dd>
     </dl>
     <div class="mp">
@@ -3402,6 +3404,7 @@ window.addEventListener('keydown',e=>{
   if(e.repeat)return;
   switch(e.code){
     case 'KeyW':{const now=performance.now();if(now-lastW<300)sprintLatch=true;lastW=now;break;}
+    case 'KeyP':toggleView();break;
     case 'KeyF':tryAttack();break;
     case 'KeyE':case 'KeyG':doUse();placeHold=.28;break;
     case 'KeyR':doPick();break;
@@ -3448,6 +3451,7 @@ touchEl.querySelectorAll('button').forEach(b=>{
   b.addEventListener('pointerdown',e=>{
     e.preventDefault(); if(paused||dead)return;
     if(a==='chat'){chatOpen?closeChat():openChat();return;}
+    if(a==='view'){toggleView();return;}
     if(a==='bag'){bagOpen?closeBag():openBag(0);return;}
     if(bagOpen)return;
     if(k)keys[k]=true;
@@ -3625,7 +3629,7 @@ function setHeld(id,tier){
 }
 function updateViewModel(dt){
   const it=inv[sel], id=it?it.id:-1, tr=tierOf(it); if(id!==heldId||tr!==heldTier)setHeld(id,tr);
-  vm.visible=!dead;
+  vm.visible=!dead&&viewMode===0;
   const sp=Math.hypot(V.x,V.z); if(onGround&&sp>.5&&!paused)bobPh+=dt*sp*2.2;
   swingT=Math.max(0,swingT-dt*4.5);
   const s=swingT>0?Math.sin((1-swingT)*Math.PI):0;
@@ -3643,6 +3647,21 @@ function updateViewModel(dt){
   if(hm!==matHeld)matHeld.color.setScalar(b);
 }
 
+// ---------- third person: your own model, P (or the View button) toggles ----------
+let viewMode=0, selfAv=null, selfPhase=0;
+function toggleView(){viewMode=viewMode?0:1;toast(viewMode?'Third person':'First person');}
+function updateSelfAvatar(dt){
+  if(viewMode===0||dead){if(selfAv)selfAv.g.visible=false;return;}
+  if(!selfAv){selfAv=makeAvatar('me',' ');selfAv.tag.visible=false;scene.add(selfAv.g);}
+  const av=selfAv; av.g.visible=true;
+  const key=myChar.join(); if(key!==av.ck){av.ck=key;const m=av.mats;m.shirt.color.set(myChar[0]);m.pants.color.set(myChar[1]);m.skin.color.set(myChar[2]);m.hair.color.set(myChar[3]);}
+  const hid=inv[sel]?inv[sel].id:0; if(hid!==av.heldId)setPeerHeld(av,hid);
+  setAvatarArmor(av,myArmorCodes());
+  const sp=Math.hypot(V.x,V.z); if(onGround)selfPhase+=dt*sp*3;
+  const sw=Math.sin(selfPhase)*Math.min(.7,sp*.25), swing2=swingT>0?Math.sin((1-swingT)*Math.PI)*1.4:0;
+  av.g.position.set(P.x,P.y-(sneaking?.15:0),P.z); av.g.rotation.y=yaw;
+  av.legs[0].rotation.x=sw; av.legs[1].rotation.x=-sw; av.arms[0].rotation.x=-sw; av.arms[1].rotation.x=sw-(av.held?.5:0)-swing2; av.head.rotation.x=pitch*.8;
+}
 // ---------- loop ----------
 let last=performance.now(), statT=0, saveT=0;
 function frame(now){
@@ -3665,6 +3684,7 @@ function frame(now){
   camera.rotation.y=yaw; camera.rotation.x=pitch;
   camera.updateMatrixWorld();
   target=paused?null:raycast(5);
+  updateSelfAvatar(dt);
   if(target){hl.visible=true;hl.position.set(target.x+.5,target.y+.5,target.z+.5);}else hl.visible=false;
   updateSky(dt);
   if(!paused&&!loading){
@@ -3682,7 +3702,14 @@ function frame(now){
   if(fastMesh>0)fastMesh-=dt;
   updateTotemFx(dt); tickVariants(dt); if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
+  let eyeSave=null;
+  if(viewMode===1&&!dead){
+    eyeSave=camera.position.clone(); camera.getWorldDirection(camDir);
+    let d=.3; while(d<4.2){const px=eyeSave.x-camDir.x*d,py=eyeSave.y-camDir.y*d,pz=eyeSave.z-camDir.z*d;if(opaque(getBlock(Math.floor(px),Math.floor(py),Math.floor(pz))))break;d+=.1;}
+    d=Math.max(.3,d-.3); camera.position.set(eyeSave.x-camDir.x*d,eyeSave.y-camDir.y*d,eyeSave.z-camDir.z*d); camera.updateMatrixWorld();
+  }
   renderer.render(scene,camera);
+  if(eyeSave){camera.position.copy(eyeSave);camera.updateMatrixWorld();}
   updateViewModel(dt);
   renderer.autoClear=false; renderer.clearDepth(); renderer.render(vmScene,vmCam); renderer.autoClear=true;
   statT-=dt;
@@ -4132,6 +4159,25 @@ function makeAvatar(id,name){
   const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:nameTex(name),fog:false,transparent:true,depthTest:false})); tag.scale.set(1.7,.42,1); tag.position.y=2.25; tag.renderOrder=10; g.add(tag);
   return{g,legs,arms,head,tag,mats:{shirt,pants,skin,hair},held:null,heldId:0,ck:''};
 }
+// armor on player models: material colour, tinted for corrupted (red/black) and ender (gold)
+function armorColor(code){
+  const id=Math.floor(code/10), t=code%10;
+  const base=ARMOR.iron.includes(id)?0xc8c8d0:ARMOR.diamond.includes(id)?0x5ae0d8:GOLD_ARMOR.includes(id)?0xf0c840:ARMOR.netherite&&ARMOR.netherite.includes(id)?0x4a3e46:0x999999;
+  const c=new THREE.Color(base); if(t===1)c.lerp(new THREE.Color(0x8a0a2c),.7); else if(t===2)c.lerp(new THREE.Color(0xffcc33),.55); return c;
+}
+function setAvatarArmor(av,codes){
+  const key=codes.join(); if(key===av.armorKey)return; av.armorKey=key;
+  if(av.armorParts)for(const m of av.armorParts){m.parent.remove(m);m.geometry.dispose();m.material.dispose();}
+  av.armorParts=[];
+  const add=(par,code,w,h,d,x,y,z)=>{const mat=new THREE.MeshBasicMaterial({color:armorColor(code)});const m=part(par,mat,w,h,d,x,y,z);av.armorParts.push(m);
+    if(code%10){const trim=new THREE.MeshBasicMaterial({color:code%10===1?0x1a0010:0x16100a});av.armorParts.push(part(par,trim,w*1.02,h*.18,d*1.02,x,y-h*.4,z));}};
+  const [hd,ch,lg,bt]=codes;
+  if(hd){add(av.head,hd,.54,.3,.54,0,.4,0);add(av.head,hd,.54,.1,.1,0,.27,-.23);}
+  if(ch){add(av.g,ch,.56,.76,.34,0,1.11,0);for(const a of av.arms)add(a,ch,.22,.3,.24,0,-.1,0);}
+  if(lg)for(const l of av.legs)add(l,lg,.27,.5,.27,0,-.24,0);
+  if(bt)for(const l of av.legs)add(l,bt,.28,.22,.28,0,-.64,0);
+}
+const myArmorCodes=()=>armor.map(a=>a?a.id*10+tierOf(a):0);
 function setPeerHeld(av,id){
   if(av.held){av.arms[1].remove(av.held);av.held=null;}
   av.heldId=id; if(!id||!DEF[id])return;
@@ -4152,6 +4198,7 @@ function peerUpdate(id,o){
     const key=o.c.join(); if(key!==p.av.ck){p.av.ck=key;const m=p.av.mats;m.shirt.color.set(o.c[0]);m.pants.color.set(o.c[1]);m.skin.color.set(o.c[2]);m.hair.color.set(o.c[3]);}
   }
   if(typeof o.h==='number'&&o.h!==p.av.heldId)setPeerHeld(p.av,o.h);
+  if(Array.isArray(o.a)&&o.a.length===4&&o.a.every(v=>typeof v==='number'))setAvatarArmor(p.av,o.a.map(v=>v|0));
   if(typeof o.x==='number'){p.tx=o.x;p.ty=o.y;p.tz=o.z;p.tyaw=o.yaw||0;p.tpi=o.pi||0;if(!p.seen){p.x=o.x;p.y=o.y;p.z=o.z;p.seen=true;}}
   p.last=performance.now();
 }
@@ -4165,7 +4212,7 @@ function removePeer(id){
 function mpTick(dt){
   if(!MP.connected)return;
   MP.sendT-=dt;
-  if(MP.sendT<=0){MP.sendT=.1;mpSend({t:'p',x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),yaw:+yaw.toFixed(2),pi:+pitch.toFixed(2),n:MP.name,jt:MP.jt,pid:PID,cr:GM.mode==='creative'?1:0,c:myChar,h:inv[sel]?inv[sel].id:0});}
+  if(MP.sendT<=0){MP.sendT=.1;mpSend({t:'p',x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),yaw:+yaw.toFixed(2),pi:+pitch.toFixed(2),n:MP.name,jt:MP.jt,pid:PID,cr:GM.mode==='creative'?1:0,c:myChar,h:inv[sel]?inv[sel].id:0,a:myArmorCodes()});}
   if(MP.isHost){MP.mobT=(MP.mobT||0)-dt;if(MP.mobT<=0){MP.mobT=.12;mpSend({t:'mobs',l:mobs.map(m=>[m.nid,Math.max(0,MOB_TYPES.indexOf(m.type)),+m.x.toFixed(2),+m.y.toFixed(2),+m.z.toFixed(2),+m.yaw.toFixed(2),m.flash>0?1:0,m.prof|0,m.type==='dragon'?+(m.hp/m.maxhp).toFixed(3):0])});}}
   if(MP.isHost){MP.annT=(MP.annT||0)-dt;if(MP.annT<=0){MP.annT=10;mpAnnounce();}}
   if(MP.isHost){MP.timeT-=dt;if(MP.timeT<=0){MP.timeT=10;mpSend({t:'time',d:dayT,h:1});}}
