@@ -211,6 +211,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
   </div>
 </div>
 
+<div id="infoPanel" class="overlay" hidden style="z-index:30"><div class="card" style="max-width:640px"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Stackwild guide</h2><button class="btn ghost small" id="infoClose">Close</button></div><input id="infoSearch" placeholder="Search blocks, items, mobs, places, how things work…" aria-label="Search the guide" style="width:100%;margin-top:10px;box-sizing:border-box"><div id="infoCats" class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px"></div><p id="infoCount" class="srv-sub" style="margin:8px 0 4px"></p><div id="infoList" style="display:flex;flex-direction:column;gap:6px"></div></div></div>
 <div id="modsPanel" class="overlay" hidden style="z-index:30"><div class="card"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Mods</h2><button class="btn ghost small" id="modsClose">Close</button></div><p class="sub" style="margin-top:6px">Install a mod, then turn it on for worlds you host (server mods) or just for you (client mods). Server mods affect everyone who joins.</p><div id="modsList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px"></div></div></div>
 <div id="menu" class="overlay">
   <div class="card">
@@ -234,7 +235,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <dt><kbd>H</kbd> / <kbd>Esc</kbd></dt><dd>Open this menu</dd>
     </dl>
     <div class="mp">
-      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><p class="label" style="margin:0">Worlds &amp; servers</p><button class="btn ghost small" id="modsBtn">Mods</button></div>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><p class="label" style="margin:0">Worlds &amp; servers</p><span><button class="btn ghost small" id="infoBtn">Info</button> <button class="btn ghost small" id="modsBtn">Mods</button></span></div>
       <div id="srvList" class="srv-list"></div>
       <div class="row">
         <input id="srvName" maxlength="24" placeholder="New world name" aria-label="New world name">
@@ -1236,7 +1237,7 @@ function setBlock(x,y,z,id,opt){
   if(opt&&opt.dm&&id!==AIR){demonBlocks.add(lk);meta['d'+lk]=+opt.dm||1;}
   else if(demonBlocks.has(lk)){demonBlocks.delete(lk);delete meta['d'+lk];}
   if((old===DEMONISER||old===ENDERISER)&&id!==old)spillDemoniser(lk,!!(opt&&opt.remote));
-  if(DEF[id].glow||DEF[old].glow)for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const kk=ck(cx+a,cz+b);if(meshes.has(kk))dirty.add(kk);}
+  if(DEF[id].glow||DEF[old].glow){const rr=(opt&&opt.dm)||meta['d'+lk]?2:1;for(let a=-rr;a<=rr;a++)for(let b=-rr;b<=rr;b++){const kk=ck(cx+a,cz+b);if(meshes.has(kk))dirty.add(kk);}}
   if(DEF[id].rs||DEF[old].rs||rsNear(x,y,z))rsDirty=true;
   if(id===BUTTON_ON)rsTimers.push({x,y,z,t:1,from:BUTTON_ON,to:BUTTON});
   if(opt&&opt.remote&&old===CHEST&&id!==CHEST)delete chests[lk];
@@ -1271,15 +1272,16 @@ function buildMesh(cx,cz){
   const S={p:[],t:[],c:[],i:[],b:[]}, W={p:[],t:[],c:[],i:[],b:[]}, G={p:[],t:[],c:[],i:[],b:[]}, SC={p:[],t:[],c:[],i:[],b:[]}, SE={p:[],t:[],c:[],i:[],b:[]}, GC={p:[],t:[],c:[],i:[],b:[]}, GE={p:[],t:[],c:[],i:[],b:[]};
   const bl=(x,y,z)=>{if(y<0)return STONE;if(y>=H)return AIR;if(x>=0&&x<CS&&z>=0&&z<CS)return d[x+z*CS+y*CS*CS];return getBlock(ox+x,y,oz+z);};
   const op=(x,y,z)=>opaque(bl(x,y,z))?1:0;
-  const LR=10, ls=[];
+  const LR=17, ls=[];
   for(const lk of lights){
     const q=lk.split(','), lx=+q[0], ly=+q[1], lz=+q[2];
     if(lx<ox-LR||lx>ox+CS+LR||lz<oz-LR||lz>oz+CS+LR)continue;
-    ls.push(lx+.5,ly+.5,lz+.5,getBlock(lx,ly,lz)===RS_TORCH?.55:1);
+    const lt=meta['d'+lk]|0;
+    ls.push(lx+.5,ly+.5,lz+.5,getBlock(lx,ly,lz)===RS_TORCH?.55:lt===2?1.9:lt===1?1.7:1,lt===2?17:lt===1?16:10);
   }
   const lightAt=(px,py,pz)=>{
     let m=0;
-    for(let j=0;j<ls.length;j+=4){const ex=px-ls[j],ey=py-ls[j+1],ez=pz-ls[j+2];const v=(1-Math.sqrt(ex*ex+ey*ey+ez*ez)/LR)*ls[j+3];if(v>m)m=v;}
+    for(let j=0;j<ls.length;j+=5){const ex=px-ls[j],ey=py-ls[j+1],ez=pz-ls[j+2];const v=(1-Math.sqrt(ex*ex+ey*ey+ez*ez)/ls[j+4])*ls[j+3];if(v>m)m=v;}
     return m>0?Math.min(1,m*1.3):0;
   };
   const o1=[0,0,0], o2=[0,0,0], ao=[0,0,0,0];
@@ -3004,6 +3006,104 @@ function renderMods(){
 }
 document.getElementById('modsBtn').addEventListener('click',()=>{renderMods();modsPanel.hidden=false;});
 document.getElementById('modsClose').addEventListener('click',()=>{modsPanel.hidden=true;});
+// ---------- Info page: searchable guide to everything (admin-only things left out) ----------
+const INFO_SRC={
+  [COAL_ORE]:'Common in stone, any depth.',[IRON_ORE]:'Stone below y 34. Needs a stone pickaxe.',[GOLD_ORE]:'Deep stone below y 28. Needs an iron pickaxe.',[DIAMOND_ORE]:'Very deep, below y 13. Needs an iron pickaxe.',
+  [REDSTONE_ORE]:'Deep stone below y 16.',[OBSIDIAN]:'Deep veins below y 9 (diamond pickaxe), trial chamber loot.',[NETHERITE_ORE]:'Rare, low in the Nether. Diamond pickaxe.',
+  [EMBERROCK]:'Makes up most of the Nether.',[GLEAMSTONE]:'Hangs from the Nether ceiling. Wisps drop it too.',[EMBER_ORE]:'Nether ore that drops raw gold.',
+  [DEMON_ORE]:'Pile on the top floor of a Demon Realm fortress. Needs a netherite pickaxe.',[DEMONISER]:'Chest in the middle of a demon fortress’s top floor.',
+  [DRAGON_SCALE]:'Dropped by the Ender Dragon (16).',[ENDERISER]:'Dropped by the Ender Dragon.',[ENDER_PEARL]:'Dropped by Voidlings.',[TOTEM]:'Trial chamber chests, trial spawner rewards, overlords, or craft it.',
+  [NETHERITE_SCRAP]:'Smelt Netherite Ore. Demons and overlords drop it.',[SEEDS]:'Break tall grass, or till grass with a hoe.',[SAPLING]:'Sometimes drops from leaves.',[WOOL]:'Sheep.',[RAW_MEAT]:'Cows, pigs, sheep and chickens.',
+  [END_STONE]:'The End island.',[TUFF_BRICKS]:'Trial chambers, or craft it.',[COPPER_TILE]:'Trial chambers.',[DEMON_BRICKS]:'Demon fortresses.',[CINDER_BRICKS]:'Nether ruins, or smelt emberrock.',[DRAGON_EGG]:'Appears when the Ender Dragon dies.',
+};
+const INFO_SKIP=new Set([AIR,WATER,LAVA,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O,CORRUPT_SWORD,PORTAL,DEMON_PORTAL,END_PORTAL,SPAWNER,DEMON_SPAWNER,END_CRYSTAL]);
+const MOB_INFO=[
+  ['Shambler','Slow undead that comes out at night and burns in daylight. Drops stale meat.'],['Skitter','Fast night crawler. Burns in daylight.'],
+  ['Voidling','Tall dark wanderer from the End, sometimes seen at night. Leaves you alone until you hit it. Drops Ender Pearls.'],
+  ['Cow / Pig / Sheep / Chicken','Passive animals on grass. Drop raw meat; sheep drop wool.'],['Villager','Lives in villages. Trades for gold ingots (Farmer, Toolsmith, Mason).'],
+  ['Vaultkeeper','Copper-armored brute from trial spawners. Drops iron, rarely a totem.'],['Cinder Brute','Horned Nether brute. Fireproof. Drops gold and coal.'],['Ember Wisp','Floating Nether fire spirit. Drops gleamstone or coal.'],
+  ['Demon','Tough Demon Realm brute. Drops netherite scrap and gold.'],['Imp','Flying demon spirit.'],['Overlord','Giant boss on the top floor of a demon fortress. Drops netherite scrap, demon ore and sometimes a totem.'],
+  ['Ender Dragon','Boss of the End. Circles the island and dives at you; End Crystals heal it. Drops 16 dragon scales, the Enderiser and lots of XP.'],
+];
+const PLACE_INFO=[
+  ['Overworld','Plains, forest, desert, snowy taiga, savanna and jungle biomes. Day/night cycle; monsters at night.'],
+  ['Villages','Groups of houses with a well. Villagers trade for gold.'],
+  ['Trial chambers','Deep tuff and copper halls with trial spawners and loot chests. Look for tuff pillars with copper bulbs on the surface; the staircase leads down.'],
+  ['The Nether','Reached through an obsidian portal (2×3 inside, lit with an Igniter). Lava seas, gleamstone, netherite, Cinder Brutes and Wisps. 1 block here = 8 in the Overworld.'],
+  ['Demon Realm','Reached through a cinder brick portal lit in the Nether. Four-level fortresses with demon spawners on every floor, demon ore and the Demoniser at the top. Grab it and escape!'],
+  ['The End','Build a ring of 12 End Portal Frames around a 3×3 hole in the Overworld and use an Eye of Ender on it. Floating island, obsidian pillars with crystals, and the Ender Dragon.'],
+];
+const SYS_INFO=[
+  ['Controls','WASD move · drag/arrows look · Space jump · Shift sprint · C crouch · hold F mine/attack · E use/place · Q backpack · P third person · T chat · 1–9 hotbar · H menu.'],
+  ['Phone controls','Joystick to move (push to the edge to sprint), drag to look, buttons for Chat, Bag, Dig, Build, Crouch, Jump and View.'],
+  ['Crafting','Press Q for hand crafting. Use a crafting table, furnace or brewing stand (E) for more recipes.'],
+  ['Corrupted items','Made in the Demoniser with Demon Ore. 2.2× weapon damage, 2.6× tool speed, never wear out, 2× armor, totems revive at full health, food heals 4 hearts. Glitchy red/black/purple look with horns.'],
+  ['Ender items','Made in the Enderiser with a Dragon Scale. 1.6× damage, 1.8× tool speed, half wear, 1.5× armor. Gold/black look with a halo. A full Ender armor set means no fall damage and a little extra speed.'],
+  ['Corrupted & Ender blocks','Placed corrupted/ender blocks keep their look, are much harder to break, can’t be blown up, and corrupted/ender torches shine much brighter and further.'],
+  ['Enchanting','Earn XP from mobs and ores. Put a tool, weapon or armor in an Enchanting Table and spend 2, 5 or 9 levels: Sharpness, Fire Aspect, Efficiency, Unbreaking, Fortune, Protection, Feather Falling.'],
+  ['Potions','Fill a glass bottle at water, then brew it at a brewing stand with an ingredient. Drink with E. Effects show in the info panel.'],
+  ['Farming','Till grass with a hoe, plant seeds on farmland, harvest grown wheat. 3 wheat = bread. Saplings grow into trees.'],
+  ['Totem of Revival','Keep it in your hotbar: when you would die it breaks and saves you, with regeneration and fire resistance.'],
+  ['Mace','Hit while falling for a smash: extra damage the further you fell, no fall damage, nearby mobs knocked away.'],
+  ['Trial spawners','Wake when you come close and send a wave of mobs. Beat it for loot; it rests 4 minutes.'],
+  ['Redstone','Levers, buttons and pressure plates power wire, lamps, pistons and TNT. Mega TNT has double the blast.'],
+  ['Doors, ladders, slabs, stairs','Doors open with E. Ladders: walk forward or jump to climb, C to hold still. Two slabs make a full block. You step up slabs and stairs automatically.'],
+  ['Multiplayer','Create a Multiplayer world to host, or join with a code / from Public servers. Chests, drops, mobs and blocks sync; PvP can be turned off.'],
+  ['Mods','Install mods from the Mods page. Server mods (like The Corruption) run on worlds you host; client mods only change your screen.'],
+  ['The Corruption (mod)','A corrupted sword spreads corruption from near spawn. Inside it you take damage and demons spawn. Hold an Ender item or a Totem of Revival, use the sword, and survive 30 seconds next to it to pull it free.'],
+  ['Game modes','Survival (Peaceful–Hard), Hardcore (one life) and Creative (fly with double-tap Space).'],
+  ['Commands','/help lists them. /give, /tp, /time, /gamemode and similar need cheats (off in hardcore, host-only on servers).'],
+];
+let infoEntries=null, infoCat='All';
+function infoBuild(){
+  const out=[];
+  const ing=k=>typeof k==='string'?GROUPS[k].name:DEF[k].name;
+  const st=a=>a===TABLE?' (crafting table)':a===FURNACE?' (furnace)':a===BREWING_STAND?' (brewing stand)':' (hand)';
+  DEF.forEach((d,id)=>{
+    if(!d||INFO_SKIP.has(id)||d.admin)return;
+    const kind=d.tool?'Tools':d.armor?'Tools':d.potion||d.food?'Items':d.item?'Items':'Blocks';
+    const lines=[];
+    if(d.tool)lines.push(d.tool.kind==='sword'||d.tool.kind==='mace'?'Weapon · '+d.tool.dmg+' damage · '+d.tool.max+' durability':'Tool · '+d.tool.max+' durability');
+    if(d.armor)lines.push('Armor · '+d.armor.pts+' protection points');
+    if(d.food)lines.push('Food · fills '+d.food+(d.heal?' · heals '+d.heal/2+' hearts':''));
+    if(d.potion)lines.push('Potion · drink with E');
+    if(d.glow&&!d.item)lines.push('Gives off light');
+    if(INFO_SRC[id])lines.push('Found: '+INFO_SRC[id]);
+    const made=RECIPES.filter(r=>r.out===id);
+    for(const r of made)lines.push('Make'+st(r.at)+': '+r.in.map(([k,n])=>n+' '+ing(k)).join(' + ')+(r.n>1?' → '+r.n:''));
+    const uses=RECIPES.filter(r=>r.in.some(([k])=>typeof k==='string'?GROUPS[k].ids.includes(id):k===id)).map(r=>DEF[r.out].name);
+    if(uses.length)lines.push('Used in: '+[...new Set(uses)].slice(0,8).join(', ')+(uses.length>8?'…':''));
+    if(!lines.length)lines.push(d.item?'Item':'Building block');
+    out.push({cat:kind,title:d.name,id,text:lines.join('\n')});
+  });
+  for(const [t,x] of MOB_INFO)out.push({cat:'Mobs',title:t,text:x});
+  for(const [t,x] of PLACE_INFO)out.push({cat:'Places',title:t,text:x});
+  for(const [t,x] of SYS_INFO)out.push({cat:'How it works',title:t,text:x});
+  return out;
+}
+const infoPanel=document.getElementById('infoPanel'), infoSearch=document.getElementById('infoSearch'), infoList=document.getElementById('infoList'), infoCount=document.getElementById('infoCount'), infoCats=document.getElementById('infoCats');
+function renderInfo(){
+  if(!infoEntries)infoEntries=infoBuild();
+  infoCats.textContent='';
+  for(const c of ['All','Blocks','Items','Tools','Mobs','Places','How it works']){const b=document.createElement('button');b.className='btn ghost small';b.textContent=c;if(c===infoCat){b.style.background='var(--accent)';b.style.color='var(--accent-ink)';}b.addEventListener('click',()=>{infoCat=c;renderInfo();});infoCats.appendChild(b);}
+  const q=infoSearch.value.trim().toLowerCase();
+  const hits=infoEntries.filter(e=>(infoCat==='All'||e.cat===infoCat)&&(!q||e.title.toLowerCase().includes(q)||e.text.toLowerCase().includes(q)));
+  hits.sort((a,b)=>(q&&a.title.toLowerCase().startsWith(q)?0:1)-(q&&b.title.toLowerCase().startsWith(q)?0:1));
+  infoCount.textContent=hits.length+' result'+(hits.length===1?'':'s');
+  infoList.textContent='';
+  for(const e of hits.slice(0,120)){
+    const row=document.createElement('div'); row.style.cssText='display:flex;gap:10px;padding:8px 10px;border-radius:5px;background:rgba(255,255,255,.05);align-items:flex-start';
+    if(e.id!==undefined){const cv=document.createElement('canvas');cv.width=cv.height=28;cv.style.cssText='flex:none;image-rendering:pixelated';drawIcon(cv,e.id);row.appendChild(cv);}
+    const box=document.createElement('div'); box.style.minWidth='0';
+    const h=document.createElement('div'); h.innerHTML='<b></b> <span class="srv-sub"></span>'; h.querySelector('b').textContent=e.title; h.querySelector('span').textContent='· '+e.cat;
+    const t=document.createElement('div'); t.className='srv-sub'; t.style.whiteSpace='pre-line'; t.style.marginTop='3px'; t.textContent=e.text;
+    box.append(h,t); row.appendChild(box); infoList.appendChild(row);
+  }
+}
+document.getElementById('infoBtn').addEventListener('click',()=>{renderInfo();infoPanel.hidden=false;setTimeout(()=>infoSearch.focus(),30);});
+document.getElementById('infoClose').addEventListener('click',()=>{infoPanel.hidden=true;});
+infoSearch.addEventListener('input',renderInfo);
+infoSearch.addEventListener('keydown',e=>e.stopPropagation());
 // ---- The Corruption ----
 const CORSKY=new THREE.Color(.32,.02,.12);
 let corT=0, corHurtT=0, corSpawnT=0, corFxT=0, corLastR=0; const corCnt=new Map();
@@ -3653,11 +3753,11 @@ function updateViewModel(dt){
 }
 
 // ---------- held light sources light up the world around whoever holds them ----------
-const heldGlow=id=>id>0&&DEF[id]&&DEF[id].glow&&id!==PORTAL&&id!==DEMON_PORTAL&&id!==END_PORTAL&&id!==LAVA?(id===RS_TORCH?.5:id===TORCH?.9:1):0;
+const heldGlow=(id,t)=>id>0&&DEF[id]&&DEF[id].glow&&id!==PORTAL&&id!==DEMON_PORTAL&&id!==END_PORTAL&&id!==LAVA?(id===RS_TORCH?.5:id===TORCH?.9:1)*(t===2?1.9:t===1?1.7:1):0;
 function updateHandLights(){
   const L=HAND_LIGHTS.value; let n=0;
   const put=(x,y,z,w)=>{if(n<4&&w>0)L[n++].set(x,y,z,w);};
-  if(!dead)put(P.x,P.y+1.3,P.z,heldGlow(inv[sel]?inv[sel].id:0));
+  if(!dead)put(P.x,P.y+1.3,P.z,heldGlow(inv[sel]?inv[sel].id:0,tierOf(inv[sel])));
   if(MP.connected)for(const p of MP.peers.values())if(p.seen&&Math.hypot(p.x-P.x,p.z-P.z)<40)put(p.x,p.y+1.3,p.z,heldGlow(p.av.heldId));
   for(;n<4;n++)L[n].set(0,0,0,0);
 }
