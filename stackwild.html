@@ -209,7 +209,8 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Move</dd>
       <dt><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> or drag</dt><dd>Look around</dd>
       <dt><kbd>Space</kbd></dt><dd>Jump · swim up (swim into a ledge to climb out)</dd>
-      <dt><kbd>Shift</kbd></dt><dd>Sprint (needs food)</dd>
+      <dt><kbd>Shift</kbd></dt><dd>Crouch: walk slowly and never fall off edges (flies down in creative)</dd>
+      <dt>Double-tap <kbd>W</kbd></dt><dd>Sprint (needs food)</dd>
       <dt>Hold <kbd>F</kbd></dt><dd>Mine a block · press to hit a mob (hit while falling for a critical). Clicking or dragging the screen only looks around.</dd>
       <dt><kbd>E</kbd> / right-click</dt><dd>Place block · eat · open crafting table, furnace or chest · sleep in a bed</dd>
       <dt><kbd>Q</kbd> / <kbd>C</kbd></dt><dd>Backpack and crafting</dd>
@@ -1262,8 +1263,9 @@ function physics(dt){
   const fb=getBlock(fx,Math.floor(P.y+.1),fz), wb=getBlock(fx,Math.floor(P.y+.9),fz);
   const feetW=fb===WATER||fb===LAVA, waistW=wb===WATER||wb===LAVA;
   const inWater=feetW||waistW, inLava=fb===LAVA||wb===LAVA;
-  const sprint=(shift||(joy.on&&Math.hypot(joy.x,joy.y)>.96))&&food>6&&fw>0;
-  let speed=sprint?6.2:4.4; if(inWater)speed*=inLava?.4:.6;
+  const sneak=shift&&!flying&&!inWater; sneaking=sneak;
+  const sprint=!sneak&&(sprintLatch||(joy.on&&Math.hypot(joy.x,joy.y)>.96))&&food>6&&fw>0;
+  let speed=sprint?6.2:4.4; if(inWater)speed*=inLava?.4:.6; if(sneak)speed*=.32;
   if(inLava&&!flying){lavaT+=dt;if(lavaT>=.5){lavaT=0;if(fireResT<=0)hurt(4);burstC([255,150,40],P.x-.5,P.y+.4,P.z-.5,5);}}else lavaT=.45;
   if(fireResT>0)fireResT-=dt;
   if(regenBuffT>0){regenBuffT-=dt;buffHealT+=dt;if(buffHealT>=.6){buffHealT=0;if(!dead)health=Math.min(20,health+1);}}
@@ -1287,7 +1289,13 @@ function physics(dt){
     V.y=Math.max(V.y,-50);
   }
   onGround=false; hitWall=false;
-  moveAxis('x',V.x*dt); moveAxis('z',V.z*dt); moveAxis('y',V.y*dt);
+  if(sneak&&wasGround){
+    // crouching: never step off an edge
+    const sup=()=>boxHit(P.x,P.y-.08,P.z,PW,.02);
+    const ox=P.x; moveAxis('x',V.x*dt); if(!sup()){P.x=ox;V.x=0;}
+    const oz=P.z; moveAxis('z',V.z*dt); if(!sup()){P.z=oz;V.z=0;}
+  }else{moveAxis('x',V.x*dt); moveAxis('z',V.z*dt);}
+  moveAxis('y',V.y*dt);
   if(flying&&onGround)flying=false;
   if(GM.mode==='creative')airMaxY=P.y;
   if(immune>0){immune-=dt;airMaxY=P.y;}
@@ -2677,7 +2685,7 @@ document.getElementById('bagClose').addEventListener('click',closeBag);
 let health=state&&typeof state.health==='number'?state.health:20;
 let food=state&&typeof state.food==='number'?state.food:20;
 let air=10,dead=false,immune=3,airMaxY=P.y,regenT=0,starveT=0,drownT=0,hitWall=false,cactusT=.4;
-const GM={mode:'survival',diff:2}; let flying=false, lastSpace=0;
+const GM={mode:'survival',diff:2}; let flying=false, lastSpace=0, sneaking=false, eyeDrop=0, sprintLatch=false, lastW=0;
 const DIFF_N=['Peaceful','Easy','Normal','Hard'];
 function modeLabelFor(o){const m=o.mode||'survival';return m==='creative'?'Creative':m==='hardcore'?'Hardcore':'Survival · '+DIFF_N[typeof o.diff==='number'?o.diff:2];}
 const hurtEl=document.getElementById('hurt'), deathEl=document.getElementById('death'), respawnBtn=document.getElementById('respawnBtn'), deathSub=document.getElementById('deathSub');
@@ -2804,6 +2812,7 @@ window.addEventListener('keydown',e=>{
   keys[e.code]=true;
   if(e.repeat)return;
   switch(e.code){
+    case 'KeyW':{const now=performance.now();if(now-lastW<300)sprintLatch=true;lastW=now;break;}
     case 'KeyF':tryAttack();break;
     case 'KeyE':case 'KeyG':doUse();placeHold=.28;break;
     case 'KeyR':doPick();break;
@@ -2818,7 +2827,7 @@ window.addEventListener('keydown',e=>{
     default: if(/^Digit[1-9]$/.test(e.code))select(+e.code[5]-1);
   }
 });
-window.addEventListener('keyup',e=>{keys[e.code]=false;});
+window.addEventListener('keyup',e=>{keys[e.code]=false;if(e.code==='KeyW')sprintLatch=false;});
 window.addEventListener('blur',()=>{for(const k in keys)keys[k]=false;});
 
 const cvs=renderer.domElement;
@@ -2993,7 +3002,8 @@ function frame(now){
     if(!bagOpen&&(keys.KeyE||keys.KeyG)){placeHold-=dt;if(placeHold<=0){doPlace();placeHold=.25;}}
     saveT+=dt; if(saveT>4){saveT=0;saveNow();}
   }
-  camera.position.set(P.x,P.y+EYE,P.z);
+  eyeDrop+=((sneaking?.28:0)-eyeDrop)*Math.min(1,dt*12);
+  camera.position.set(P.x,P.y+EYE-eyeDrop,P.z);
   camera.rotation.y=yaw; camera.rotation.x=pitch;
   camera.updateMatrixWorld();
   target=paused?null:raycast(5);
