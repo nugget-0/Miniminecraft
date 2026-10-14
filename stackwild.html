@@ -834,6 +834,7 @@ function tickVariants(dt){
   paintVariant(atlasC,1,variantSeed); texC.needsUpdate=true;
   if(variantSeed%3===0){paintVariant(atlasE,2,variantSeed);texE.needsUpdate=true;}
   for(let i=0;i<9;i++)if(tierOf(inv[i]))drawSlot(i);
+  refreshHeldPix();
 }
 window.addEventListener('resize',()=>{camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();renderer.setSize(window.innerWidth,window.innerHeight);});
 
@@ -3419,12 +3420,73 @@ function spriteGeo(id){
 }
 let heldMesh=null, heldId=-1, swingT=0, bobPh=0;
 function swing(){swingT=1;}
+// held items are 3D pixel models (1 px thick, like Minecraft). Corrupted ones grow curved horns; Ender ones get a spinning gold halo.
+const matPix=new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.DoubleSide});
+const pixCtx={};
+function tilePixels(cv,tile){const g=pixCtx[cv===atlasC?'c':cv===atlasE?'e':'b']||(pixCtx[cv===atlasC?'c':cv===atlasE?'e':'b']=cv.getContext('2d'));return g.getImageData((tile%AW)*16,(tile/AW|0)*16,16,16).data;}
+function hornGrid(px,seed){
+  // 24x24 grid with the item in the middle; horns sprout from the upper-right edge and curl back toward the handle
+  const W=24, O=4, g=new Array(W*W).fill(null), rr=mulberry32(seed|0);
+  for(let y=0;y<16;y++)for(let x=0;x<16;x++){const i=(y*16+x)*4;if(px[i+3]>=128)g[(y+O)*W+x+O]=[px[i],px[i+1],px[i+2]];}
+  const op=(x,y)=>x>=0&&y>=0&&x<W&&y<W&&!!g[y*W+x];
+  const edges=[];
+  for(let y=O;y<O+16;y++)for(let x=O;x<O+16;x++){
+    if(!op(x,y))continue; const lx=x-O, ly=y-O; if(lx+(15-ly)<15)continue;
+    for(const [dx,dy] of [[1,0],[0,-1],[-1,0],[0,1]])if(!op(x+dx,y+dy)){edges.push([x,y,dx,dy]);break;}
+  }
+  // jagged: chip some edge pixels
+  for(const e of edges)if(rr()<.14)g[e[1]*W+e[0]]=null;
+  const roots=edges.filter(()=>rr()<.22).slice(0,6);
+  for(const [x0,y0,dx,dy] of roots){
+    let x=x0+.5,y=y0+.5,vx=dx,vy=dy; const len=3+Math.floor(rr()*3);
+    for(let k=1;k<=len;k++){
+      vx=vx*.62-.38*.7; vy=vy*.62+.38*.7; const L=Math.hypot(vx,vy); vx/=L; vy/=L;
+      x+=vx; y+=vy; const gx=Math.floor(x), gy=Math.floor(y); if(gx<0||gy<0||gx>=W||gy>=W)break;
+      const t=k/len; g[gy*W+gx]=k===len?[255,40,90]:[Math.round(110*(1-t)+24*t),Math.round(6*(1-t)),Math.round(28*(1-t)+40*t)];
+    }
+  }
+  return{W,g};
+}
+function plainGrid(px){const W=16,g=new Array(256).fill(null);for(let i=0;i<256;i++)if(px[i*4+3]>=128)g[i]=[px[i*4],px[i*4+1],px[i*4+2]];return{W,g};}
+function pixelGeo(grid,size){
+  const {W,g}=grid, s=size/16, h=s*.5, P=[], C=[], I=[], off=W/2;
+  const quad=(a,b,c,d,col,f)=>{const n=P.length/3;P.push(...a,...b,...c,...d);for(let k=0;k<4;k++)C.push(col[0]/255*f,col[1]/255*f,col[2]/255*f);I.push(n,n+1,n+2,n,n+2,n+3);};
+  for(let y=0;y<W;y++)for(let x=0;x<W;x++){
+    const c=g[y*W+x]; if(!c)continue;
+    const x0=(x-off)*s, x1=x0+s, y1=(off-y)*s, y0=y1-s;
+    quad([x0,y0,h],[x1,y0,h],[x1,y1,h],[x0,y1,h],c,1);
+    quad([x1,y0,-h],[x0,y0,-h],[x0,y1,-h],[x1,y1,-h],c,.8);
+    if(x===0||!g[y*W+x-1])quad([x0,y0,-h],[x0,y0,h],[x0,y1,h],[x0,y1,-h],c,.65);
+    if(x===W-1||!g[y*W+x+1])quad([x1,y0,h],[x1,y0,-h],[x1,y1,-h],[x1,y1,h],c,.65);
+    if(y===0||!g[(y-1)*W+x])quad([x0,y1,h],[x1,y1,h],[x1,y1,-h],[x0,y1,-h],c,.9);
+    if(y===W-1||!g[(y+1)*W+x])quad([x0,y0,-h],[x1,y0,-h],[x1,y0,h],[x0,y0,h],c,.55);
+  }
+  const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(P,3)); geo.setAttribute('color',new THREE.Float32BufferAttribute(C,3)); geo.setIndex(I); return geo;
+}
+let heldPix=null, heldHalo=null;
+function heldPixGeo(id,tier){
+  const tile=DEF[id].t[2], cv=tier===1?atlasC:tier===2?atlasE:atlas, px=tilePixels(cv,tile);
+  return pixelGeo(tier===1?hornGrid(px,id*7919+3):plainGrid(px),DEF[id].tool?.62:.46);
+}
+function refreshHeldPix(){if(heldPix&&heldTier===1){const old=heldPix.geometry;heldPix.geometry=heldPixGeo(heldId,1);old.dispose();}}
 function setHeld(id,tier){
-  if(heldMesh){vm.remove(heldMesh);heldMesh=null;}
+  if(heldMesh){vm.remove(heldMesh);heldMesh.traverse(o=>{if(o.geometry&&o.geometry!==itemGeoCache[heldId])o.geometry.dispose();});heldMesh=null;}
+  heldPix=null; heldHalo=null;
   heldId=id; heldTier=tier||0; if(id<0)return;
   const d=DEF[id], matHeld=heldTier===1?matHeldC:heldTier===2?matHeldE:matHeldBase;
   if(!d.item&&!d.plant&&!d.flat){heldMesh=new THREE.Mesh(itemGeo(id),matHeld);heldMesh.scale.setScalar(.85);heldMesh.position.set(-.06,.1,-.36);heldMesh.rotation.set(.1,.75,0);}
-  else{heldMesh=new THREE.Mesh(spriteGeo(id),matHeld);heldMesh.position.set(-.05,.17,-.38);if(d.tool)heldMesh.rotation.set(-.1,-.75,.55);else heldMesh.rotation.set(0,-.7,.3);}
+  else{
+    heldMesh=new THREE.Group(); heldPix=new THREE.Mesh(heldPixGeo(id,heldTier),matPix); heldMesh.add(heldPix);
+    if(d.tool){heldMesh.position.set(-.02,.24,-.44);heldMesh.rotation.set(-.1,-.75,.55);}
+    else{heldMesh.position.set(-.04,.17,-.4);heldMesh.rotation.set(0,-.7,.3);}
+    if(heldTier===2){
+      heldHalo=new THREE.Group(); heldMesh.add(heldHalo);
+      const gold=new THREE.MeshBasicMaterial({color:0xffcc33,fog:false}), dark=new THREE.MeshBasicMaterial({color:0x1a1206,fog:false});
+      const ring=new THREE.Mesh(new THREE.TorusGeometry(d.tool?.3:.24,.012,6,28),gold); ring.rotation.x=Math.PI/2; heldHalo.add(ring);
+      for(let k=0;k<4;k++){const a=k/4*Math.PI*2,c=new THREE.Mesh(new THREE.BoxGeometry(.035,.035,.035),k%2?dark:gold);c.position.set(Math.cos(a)*(d.tool?.3:.24),0,Math.sin(a)*(d.tool?.3:.24));heldHalo.add(c);}
+      heldHalo.position.set(d.tool?.08:0,d.tool?.08:0,0); heldHalo.rotation.z=.5;
+    }
+  }
   vm.add(heldMesh);
 }
 function updateViewModel(dt){
@@ -3438,10 +3500,13 @@ function updateViewModel(dt){
   const b=Math.max(.35,curBright);
   if(skinMat.userData.base)skinMat.color.copy(skinMat.userData.base).multiplyScalar(b);
   if(sleeveMat.userData.base)sleeveMat.color.copy(sleeveMat.userData.base).multiplyScalar(b);
-  if(heldId>0&&DEF[heldId].admin){const c=rainbowRGB(performance.now()/1500);matHeld.color.setRGB(.7+.3*c[0]/255,.7+.3*c[1]/255,.7+.3*c[2]/255);}
-  else if(heldTier){(heldTier===1?matHeldC:matHeldE).color.setScalar(Math.max(b,.75));if(heldTier===1&&Math.random()<.08){vm.position.x+=(Math.random()-.5)*.025;vm.position.y+=(Math.random()-.5)*.015;}}
-  else if(enchOf(inv[sel])){const f=.85+.15*Math.sin(performance.now()/200);matHeld.color.setRGB(Math.max(b,.5)*f,b*.9,Math.max(b,.6));}
-  else matHeld.color.setScalar(b);
+  const hm=heldPix?matPix:matHeld;
+  if(heldHalo){heldHalo.rotation.y+=dt*2.2;heldHalo.position.y=(DEF[heldId].tool?.08:0)+Math.sin(performance.now()/400)*.02;}
+  if(heldId>0&&DEF[heldId].admin){const c=rainbowRGB(performance.now()/1500);hm.color.setRGB(.7+.3*c[0]/255,.7+.3*c[1]/255,.7+.3*c[2]/255);}
+  else if(heldTier){hm.color.setScalar(Math.max(b,.8));(heldTier===1?matHeldC:matHeldE).color.setScalar(Math.max(b,.75));if(heldTier===1&&Math.random()<.08){vm.position.x+=(Math.random()-.5)*.025;vm.position.y+=(Math.random()-.5)*.015;}}
+  else if(enchOf(inv[sel])){const f=.85+.15*Math.sin(performance.now()/200);hm.color.setRGB(Math.max(b,.5)*f,b*.9,Math.max(b,.6));}
+  else hm.color.setScalar(b);
+  if(hm!==matHeld)matHeld.color.setScalar(b);
 }
 
 // ---------- loop ----------
