@@ -787,13 +787,15 @@ const matSolid=new THREE.MeshBasicMaterial({map:tex,vertexColors:true,alphaTest:
 const matWater=new THREE.MeshBasicMaterial({map:tex,vertexColors:true,transparent:true,opacity:0.72,depthWrite:false,side:THREE.DoubleSide});
 const matItem=new THREE.MeshBasicMaterial({map:tex,alphaTest:.5});
 const matGlow=new THREE.MeshBasicMaterial({map:tex,vertexColors:true,alphaTest:.5,side:THREE.DoubleSide});
-// block light: each vertex carries a torch-light level; the sky level comes in as a uniform
+let matGlowC=null, matGlowE=null;
+// block light: each vertex carries a torch-light level; the sky level comes in as a uniform; held torches add moving lights
+const HAND_LIGHTS={value:[0,1,2,3].map(()=>new THREE.Vector4(0,0,0,0))};
 function lightPatch(mat){
   mat.onBeforeCompile=sh=>{
-    sh.uniforms.uDay={value:typeof curBright==='number'?curBright:1}; mat.userData.u=sh.uniforms.uDay;
-    sh.vertexShader='attribute float blight;\nvarying float vBl;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vBl=blight;');
-    sh.fragmentShader='uniform float uDay;\nvarying float vBl;\n'+sh.fragmentShader.replace('#include <color_fragment>',
-      '#include <color_fragment>\n  diffuseColor.rgb*=max(uDay,vBl)*mix(vec3(1.0),vec3(1.08,.9,.66),clamp((vBl-uDay)*1.4,0.0,1.0));');
+    sh.uniforms.uDay={value:typeof curBright==='number'?curBright:1}; mat.userData.u=sh.uniforms.uDay; sh.uniforms.uHL=HAND_LIGHTS;
+    sh.vertexShader='attribute float blight;\nvarying float vBl;\nvarying vec3 vWP;\n'+sh.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\n  vBl=blight;\n  vWP=(modelMatrix*vec4(transformed,1.0)).xyz;');
+    sh.fragmentShader='uniform float uDay;\nuniform vec4 uHL[4];\nvarying float vBl;\nvarying vec3 vWP;\n'+sh.fragmentShader.replace('#include <color_fragment>',
+      '#include <color_fragment>\n  float hl=0.0;\n  for(int i=0;i<4;i++){if(uHL[i].w>0.0){hl=max(hl,clamp(1.0-distance(vWP,uHL[i].xyz)/9.0,0.0,1.0)*uHL[i].w);}}\n  float bl=max(vBl,min(1.0,hl*1.25));\n  diffuseColor.rgb*=max(uDay,bl)*mix(vec3(1.0),vec3(1.08,.9,.66),clamp((bl-uDay)*1.4,0.0,1.0));');
   };
 }
 lightPatch(matSolid); lightPatch(matWater);
@@ -833,6 +835,7 @@ const texC=new THREE.CanvasTexture(atlasC), texE=new THREE.CanvasTexture(atlasE)
 for(const t of [texC,texE]){t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;t.generateMipmaps=false;}
 const matSolidC=new THREE.MeshBasicMaterial({map:texC,vertexColors:true,alphaTest:.5}), matSolidE=new THREE.MeshBasicMaterial({map:texE,vertexColors:true,alphaTest:.5});
 lightPatch(matSolidC); lightPatch(matSolidE);
+matGlowC=new THREE.MeshBasicMaterial({map:texC,vertexColors:true,alphaTest:.5,side:THREE.DoubleSide}); matGlowE=new THREE.MeshBasicMaterial({map:texE,vertexColors:true,alphaTest:.5,side:THREE.DoubleSide});
 const matItemC=new THREE.MeshBasicMaterial({map:texC,alphaTest:.5}), matItemE=new THREE.MeshBasicMaterial({map:texE,alphaTest:.5});
 let variantT=0, variantSeed=1;
 function tickVariants(dt){
@@ -1265,7 +1268,7 @@ function buildMesh(cx,cz){
   const ox=cx*CS, oz=cz*CS;
   const colCor=corActive()&&ox<NETHER_MIN?new Uint8Array(CS*CS):null; if(colCor){let any=0;for(let z=0;z<CS;z++)for(let x=0;x<CS;x++)if(corZone(ox+x,oz+z)){colCor[x+z*CS]=1;any=1;}}
   const dmI=new Map(); if(demonBlocks.size)for(const lk of demonBlocks){const q=lk.split(','),qx=+q[0],qz=+q[2];if(qx>=ox&&qx<ox+CS&&qz>=oz&&qz<oz+CS)dmI.set((qx-ox)+(qz-oz)*CS+(+q[1])*CS*CS,meta['d'+lk]||1);}
-  const S={p:[],t:[],c:[],i:[],b:[]}, W={p:[],t:[],c:[],i:[],b:[]}, G={p:[],t:[],c:[],i:[],b:[]}, SC={p:[],t:[],c:[],i:[],b:[]}, SE={p:[],t:[],c:[],i:[],b:[]};
+  const S={p:[],t:[],c:[],i:[],b:[]}, W={p:[],t:[],c:[],i:[],b:[]}, G={p:[],t:[],c:[],i:[],b:[]}, SC={p:[],t:[],c:[],i:[],b:[]}, SE={p:[],t:[],c:[],i:[],b:[]}, GC={p:[],t:[],c:[],i:[],b:[]}, GE={p:[],t:[],c:[],i:[],b:[]};
   const bl=(x,y,z)=>{if(y<0)return STONE;if(y>=H)return AIR;if(x>=0&&x<CS&&z>=0&&z<CS)return d[x+z*CS+y*CS*CS];return getBlock(ox+x,y,oz+z);};
   const op=(x,y,z)=>opaque(bl(x,y,z))?1:0;
   const LR=10, ls=[];
@@ -1316,7 +1319,8 @@ function buildMesh(cx,cz){
       continue;
     }
     if(def.plant){
-      const M=def.glow?G:S, tile=def.t[0], tc=tile%AW, tr=tile/AW|0, a=.15, b=.85, s=.95, pl=lightAt(ox+x+.5,y+.5,oz+z+.5);
+      const pt=dmI.size>0?(dmI.get(x+z*CS+y*CS*CS)||0):0;
+      const M=def.glow?(pt===1?GC:pt===2?GE:G):(pt===1?SC:pt===2?SE:S), tile=def.t[0], tc=tile%AW, tr=tile/AW|0, a=.15, b=.85, s=.95, pl=lightAt(ox+x+.5,y+.5,oz+z+.5);
       for(const [p0,p1] of [[[a,a],[b,b]],[[b,a],[a,b]]]){
         for(const back of [false,true]){
           const base=M.p.length/3;
@@ -1336,7 +1340,7 @@ function buildMesh(cx,cz){
       let tile=def.t[f.kind];
       if(def.facing){const fc=meta[(ox+x)+','+y+','+(oz+z)]|0;tile=fi===fc?def.front:fi===(fc^1)?def.back:def.side;}
       const tc=tile%AW, tr=tile/AW|0;
-      const M=id===WATER?W:glow?G:isDmB===1?SC:isDmB===2?SE:S, base=M.p.length/3;
+      const M=id===WATER?W:glow?(isDmB===1?GC:isDmB===2?GE:G):isDmB===1?SC:isDmB===2?SE:S, base=M.p.length/3;
       const waterTop=id===WATER&&bl(x,y+1,z)!==WATER;
       const fl=glow?0:lightAt(ox+x+dx+.5,y+dy+.5,oz+z+dz+.5);
       for(let ci=0;ci<4;ci++){
@@ -1356,7 +1360,7 @@ function buildMesh(cx,cz){
           const a=(s1&&s2)?0:3-(s1+s2+cr);
           ao[ci]=a; s*=AOV[a];
         }
-        if(isDmB&&glow)M.c.push(s,s*.42,s*.5); else M.c.push(s,s,s); M.b.push(fl);
+        M.c.push(s,s,s); M.b.push(fl);
       }
       if(id!==WATER&&!glow&&ao[0]+ao[3]>ao[1]+ao[2]) M.i.push(base,base+1,base+3,base,base+3,base+2);
       else M.i.push(base,base+1,base+2,base+2,base+1,base+3);
@@ -1373,11 +1377,11 @@ function buildMesh(cx,cz){
     g.setIndex(A.i);
     const m=new THREE.Mesh(g,mat); m.position.set(ox,0,oz); m.matrixAutoUpdate=false; m.updateMatrix(); scene.add(m); return m;
   };
-  meshes.set(k,{s:mk(S,matSolid),w:mk(W,matWater),g:mk(G,matGlow),sc:mk(SC,matSolidC),se:mk(SE,matSolidE)});
+  meshes.set(k,{s:mk(S,matSolid),w:mk(W,matWater),g:mk(G,matGlow),sc:mk(SC,matSolidC),se:mk(SE,matSolidE),gc:mk(GC,matGlowC),ge:mk(GE,matGlowE)});
 }
 function disposeMesh(k){
   const m=meshes.get(k); if(!m)return;
-  for(const x of [m.s,m.w,m.g,m.sc,m.se])if(x){scene.remove(x);x.geometry.dispose();}
+  for(const x of [m.s,m.w,m.g,m.sc,m.se,m.gc,m.ge])if(x){scene.remove(x);x.geometry.dispose();}
   meshes.delete(k);
 }
 
@@ -3135,7 +3139,7 @@ function updateDemonisers(dt){
     const b=getBlock(q[0],q[1],q[2]); if(b!==DEMONISER&&b!==ENDERISER)continue;
     const kind=b===ENDERISER?2:1;
     if(!demReady(dm,kind)){if(dm.p&&!(dm.s[0]&&tierOf(dm.s[0])>0))dm.p=0;continue;}
-    dm.p+=dt/(kind===2?8:6);
+    dm.p+=dt/(kind===2?8:6)*(isAdmin()?1.7:1);
     if(pf)glowPart(kind===2?[190,110,255]:[255,30+Math.random()*80|0,80],q[0]+.5+(Math.random()-.5)*.8,q[1]+1.05,q[2]+.5+(Math.random()-.5)*.8,0,1.6,0,.7,-.4);
     if(dm.p>=1){
       const it=dm.s[0], tl=DEF[it.id].tool, en=enchOf(it);
@@ -3526,6 +3530,7 @@ function updateSky(dt){
   renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
   sun.visible=moon.visible=clouds.visible=!nether;
   const b=Math.max(fx.night>0?.85:0,(!nether&&clientModOn('nightowl'))?.55:0,endR?.5:demonR?.34:nether?.42:0.2+0.8*light); curBright=b;
+  updateHandLights();
   if(matSolid.userData.u)matSolid.userData.u.value=b; if(matSolidC.userData.u)matSolidC.userData.u.value=Math.max(b,.45); if(matSolidE.userData.u)matSolidE.userData.u.value=Math.max(b,.45); if(matWater.userData.u)matWater.userData.u.value=b;
   matItem.color.setScalar(b); matItemC.color.setScalar(Math.max(b,.6)); matItemE.color.setScalar(Math.max(b,.6));
   clouds.material.color.setScalar(0.35+0.65*light);
@@ -3635,7 +3640,7 @@ function updateViewModel(dt){
   const s=swingT>0?Math.sin((1-swingT)*Math.PI):0;
   vm.position.set(.36+Math.cos(bobPh)*.012,-.36-Math.abs(Math.sin(bobPh))*.018-s*.08,-.55+s*.06);
   vm.rotation.set(-s*.9,s*.25,s*.15);
-  const b=Math.max(.35,curBright);
+  const b=Math.max(.35,curBright,heldGlow(inv[sel]?inv[sel].id:0)*.95);
   if(skinMat.userData.base)skinMat.color.copy(skinMat.userData.base).multiplyScalar(b);
   if(sleeveMat.userData.base)sleeveMat.color.copy(sleeveMat.userData.base).multiplyScalar(b);
   const hm=heldPix?matPix:matHeld;
@@ -3647,6 +3652,29 @@ function updateViewModel(dt){
   if(hm!==matHeld)matHeld.color.setScalar(b);
 }
 
+// ---------- held light sources light up the world around whoever holds them ----------
+const heldGlow=id=>id>0&&DEF[id]&&DEF[id].glow&&id!==PORTAL&&id!==DEMON_PORTAL&&id!==END_PORTAL&&id!==LAVA?(id===RS_TORCH?.5:id===TORCH?.9:1):0;
+function updateHandLights(){
+  const L=HAND_LIGHTS.value; let n=0;
+  const put=(x,y,z,w)=>{if(n<4&&w>0)L[n++].set(x,y,z,w);};
+  if(!dead)put(P.x,P.y+1.3,P.z,heldGlow(inv[sel]?inv[sel].id:0));
+  if(MP.connected)for(const p of MP.peers.values())if(p.seen&&Math.hypot(p.x-P.x,p.z-P.z)<40)put(p.x,p.y+1.3,p.z,heldGlow(p.av.heldId));
+  for(;n<4;n++)L[n].set(0,0,0,0);
+}
+// corrupted / ender glowing blocks give off sparks
+let dmFxT=0;
+function demonBlockFx(dt){
+  dmFxT-=dt; if(dmFxT>0||!demonBlocks.size)return; dmFxT=.08;
+  let tries=0;
+  for(const k of demonBlocks){
+    if(++tries>400)break;
+    const q=k.split(','), x=+q[0], y=+q[1], z=+q[2];
+    if(Math.abs(x-P.x)>16||Math.abs(z-P.z)>16||Math.abs(y-P.y)>12)continue;
+    const id=getBlock(x,y,z); if(!DEF[id]||!DEF[id].glow||Math.random()>.35)continue;
+    const t=meta['d'+k]||1, c=t===2?(Math.random()<.5?[255,210,60]:[255,250,190]):(Math.random()<.5?[255,30,80]:[150,40,255]);
+    glowPart(c,x+.3+Math.random()*.4,y+(DEF[id].plant?.75:1.02),z+.3+Math.random()*.4,(Math.random()-.5)*.4,.9,(Math.random()-.5)*.4,.6,-.6);
+  }
+}
 // ---------- third person: your own model, P (or the View button) toggles ----------
 let viewMode=0, selfAv=null, selfPhase=0;
 function toggleView(){viewMode=viewMode?0:1;toast(viewMode?'Third person':'First person');}
@@ -3700,7 +3728,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
   if(viewMode===1&&!dead){
