@@ -2008,7 +2008,17 @@ function tryAttack(){
 }
 // crits: 0 none, 1 normal (1.5×), 2 perfect (18 half-hearts). Admins can make every crit perfect.
 let perfectAll=(()=>{try{return localStorage.getItem('thing.perfectcrit')!=='false';}catch(e){return true;}})();
-function isAdmin(){try{return localStorage.getItem('thing.admin')==='true';}catch(e){return false;}}
+// admin: the thing.admin flag, or any recently used name that looks like nugget + 67 (nugget67, 67nuggets, nugget676767…)
+const RECENT_KEY='stackwild:recentNames';
+function recentNames(){try{const a=JSON.parse(localStorage.getItem(RECENT_KEY)||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'):[];}catch(e){return [];}}
+function rememberName(n){n=String(n||'').trim();if(!n)return;try{const a=recentNames().filter(x=>x.toLowerCase()!==n.toLowerCase());a.unshift(n);localStorage.setItem(RECENT_KEY,JSON.stringify(a.slice(0,10)));}catch(e){}adminCache=null;}
+const adminName=n=>{const t=String(n).toLowerCase();return /nugget/.test(t)&&/67/.test(t);};
+let adminCache=null;
+function isAdmin(){
+  try{if(localStorage.getItem('thing.admin')==='true')return true;}catch(e){}
+  if(adminCache===null)adminCache=recentNames().some(adminName);
+  return adminCache;
+}
 function rollCrit(){if(!(!onGround&&V.y<-.5))return 0;return (isAdmin()&&perfectAll)||Math.random()<.1?2:1;}
 function critFx(cr,x,y,z){
   if(cr===2){burstC([255,215,60],x-.5,y,z-.5,26);burstC([255,255,255],x-.5,y,z-.5,10);toast('PERFECT CRIT!');}
@@ -3251,6 +3261,8 @@ const MP={client:null,connected:false,isHost:false,gotWorld:false,waitT:0,room:'
 const mpName=document.getElementById('mpName'), mpRoom=document.getElementById('mpRoom'), mpJoin=document.getElementById('mpJoin'), mpStatus=document.getElementById('mpStatus');
 let mpPrefs={}; try{mpPrefs=JSON.parse(localStorage.getItem('stackwild:mp')||'{}')||{};}catch(e){}
 mpName.value=mpPrefs.name||('Player'+Math.floor(100+Math.random()*900)); mpRoom.value=mpPrefs.room||'';
+if(mpPrefs.name)rememberName(mpPrefs.name);
+mpName.addEventListener('change',()=>{const n=mpName.value.trim().slice(0,16);if(n){rememberName(n);mpPrefs.name=n;try{localStorage.setItem('stackwild:mp',JSON.stringify(mpPrefs));}catch(e){}if(isAdmin())toast('Admin unlocked');}});
 const HEX=/^#[0-9a-f]{6}$/i;
 const myChar=(Array.isArray(mpPrefs.char)&&mpPrefs.char.length===4&&mpPrefs.char.every(c=>HEX.test(c)))?mpPrefs.char:['#3f6e94','#2c3442','#d9a77c','#3a2a1e'];
 function applyMyChar(){sleeveMat.userData.base=new THREE.Color(myChar[0]);skinMat.userData.base=new THREE.Color(myChar[2]);}
@@ -3290,7 +3302,7 @@ function loadWorld(key,forcedSeed,opts){
   drawAll(); loading=true; startBtn.disabled=true; startBtn.textContent='Building terrain…';
   paused=true; menu.hidden=false;
 }
-function playerName(){const n=mpName.value.trim().slice(0,16)||'Player';mpPrefs.name=n;try{localStorage.setItem('stackwild:mp',JSON.stringify(mpPrefs));}catch(e){}return n;}
+function playerName(){const n=mpName.value.trim().slice(0,16)||'Player';rememberName(n);mpPrefs.name=n;try{localStorage.setItem('stackwild:mp',JSON.stringify(mpPrefs));}catch(e){}return n;}
 function mpOpen(code,onReady){
   if(amBanned()&&!isAdmin()){mpSetStatus('You’re banned from multiplayer servers.');return;}
   if(!window.Paho||!window.Paho.Client){mpSetStatus('The multiplayer library didn’t load. Check your connection and reload.');return;}
