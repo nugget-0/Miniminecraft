@@ -130,8 +130,10 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .rec .tag{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-left:6px}
 
 #touch{position:fixed;inset:auto 0 calc(100px + env(safe-area-inset-bottom,0px)) 0;display:flex;justify-content:space-between;padding-inline:16px;pointer-events:none}
-#touch .pad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,52px);gap:6px;pointer-events:auto}
-#touch .acts{display:grid;grid-template-columns:repeat(2,64px);gap:8px;pointer-events:auto}
+#touch .joy{width:136px;height:136px;border-radius:50%;background:var(--panel);border:1px solid var(--panel-edge);position:relative;pointer-events:auto;touch-action:none;align-self:flex-end}
+#touch .knob{position:absolute;left:50%;top:50%;width:58px;height:58px;margin:-29px 0 0 -29px;border-radius:50%;background:rgba(242,193,78,.3);border:2px solid rgba(242,193,78,.85);pointer-events:none}
+#touch .joy.on .knob{background:rgba(242,193,78,.5)}
+#touch .acts{display:grid;grid-template-columns:repeat(2,64px);grid-auto-rows:46px;gap:8px;pointer-events:auto}
 #touch button{background:var(--panel);border:1px solid var(--panel-edge);color:var(--text);border-radius:6px;font-family:var(--font-display);font-size:15px;touch-action:none}
 #touch button:active{background:rgba(242,193,78,.3)}
 
@@ -157,13 +159,11 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 <canvas id="vitals" width="218" height="20"></canvas>
 <div id="hotbar"></div>
 <div id="touch" hidden>
-  <div class="pad">
-    <span></span><button data-key="KeyW">▲</button><span></span>
-    <button data-key="KeyA">◀</button><button data-key="KeyS">▼</button><button data-key="KeyD">▶</button>
-  </div>
+  <div class="joy" id="joy" aria-label="Move joystick"><div class="knob" id="joyKnob"></div></div>
   <div class="acts">
+    <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
-    <button data-key="Space">Jump</button><button data-act="bag">Bag</button>
+    <button data-key="ShiftLeft">Sneak</button><button data-key="Space">Jump</button>
   </div>
 </div>
 
@@ -1254,14 +1254,15 @@ function entAxis(e,ax,d){
 const keys={};
 function physics(dt){
   const shift=keys.ShiftLeft||keys.ShiftRight;
-  const fw=(keys.KeyW?1:0)-(keys.KeyS?1:0), st=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+  let fw=(keys.KeyW?1:0)-(keys.KeyS?1:0), st=(keys.KeyD?1:0)-(keys.KeyA?1:0);
+  if(joy.on&&!fw&&!st){fw=-joy.y;st=joy.x;}
   const s=Math.sin(yaw),c=Math.cos(yaw);
-  let wx=-s*fw+c*st, wz=-c*fw-s*st; const L=Math.hypot(wx,wz); if(L>0){wx/=L;wz/=L;}
+  let wx=-s*fw+c*st, wz=-c*fw-s*st; const L=Math.hypot(wx,wz); if(L>1||(L>0&&!joy.on)){wx/=L;wz/=L;}
   const fx=Math.floor(P.x),fz=Math.floor(P.z);
   const fb=getBlock(fx,Math.floor(P.y+.1),fz), wb=getBlock(fx,Math.floor(P.y+.9),fz);
   const feetW=fb===WATER||fb===LAVA, waistW=wb===WATER||wb===LAVA;
   const inWater=feetW||waistW, inLava=fb===LAVA||wb===LAVA;
-  const sprint=shift&&food>6&&fw>0;
+  const sprint=(shift||(joy.on&&Math.hypot(joy.x,joy.y)>.96))&&food>6&&fw>0;
   let speed=sprint?6.2:4.4; if(inWater)speed*=inLava?.4:.6;
   if(inLava&&!flying){lavaT+=dt;if(lavaT>=.5){lavaT=0;if(fireResT<=0)hurt(4);burstC([255,150,40],P.x-.5,P.y+.4,P.z-.5,5);}}else lavaT=.45;
   if(fireResT>0)fireResT-=dt;
@@ -2848,6 +2849,7 @@ touchEl.querySelectorAll('button').forEach(b=>{
   const k=b.dataset.key, a=b.dataset.act;
   b.addEventListener('pointerdown',e=>{
     e.preventDefault(); if(paused||dead)return;
+    if(a==='chat'){chatOpen?closeChat():openChat();return;}
     if(a==='bag'){bagOpen?closeBag():openBag(0);return;}
     if(bagOpen)return;
     if(k)keys[k]=true;
@@ -2857,6 +2859,18 @@ touchEl.querySelectorAll('button').forEach(b=>{
   const up=()=>{if(k)keys[k]=false;if(a==='break')touchDig=false;};
   b.addEventListener('pointerup',up);b.addEventListener('pointercancel',up);b.addEventListener('pointerleave',up);
 });
+
+// joystick: drag anywhere in the circle; push to the edge to sprint
+const joy={on:false,x:0,y:0,id:null};
+{
+  const jb=document.getElementById('joy'), kn=document.getElementById('joyKnob'), RAD=50;
+  const setJ=e=>{const r=jb.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const L=Math.hypot(dx,dy);if(L>RAD){dx*=RAD/L;dy*=RAD/L;}
+    const m=Math.hypot(dx,dy)/RAD; joy.x=m<.15?0:dx/RAD; joy.y=m<.15?0:dy/RAD; kn.style.transform='translate('+dx+'px,'+dy+'px)';};
+  const end=e=>{if(e.pointerId!==joy.id)return;joy.on=false;joy.id=null;joy.x=joy.y=0;kn.style.transform='';jb.classList.remove('on');};
+  jb.addEventListener('pointerdown',e=>{e.preventDefault();if(paused||dead)return;joy.on=true;joy.id=e.pointerId;jb.classList.add('on');try{jb.setPointerCapture(e.pointerId);}catch(_){}setJ(e);});
+  jb.addEventListener('pointermove',e=>{if(joy.on&&e.pointerId===joy.id)setJ(e);});
+  jb.addEventListener('pointerup',end); jb.addEventListener('pointercancel',end);
+}
 
 // ---------- streaming ----------
 let loading=true;
