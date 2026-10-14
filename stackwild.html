@@ -3712,6 +3712,27 @@ if(current.key!==activeKey)loadWorld(current.key,current.seed);
 if(current.type==='multi')mpHost(current); else mpSetStatus('Playing “'+current.name+'”. Private, only on this device.');
 renderServers();
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveNow();});
+// ---------- auto update: when the hosted file changes, save and reload ----------
+(function autoUpdate(){
+  if(!/^https?:$/.test(location.protocol))return;
+  let base=null, reloading=false;
+  async function check(){
+    if(reloading||document.hidden)return;
+    try{
+      const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'}); if(!r.ok)return;
+      const h=hashStr(await r.text());
+      if(base===null){base=h;return;}
+      if(h!==base){
+        reloading=true; saveNow();
+        if(MP.connected)chatSys('Stackwild updated. Reloading…');
+        toast('Update found! Reloading in 3s…');
+        setTimeout(()=>{saveNow();location.reload();},3000);
+      }
+    }catch(e){}
+  }
+  check(); setInterval(check,45000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)check();});
+})();
 requestAnimationFrame(frame);
 })();
 </script>
