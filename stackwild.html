@@ -163,7 +163,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
   <div class="acts">
     <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
-    <button data-key="ShiftLeft">Sneak</button><button data-key="Space">Jump</button>
+    <button data-key="KeyC">Crouch</button><button data-key="Space">Jump</button>
   </div>
 </div>
 
@@ -209,11 +209,11 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Move</dd>
       <dt><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> or drag</dt><dd>Look around</dd>
       <dt><kbd>Space</kbd></dt><dd>Jump · swim up (swim into a ledge to climb out)</dd>
-      <dt><kbd>Shift</kbd></dt><dd>Crouch: walk slowly and never fall off edges (flies down in creative)</dd>
-      <dt>Double-tap <kbd>W</kbd></dt><dd>Sprint (needs food)</dd>
+      <dt><kbd>Shift</kbd> or double-tap <kbd>W</kbd></dt><dd>Sprint (needs food)</dd>
+      <dt><kbd>C</kbd></dt><dd>Crouch: walk slowly and never fall off edges (flies down in creative)</dd>
       <dt>Hold <kbd>F</kbd></dt><dd>Mine a block · press to hit a mob (hit while falling for a critical). Clicking or dragging the screen only looks around.</dd>
       <dt><kbd>E</kbd> / right-click</dt><dd>Place block · eat · open crafting table, furnace or chest · sleep in a bed</dd>
-      <dt><kbd>Q</kbd> / <kbd>C</kbd></dt><dd>Backpack and crafting</dd>
+      <dt><kbd>Q</kbd></dt><dd>Backpack and crafting</dd>
       <dt><kbd>X</kbd></dt><dd>Throw one of the selected item</dd>
       <dt><kbd>T</kbd> / <kbd>/</kbd></dt><dd>Chat · commands (type /help)</dd>
       <dt>Double-tap <kbd>Space</kbd> / <kbd>V</kbd></dt><dd>Fly on or off (Creative)</dd>
@@ -1254,7 +1254,7 @@ function entAxis(e,ax,d){
 }
 const keys={};
 function physics(dt){
-  const shift=keys.ShiftLeft||keys.ShiftRight;
+  const shift=keys.ShiftLeft||keys.ShiftRight, crouchKey=!!keys.KeyC;
   let fw=(keys.KeyW?1:0)-(keys.KeyS?1:0), st=(keys.KeyD?1:0)-(keys.KeyA?1:0);
   if(joy.on&&!fw&&!st){fw=-joy.y;st=joy.x;}
   const s=Math.sin(yaw),c=Math.cos(yaw);
@@ -1263,8 +1263,8 @@ function physics(dt){
   const fb=getBlock(fx,Math.floor(P.y+.1),fz), wb=getBlock(fx,Math.floor(P.y+.9),fz);
   const feetW=fb===WATER||fb===LAVA, waistW=wb===WATER||wb===LAVA;
   const inWater=feetW||waistW, inLava=fb===LAVA||wb===LAVA;
-  const sneak=shift&&!flying&&!inWater; sneaking=sneak;
-  const sprint=!sneak&&(sprintLatch||(joy.on&&Math.hypot(joy.x,joy.y)>.96))&&food>6&&fw>0;
+  const sneak=crouchKey&&!flying&&!inWater; sneaking=sneak;
+  const sprint=!sneak&&(shift||sprintLatch||(joy.on&&Math.hypot(joy.x,joy.y)>.96))&&food>6&&fw>0;
   let speed=sprint?6.2:4.4; if(inWater)speed*=inLava?.4:.6; if(sneak)speed*=.32;
   if(inLava&&!flying){lavaT+=dt;if(lavaT>=.5){lavaT=0;if(fireResT<=0)hurt(4);burstC([255,150,40],P.x-.5,P.y+.4,P.z-.5,5);}}else lavaT=.45;
   if(fireResT>0)fireResT-=dt;
@@ -1274,7 +1274,7 @@ function physics(dt){
   const k=Math.min(1,dt*(onGround||flying?14:inWater?6:3.5));
   V.x+=(wx*speed-V.x)*k; V.z+=(wz*speed-V.z)*k;
   const wasGround=onGround;
-  if(GM.mode==='creative'&&flying){V.y=((keys.Space?1:0)-(shift?1:0))*9;}
+  if(GM.mode==='creative'&&flying){V.y=((keys.Space?1:0)-(crouchKey?1:0))*9;}
   else if(inWater){
     V.y-=10*dt;
     if(keys.Space){
@@ -2808,7 +2808,7 @@ window.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code))e.preventDefault();
   if(paused){ if((e.code==='Enter'||e.code==='Space')&&!loading&&document.activeElement!==newBtn){e.preventDefault();closeMenu();} return; }
   if(dead){ if(e.code==='Enter'||e.code==='Space'){e.preventDefault();respawnPlayer();} return; }
-  if(bagOpen){ if(['KeyC','Tab','KeyI','Escape','KeyE','KeyQ'].includes(e.code))closeBag(); return; }
+  if(bagOpen){ if(['Tab','KeyI','Escape','KeyE','KeyQ'].includes(e.code))closeBag(); return; }
   keys[e.code]=true;
   if(e.repeat)return;
   switch(e.code){
@@ -2822,7 +2822,7 @@ window.addEventListener('keydown',e=>{
     case 'KeyX':dropOne();break;
     case 'KeyT':e.preventDefault();openChat();break;
     case 'Slash':e.preventDefault();openChat();chatIn.value='/';renderSugg();break;
-    case 'KeyC':case 'Tab':case 'KeyI':openBag(0);break;
+    case 'Tab':case 'KeyI':openBag(0);break;
     case 'KeyH':case 'Escape':openMenu();break;
     default: if(/^Digit[1-9]$/.test(e.code))select(+e.code[5]-1);
   }
