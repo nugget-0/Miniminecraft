@@ -210,6 +210,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
   </div>
 </div>
 
+<div id="modsPanel" class="overlay" hidden style="z-index:30"><div class="card"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Mods</h2><button class="btn ghost small" id="modsClose">Close</button></div><p class="sub" style="margin-top:6px">Install a mod, then turn it on for worlds you host (server mods) or just for you (client mods). Server mods affect everyone who joins.</p><div id="modsList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px"></div></div></div>
 <div id="menu" class="overlay">
   <div class="card">
     <h1>Stackwild</h1>
@@ -231,7 +232,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <dt><kbd>H</kbd> / <kbd>Esc</kbd></dt><dd>Open this menu</dd>
     </dl>
     <div class="mp">
-      <p class="label">Worlds &amp; servers</p>
+      <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><p class="label" style="margin:0">Worlds &amp; servers</p><button class="btn ghost small" id="modsBtn">Mods</button></div>
       <div id="srvList" class="srv-list"></div>
       <div class="row">
         <input id="srvName" maxlength="24" placeholder="New world name" aria-label="New world name">
@@ -423,6 +424,8 @@ B(DRAGON_EGG,'Dragon Egg',[215,215,215]); B(ENDERISER,'Enderiser',[219,210,220],
 I(SEEDS,'Seeds',183,{places:WHEAT_0}); I(WHEAT,'Wheat',184); I(BREAD,'Bread',185,{food:5}); I(HOE,'Hoe',186,{tool:{kind:'hoe',tier:1,max:250,dmg:1}});
 I(DOOR_ITEM,'Door',195,{places:DOOR_LO}); I(GLASS_BOTTLE,'Glass Bottle',199); I(WATER_BOTTLE,'Water Bottle',200);
 POTIONS.forEach(([k,n],i)=>I(POT_IDS[i],n,201+i,{potion:k}));
+const CORRUPT_SWORD=199;
+B(CORRUPT_SWORD,'Corrupted Sword Shrine',[221,221,221],{transparent:true,plant:true,glow:true,drop:[]});
 I(ENDER_PEARL,'Ender Pearl',216); I(ENDER_EYE,'Eye of Ender',217); I(DRAGON_SCALE,'Dragon Scale',218);
 const NETHER_END_MIN=250000, END_X=300000;
 // item extras ride in the durability number: tier*1e6 + enchant*1e4 + durability (survives drops, chests, saves, sync)
@@ -740,6 +743,7 @@ const atlas=document.createElement('canvas'); atlas.width=AW*16; atlas.height=AH
     tile(217,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);if(d>=5.5)return T;if(Math.abs(x-7.5)<1&&Math.abs(y-7.5)<3)return[10,10,10];return d<3.5?[120,230,140]:sh([40,140,110],.8+rnd()*.3);});
     tile(218,(x,y)=>{const d=Math.abs(x-7.5)*1.3+Math.abs(y-8);if(d>=7)return T;return(x+y)%4===0?[200,140,255]:sh([70,20,110],.8+rnd()*.35);});
     tile(219,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);if(d<3)return d<1.5?[240,200,255]:[160,60,240];if(x===0||y===0||x===15||y===15)return[10,6,18];if(d<4.2)return[30,12,46];return sh(esC,.8+rnd()*.2);});
+    tile(221,(x,y)=>{if(y<=4&&x>=6&&x<=9)return y===0?[255,40,90]:sh([60,10,30],.8+rnd()*.4);if(y===5&&x>=3&&x<=12)return x===3||x===12?[255,40,90]:sh([110,10,40],.9);if(y>=6&&y<=15&&x>=6&&x<=9){if(x===6||x===9)return sh([40,0,30],.9);return(y+x)%3===0?[255,60,120]:sh([170,10,40],.7+rnd()*.5);}if(y>=7&&rnd()<.04&&(x===5||x===10))return[150,40,255];return T;});
     tile(220,(x,y)=>{if(y<3)return sh([70,20,110],.85+rnd()*.2);if(y>12)return sh(esC,.7+rnd()*.2);if((x+y)%5===0)return[200,120,255];return sh([30,14,46],.85+rnd()*.25);});
   }
   tile(152,(x,y)=>(y>=5&&y<=10)?((x%4===1)?[255,240,120]:[30,30,34]):sh([140,20,30],(x%4===0?.7:1)*(.9+rnd()*.12)));
@@ -1257,6 +1261,7 @@ const AOV=[.48,.66,.83,1];
 function buildMesh(cx,cz){
   const k=ck(cx,cz), d=chunks.get(k); if(!d)return;
   const ox=cx*CS, oz=cz*CS;
+  const colCor=corActive()&&ox<NETHER_MIN?new Uint8Array(CS*CS):null; if(colCor){let any=0;for(let z=0;z<CS;z++)for(let x=0;x<CS;x++)if(corZone(ox+x,oz+z)){colCor[x+z*CS]=1;any=1;}}
   const dmI=new Map(); if(demonBlocks.size)for(const lk of demonBlocks){const q=lk.split(','),qx=+q[0],qz=+q[2];if(qx>=ox&&qx<ox+CS&&qz>=oz&&qz<oz+CS)dmI.set((qx-ox)+(qz-oz)*CS+(+q[1])*CS*CS,meta['d'+lk]||1);}
   const S={p:[],t:[],c:[],i:[],b:[]}, W={p:[],t:[],c:[],i:[],b:[]}, G={p:[],t:[],c:[],i:[],b:[]}, SC={p:[],t:[],c:[],i:[],b:[]}, SE={p:[],t:[],c:[],i:[],b:[]};
   const bl=(x,y,z)=>{if(y<0)return STONE;if(y>=H)return AIR;if(x>=0&&x<CS&&z>=0&&z<CS)return d[x+z*CS+y*CS*CS];return getBlock(ox+x,y,oz+z);};
@@ -1291,7 +1296,7 @@ function buildMesh(cx,cz){
       continue;
     }
     if(def.boxFn){
-      const fm=meta[(ox+x)+','+y+','+(oz+z)]|0, isDmS=dmI.size>0?(dmI.get(x+z*CS+y*CS*CS)||0):0;
+      const fm=meta[(ox+x)+','+y+','+(oz+z)]|0, isDmS=(dmI.size>0?(dmI.get(x+z*CS+y*CS*CS)||0):0)||(colCor&&colCor[x+z*CS]?1:0);
       for(const b of def.boxFn(fm)){
         for(let fi=0;fi<6;fi++){
           const f=FACES[fi], a=f.dir[0]?0:f.dir[1]?1:2, tile=def.t[f.kind], tc=tile%AW, tr=tile/AW|0, SB=isDmS===1?SC:isDmS===2?SE:S, base=SB.p.length/3;
@@ -1320,7 +1325,7 @@ function buildMesh(cx,cz){
       }
       continue;
     }
-    const glow=!!def.glow, isDmB=dmI.size>0?(dmI.get(x+z*CS+y*CS*CS)||0):0;
+    const glow=!!def.glow, isDmB=(dmI.size>0?(dmI.get(x+z*CS+y*CS*CS)||0):0)||(colCor&&colCor[x+z*CS]&&id!==WATER&&id!==ICE?1:0);
     for(let fi=0;fi<6;fi++){
       const f=FACES[fi], dx=f.dir[0],dy=f.dir[1],dz=f.dir[2];
       const nid=bl(x+dx,y+dy,z+dz);
@@ -1719,7 +1724,7 @@ hset(.05,[MEGA_TNT,CARPET]); hset(1.2,[BOOKSHELF]); hset(1.4,[MOSSY_COBBLE]); hs
 Object.assign(NEEDPICK,{[MOSSY_COBBLE]:1,[SMOOTH_STONE]:1});
 TOOLFOR[MOSSY_COBBLE]=TOOLFOR[SMOOTH_STONE]='pick'; TOOLFOR[BOOKSHELF]='axe';
 hset(6,[NETHERITE_ORE]); hset(8,[NETHERITE_BLOCK]); hset(.8,[DEMONROCK]); hset(.5,[ASH_SOIL]); hset(3,[DEMON_BRICKS]); hset(1,[DEMON_LAMP]);
-hset(5,[DEMON_ORE]); hset(40,[DEMON_SPAWNER]); hset(3,[DEMONISER]); hset(.05,[DEMON_PORTAL]);
+hset(5,[DEMON_ORE]); hset(1e9,[CORRUPT_SWORD]); hset(40,[DEMON_SPAWNER]); hset(3,[DEMONISER]); hset(.05,[DEMON_PORTAL]);
 Object.assign(NEEDPICK,{[NETHERITE_ORE]:4,[NETHERITE_BLOCK]:4,[DEMONROCK]:1,[DEMON_BRICKS]:4,[DEMON_ORE]:5,[DEMON_SPAWNER]:5,[DEMONISER]:1});
 [NETHERITE_ORE,NETHERITE_BLOCK,DEMONROCK,DEMON_BRICKS,DEMON_LAMP,DEMON_ORE,DEMON_SPAWNER,DEMONISER].forEach(i=>TOOLFOR[i]='pick'); TOOLFOR[ASH_SOIL]='shovel';
 const rbHeld=()=>{const it=inv[sel];return !!(it&&DEF[it.id].rainbow&&isAdmin());};
@@ -1767,6 +1772,7 @@ function breakAt(t){
   if(id===OBSIDIAN||id===PORTAL||id===CINDER_BRICKS||id===DEMON_PORTAL)breakPortalNear(t.x,t.y,t.z);
   if(DEF[id].door===1&&DEF[getBlock(t.x,t.y+1,t.z)].door===2)setBlock(t.x,t.y+1,t.z,AIR);
   if(DEF[id].door===2&&DEF[getBlock(t.x,t.y-1,t.z)].door===1){setBlock(t.x,t.y-1,t.z,AIR);if(GM.mode!=='creative')spawnDrop(DOOR_ITEM,t.x+.5,t.y-.5,t.z+.5);}
+  if(id===CORRUPT_SWORD&&meta['#cor']&&(!MP.connected||MP.isHost)){meta['#cor'].pulled=1;corBroadcast();}
   if(id===END_CRYSTAL){explode(t.x+.5,t.y+.5,t.z+.5,2.5);toast('End Crystal destroyed!');}
   if(id===PISTON_ON){const d=FACES[meta[t.x+','+t.y+','+t.z]|0].dir;if(getBlock(t.x+d[0],t.y+d[1],t.z+d[2])===PISTON_HEAD)setBlock(t.x+d[0],t.y+d[1],t.z+d[2],AIR);}
   if(id===PISTON_HEAD)for(let f=0;f<6;f++){const d=FACES[f].dir,bx=t.x-d[0],by=t.y-d[1],bz=t.z-d[2];if(getBlock(bx,by,bz)===PISTON_ON&&(meta[bx+','+by+','+bz]|0)===f)setBlock(bx,by,bz,PISTON);}
@@ -1817,6 +1823,7 @@ function doUse(){
     const id=target.id;
     if(id===TABLE||id===FURNACE||id===CHEST||id===DEMONISER||id===ENDERISER||id===ENCHANT_TABLE||id===BREWING_STAND){swing();openBag(id,target);return;}
     if(DEF[id].door){toggleDoor(target);return;}
+    if(id===CORRUPT_SWORD){corPull();return;}
     const hit=inv[sel]?inv[sel].id:0;
     if(hit===HOE&&[GRASS,DIRT,DRY_GRASS,SNOW_GRASS].includes(id)&&getBlock(target.x,target.y+1,target.z)===AIR){swing();setBlock(target.x,target.y,target.z,FARMLAND);useTool();if(id!==DIRT&&Math.random()<.12)spawnDrop(SEEDS,target.x+.5,target.y+1.2,target.z+.5);return;}
     if(id===END_FRAME&&(hit===ENDER_EYE||hit===IGNITER)){activateEndPortal(target);return;}
@@ -2308,7 +2315,8 @@ function trySpawn(){
       const w=Math.random()<.35, dr=isDemonX(x);
       spawnMob(w?(dr?'imp':'wisp'):(dr?'demon':'cinder'),x+.5,y+(w?1.5:0),z+.5); return;
     }
-    if(curLight>=.35)continue;
+    const inCor=corZone(x,z);
+    if(curLight>=.35&&!inCor)continue;
     let y=H-2; while(y>0&&getBlock(x,y,z)===AIR)y--;
     const top=getBlock(x,y,z);
     if(!solid(top)||top===LEAVES)continue;
@@ -2316,7 +2324,7 @@ function trySpawn(){
     let lit=false;
     for(const k of lights){const q=k.split(',');if(Math.abs(q[0]-x)<10&&Math.abs(q[2]-z)<10&&Math.abs(q[1]-y)<8){lit=true;break;}}
     if(lit)continue;
-    {const r=Math.random();spawnMob(r<.12?'voidling':r<.72?'shambler':'skitter',x+.5,y+1,z+.5);} return;
+    {const r=Math.random();if(inCor){spawnMob(r<.35?'imp':'demon',x+.5,y+(r<.35?2:1),z+.5);return;}spawnMob(r<.12?'voidling':r<.72?'shambler':'skitter',x+.5,y+1,z+.5);} return;
   }
 }
 function mobRay(maxT){
@@ -2699,6 +2707,9 @@ function buildExitPortal(){
 }
 const bossEl=document.getElementById('bossbar'), bossFill=document.getElementById('bossFill');
 function updateBossBar(){
+  const c=meta['#cor'];
+  if(c&&c.rit>0&&Math.hypot(c.x-P.x,c.z-P.z)<40){bossEl.hidden=false;document.getElementById('bossName').textContent='Pulling the Corrupted Sword… stay close!';bossFill.style.width=Math.round((1-c.rit/30)*100)+'%';return;}
+  document.getElementById('bossName').textContent='Ender Dragon';
   const d=mobs.find(m=>m.type==='dragon'&&Math.hypot(m.x-P.x,m.z-P.z)<200);
   bossEl.hidden=!d; if(d)bossFill.style.width=Math.max(0,Math.round((d.remote?(d.hpf||0):d.hp/d.maxhp)*100))+'%';
 }
@@ -2940,6 +2951,126 @@ const chestEls=[], armorEls=[];
   for(let i=0;i<4;i++){const e=makeSlotEl(i,false,i=>{clickArr(armor,i,c=>!!(DEF[c.id].armor&&DEF[c.id].armor.slot===i));paintArmor(i);afterClick();});ag.appendChild(e.s);armorEls.push(e);}
 }
 function paintArmor(i){paintSlot(armorEls[i],armor[i],90+i);}
+// ---------- mods: install from the Mods page, then turn on per hosted world (server) or for yourself (client) ----------
+const MODS=[
+  {id:'corruption',name:'The Corruption',type:'server',desc:'A corrupted sword is stuck in the ground 5 blocks from spawn. Corruption spreads out from it, turning the land red and black, hurting players and spawning demons day and night, until it swallows the whole world. To stop it, hold an Ender item or a Totem of Revival and use the sword, then survive 30 seconds next to it while it fights back. Pull it free and the corruption recedes.'},
+  {id:'nightowl',name:'Night Owl',type:'client',desc:'Nights and caves are brighter, only on your screen. Nobody else is affected.'},
+];
+const lsGet=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v===null?d:v;}catch(e){return d;}};
+let modsInstalled=lsGet('stackwild:mods',[]), clientModsOn=lsGet('stackwild:clientmods',[]);
+const saveMods=()=>{try{localStorage.setItem('stackwild:mods',JSON.stringify(modsInstalled));localStorage.setItem('stackwild:clientmods',JSON.stringify(clientModsOn));}catch(e){}};
+const modInstalled=id=>modsInstalled.includes(id);
+function serverModOn(id){return modInstalled(id)&&!!current&&current.type!=='joined'&&Array.isArray(current.mods)&&current.mods.includes(id);}
+function clientModOn(id){return modInstalled(id)&&clientModsOn.includes(id);}
+const modsPanel=document.getElementById('modsPanel'), modsList=document.getElementById('modsList');
+function renderMods(){
+  modsList.textContent='';
+  for(const m of MODS){
+    const card=document.createElement('div'); card.style.cssText='padding:10px 12px;border-radius:6px;background:rgba(255,255,255,.05)';
+    const head=document.createElement('div'); head.className='row'; head.style.cssText='justify-content:space-between;align-items:center';
+    const t=document.createElement('div'); t.innerHTML='<b></b> <span class="srv-sub"></span>'; t.querySelector('b').textContent=m.name; t.querySelector('span').textContent=m.type==='server'?'· Server mod':'· Client mod';
+    const btn=document.createElement('button'); btn.className='btn ghost small'; const inst=modInstalled(m.id); btn.textContent=inst?'Uninstall':'Install';
+    btn.addEventListener('click',()=>{if(inst){modsInstalled=modsInstalled.filter(x=>x!==m.id);clientModsOn=clientModsOn.filter(x=>x!==m.id);}else modsInstalled.push(m.id);saveMods();renderMods();});
+    head.append(t,btn);
+    const d=document.createElement('p'); d.className='srv-sub'; d.style.margin='6px 0 0'; d.textContent=m.desc;
+    card.append(head,d);
+    if(inst&&m.type==='server'){
+      const lab=document.createElement('p'); lab.className='label'; lab.style.marginTop='8px'; lab.textContent='Use on worlds you host'; card.appendChild(lab);
+      const hosted=servers.filter(s=>s.type!=='joined'&&!s.over);
+      if(!hosted.length){const p=document.createElement('p');p.className='srv-sub';p.textContent='Create a world first.';card.appendChild(p);}
+      for(const s of hosted){
+        const row=document.createElement('label'); row.style.cssText='display:flex;gap:8px;align-items:center;margin:3px 0;cursor:pointer';
+        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=Array.isArray(s.mods)&&s.mods.includes(m.id);
+        cb.addEventListener('change',()=>{s.mods=(s.mods||[]).filter(x=>x!==m.id);if(cb.checked)s.mods.push(m.id);saveReg();});
+        const nm=document.createElement('span'); nm.textContent=s.name+(s===current?' (current)':''); row.append(cb,nm); card.appendChild(row);
+      }
+    }
+    if(inst&&m.type==='client'){
+      const row=document.createElement('label'); row.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;cursor:pointer';
+      const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=clientModsOn.includes(m.id);
+      cb.addEventListener('change',()=>{clientModsOn=clientModsOn.filter(x=>x!==m.id);if(cb.checked)clientModsOn.push(m.id);saveMods();});
+      const nm=document.createElement('span'); nm.textContent='Enabled'; row.append(cb,nm); card.appendChild(row);
+    }
+    modsList.appendChild(card);
+  }
+}
+document.getElementById('modsBtn').addEventListener('click',()=>{renderMods();modsPanel.hidden=false;});
+document.getElementById('modsClose').addEventListener('click',()=>{modsPanel.hidden=true;});
+// ---- The Corruption ----
+const CORSKY=new THREE.Color(.32,.02,.12);
+let corT=0, corHurtT=0, corSpawnT=0, corFxT=0, corLastR=0; const corCnt=new Map();
+function corActive(){const c=meta['#cor'];return !!(c&&c.r>0&&!c.done&&(current&&current.type==='joined'||serverModOn('corruption')));}
+function corZone(x,z){
+  if(!corActive()||x>=NETHER_MIN)return false;
+  const c=meta['#cor'], dx=x-c.x, dz=z-c.z, d=Math.hypot(dx,dz);
+  if(d>c.r*1.25+1)return false;
+  const a=Math.atan2(dz,dx), edge=c.r*(1+.14*Math.sin(a*5+c.x)+.07*Math.sin(a*11+c.z));
+  return d<edge;
+}
+function corDirty(r0,r1){
+  const c=meta['#cor']; if(!c)return;
+  const lo=Math.min(r0,r1)*.78-14, hi=Math.max(r0,r1)*1.25+14;
+  for(const k of meshes.keys()){
+    const [a,b]=k.split(',').map(Number); const d=Math.hypot(a*CS+8-c.x,b*CS+8-c.z); if(d<lo||d>hi)continue;
+    let n=0; for(let z=0;z<CS;z++)for(let x=0;x<CS;x++)if(corZone(a*CS+x,b*CS+z))n++;
+    if(n!==corCnt.get(k)){corCnt.set(k,n);dirty.add(k);}
+  }
+}
+function corBroadcast(){if(MP.connected&&MP.isHost)mpSend({t:'cor',c:meta['#cor']});saveSoon();}
+function corPull(){
+  const c=meta['#cor']; if(!c||c.done)return;
+  if(c.pulled){toast('The corruption is already fading.');return;}
+  if(c.rit>0){toast('Hold on! Stay next to the sword.');return;}
+  const it=inv[sel];
+  if(!it||!(tierOf(it)===2||it.id===TOTEM)){toast('The sword won’t budge. Ender power or a Totem of Revival could break its hold.');return;}
+  if(it.id===TOTEM&&GM.mode!=='creative')takeSel();
+  swing();
+  if(MP.connected&&!MP.isHost){mpSend({t:'corpull'});toast('You grip the sword… it fights back!');return;}
+  corStartRitual();
+}
+function corStartRitual(){const c=meta['#cor'];if(!c||c.pulled||c.rit>0)return;c.rit=30;chatSys('Someone grips the Corrupted Sword! Survive 30 seconds next to it.');corBroadcast();}
+function plantCorruption(){
+  const s=findSpawn(), x=Math.floor(s.x)+5, z=Math.floor(s.z);
+  if(!chunks.has(ck(Math.floor(x/CS),Math.floor(z/CS))))return;
+  let y=H-2; while(y>1&&(getBlock(x,y,z)===AIR||!solid(getBlock(x,y,z))||DEF[getBlock(x,y,z)].plant))y--;
+  setBlock(x,y+1,z,CORRUPT_SWORD);
+  meta['#cor']={x,y:y+1,z,r:3,rit:0,pulled:0,done:0};
+  for(let i=0;i<40;i++)glowPart([255,40,90],x+.5,y+1.5,z+.5,(Math.random()-.5)*6,Math.random()*6,(Math.random()-.5)*6,1,4);
+  chatSys('Something dark has taken root near spawn…');
+  corBroadcast(); corDirty(0,3);
+}
+function modsTick(dt){
+  const c=meta['#cor'], auth=!MP.connected||MP.isHost;
+  if(auth&&serverModOn('corruption')){
+    if(!c){corT-=dt;if(corT<=0){corT=2;plantCorruption();}}
+    else if(!c.done){
+      const r0=c.r;
+      if(c.pulled){c.r=Math.max(0,c.r-dt*4);c.rit=0;
+        if(c.r<=0){c.done=1;if(getBlock(c.x,c.y,c.z)===CORRUPT_SWORD)setBlock(c.x,c.y,c.z,AIR);spawnDrop(SWORD[5],c.x+.5,c.y+.8,c.z+.5,0,5,0,.6,1,packDur(1,0,DEF[SWORD[5]].tool.max));chatSys('The corruption is gone. The Corrupted Sword is yours.');corDirty(r0,0);corBroadcast();}}
+      else{
+        c.r+=dt*(.05+c.r*.0004);
+        if(c.rit>0){
+          c.rit-=dt;
+          let near=Math.hypot(P.x-c.x,P.z-c.z)<9&&!dead;
+          if(MP.connected)for(const p of MP.peers.values())if(p.seen&&Math.hypot(p.x-c.x,p.z-c.z)<9)near=true;
+          if(!near){c.rit=0;chatSys('Nobody held on. The sword sinks back into the ground…');corBroadcast();}
+          else{corSpawnT-=dt;if(corSpawnT<=0){corSpawnT=2.6;if(mobs.filter(m=>m.corGuard).length<8){const a=Math.random()*6.28,x=Math.floor(c.x+Math.cos(a)*6),z=Math.floor(c.z+Math.sin(a)*6);let y=c.y+4;while(y>c.y-6&&!solid(getBlock(x,y-1,z)))y--;const imp=Math.random()<.3;spawnMob(imp?'imp':'demon',x+.5,y+(imp?1.5:0),z+.5);mobs[mobs.length-1].corGuard=1;}}
+            if(Math.random()<dt*20)glowPart(Math.random()<.5?[255,40,90]:[150,40,255],c.x+.5,c.y+.5+Math.random()*4,c.z+.5,(Math.random()-.5)*2,3,(Math.random()-.5)*2,.6,0);}
+          if(c.rit<=0&&near){c.rit=0;c.pulled=1;chatSys('The Corrupted Sword is pulled free! The corruption begins to recede.');for(let i=0;i<60;i++)glowPart([255,220,120],c.x+.5,c.y+1,c.z+.5,(Math.random()-.5)*10,Math.random()*10,(Math.random()-.5)*10,1.2,4);corBroadcast();}
+        }
+      }
+      if(Math.abs(c.r-corLastR)>=1){corDirty(corLastR,c.r);corLastR=c.r;}
+      corT-=dt; if(corT<=0){corT=2;corBroadcast();}
+    }
+  }else if(c&&Math.abs(c.r-corLastR)>=1){corLastR=c.r;}
+  // what everyone feels inside the zone
+  if(corZone(P.x,P.z)&&!dead&&GM.mode!=='creative'){
+    const prot=armor.filter(a=>a&&tierOf(a)===1).length>=2;
+    corHurtT+=dt; if(corHurtT>=3){corHurtT=0;if(!prot)hurt(1);}
+    corFxT-=dt; if(corFxT<=0){corFxT=.15;glowPart(Math.random()<.6?[200,20,60]:[120,30,200],P.x+(Math.random()-.5)*8,P.y+Math.random()*3,P.z+(Math.random()-.5)*8,0,.8,0,1.2,-.3);}
+  }else corHurtT=0;
+  if(c&&!c.done&&getBlock(c.x,c.y,c.z)===CORRUPT_SWORD&&Math.hypot(P.x-c.x,P.z-c.z)<24&&Math.random()<dt*10)glowPart([255,40,90],c.x+.5+(Math.random()-.5)*.6,c.y+.6+Math.random()*.8,c.z+.5+(Math.random()-.5)*.6,0,1.2,0,.7,-.5);
+}
 // ---------- Enchanting table ----------
 const encWrap=document.getElementById('encWrap'), encOpts=document.getElementById('encOpts'), encTxt=document.getElementById('encTxt');
 let encItem=[null], encSeed=Math.floor(Math.random()*1e9), encAt=null;
@@ -3032,7 +3163,7 @@ function nearBlock(id){
 function removeItems(id,n){
   for(let i=INV-1;i>=0&&n>0;i--){const s=inv[i];if(!s||s.id!==id)continue;const t=Math.min(n,s.n);s.n-=t;n-=t;if(s.n<=0)inv[i]=null;drawSlot(i);}
 }
-const CREATIVE_IDS=DEF.map((d,i)=>d?i:0).filter(i=>i&&!DEF[i].admin&&i!==WATER&&![LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O].includes(i));
+const CREATIVE_IDS=DEF.map((d,i)=>d?i:0).filter(i=>i&&!DEF[i].admin&&i!==WATER&&![LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O,CORRUPT_SWORD].includes(i));
 function renderCreative(){
   stationTxt.textContent='Creative: click anything to add a full stack to your inventory. Blocks you place are never used up.';
   recipesEl.textContent='';
@@ -3385,9 +3516,10 @@ function updateSky(dt){
   const endR=isEndX(camera.position.x);
   if(endR)skyCol.setRGB(.07,.03,.1); else if(demonR)skyCol.setRGB(.16,.01,.04); else if(nether)skyCol.setRGB(.22,.06,.05);
   else{skyCol.copy(skyNight).lerp(skyDay,light);skyCol.lerp(skyDusk,Math.max(0,1-Math.abs(sy)/0.28)*0.55);}
+  if(!nether&&corZone(camera.position.x,camera.position.z)){skyCol.lerp(CORSKY,.6);}
   renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
   sun.visible=moon.visible=clouds.visible=!nether;
-  const b=Math.max(fx.night>0?.85:0,endR?.5:demonR?.34:nether?.42:0.2+0.8*light); curBright=b;
+  const b=Math.max(fx.night>0?.85:0,(!nether&&clientModOn('nightowl'))?.55:0,endR?.5:demonR?.34:nether?.42:0.2+0.8*light); curBright=b;
   if(matSolid.userData.u)matSolid.userData.u.value=b; if(matSolidC.userData.u)matSolidC.userData.u.value=Math.max(b,.45); if(matSolidE.userData.u)matSolidE.userData.u.value=Math.max(b,.45); if(matWater.userData.u)matWater.userData.u.value=b;
   matItem.color.setScalar(b); matItemC.color.setScalar(Math.max(b,.6)); matItemE.color.setScalar(Math.max(b,.6));
   clouds.material.color.setScalar(0.35+0.65*light);
@@ -3546,7 +3678,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); if(!paused)updateBlade(dt);
+  updateTotemFx(dt); tickVariants(dt); if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   renderer.render(scene,camera);
   updateViewModel(dt);
@@ -3960,6 +4092,8 @@ function mpOnMsg(o){
     case 'ign': igniteTNT(o.x|0,o.y|0,o.z|0,3); break;
     case 'xpo': if([o.x,o.y,o.z].every(v=>typeof v==='number'))spawnXP(o.x,o.y,o.z,Math.min(800,o.n|0)); break;
     case 'dd': meta['#dd']=1; break;
+    case 'cor': if(o.c&&typeof o.c.x==='number'){const old=meta['#cor'];meta['#cor']=o.c;corDirty(old?old.r:0,o.c.r);} break;
+    case 'corpull': if(MP.isHost)corStartRitual(); break;
     case 'rwave': if([o.x,o.y,o.z,o.dx,o.dy,o.dz].every(v=>typeof v==='number'))remoteWave(o); break;
     case 'totem': if(typeof o.x==='number'&&typeof o.y==='number'&&typeof o.z==='number'){totemPop(o.x,o.y,o.z,false);chatSys(peerName(o.s)+' was saved by a Totem of Revival');} break;
     case 'time': if(typeof o.d==='number'&&o.h&&!MP.isHost)dayT=o.d; break;
