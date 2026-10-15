@@ -50,6 +50,13 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);
 #bossOut{height:8px;margin-top:4px;background:rgba(0,0,0,.6);border:1px solid #000;border-radius:3px;overflow:hidden}
 #bossFill{height:100%;width:100%;background:linear-gradient(90deg,#7a2cd0,#e070ff)}
 #locbar{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(436px,calc(100% - 32px));height:12px;background:rgba(0,0,0,.35);border-radius:6px;pointer-events:none;overflow:visible}
+#swDlg .sw-dlg{max-width:400px;border:2px solid var(--accent);box-shadow:0 0 0 4px rgba(0,0,0,.35),0 24px 60px rgba(0,0,0,.6);image-rendering:pixelated;animation:swpop .16s ease-out}
+#swDlg .sw-dlg-bar{height:6px;margin:-22px -22px 14px;background:repeating-linear-gradient(90deg,var(--accent) 0 12px,rgba(0,0,0,.25) 12px 16px)}
+#swDlg input{font-family:var(--font-display);font-size:18px;padding:8px 10px;border:2px solid var(--panel-edge);background:rgba(0,0,0,.35);color:var(--text);border-radius:4px}
+#swDlg input:focus{outline:none;border-color:var(--accent)}
+@keyframes swpop{from{transform:scale(.92);opacity:0}to{transform:none;opacity:1}}
+#locbar .wp{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;transform:rotate(45deg);border:1px solid rgba(0,0,0,.75)}
+#locbar .wp b{position:absolute;left:50%;top:-17px;transform:rotate(-45deg) translateX(-50%);transform-origin:0 0;font:600 10px var(--font-display,monospace);color:#fff;white-space:nowrap;text-shadow:0 1px 2px #000}
 #locbar .ld{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:1px solid rgba(0,0,0,.7);box-shadow:0 0 4px rgba(0,0,0,.6)}
 #locbar .ld i{position:absolute;left:50%;transform:translateX(-50%);font:700 9px monospace;color:#fff;text-shadow:0 1px 1px #000;font-style:normal;line-height:1}
 #locbar .ld b{position:absolute;left:50%;top:-15px;transform:translateX(-50%);font:600 10px var(--font-display,monospace);color:#fff;white-space:nowrap;text-shadow:0 1px 2px #000}
@@ -177,7 +184,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
     <button data-key="KeyC">Crouch</button><button data-key="Space">Jump</button>
-    <button data-act="view">View</button>
+    <button data-act="view">View</button><button data-act="mark">Mark</button>
   </div>
 </div>
 
@@ -216,6 +223,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
   </div>
 </div>
 
+<div id="swDlg" class="overlay" hidden style="z-index:40;background:rgba(6,8,12,.55)"><div class="card sw-dlg"><div class="sw-dlg-bar"></div><h2 id="swDlgTitle" style="margin:4px 0 6px"></h2><p id="swDlgMsg" class="sub" style="margin:0 0 12px"></p><input id="swDlgIn" maxlength="24" style="width:100%;box-sizing:border-box;margin-bottom:14px" hidden><div id="swDlgBtns" class="row" style="justify-content:flex-end;gap:8px"></div></div></div>
 <div id="infoPanel" class="overlay" hidden style="z-index:30"><div class="card" style="max-width:640px"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Stackwild guide</h2><button class="btn ghost small" id="infoClose">Close</button></div><input id="infoSearch" placeholder="Search blocks, items, mobs, places, how things work…" aria-label="Search the guide" style="width:100%;margin-top:10px;box-sizing:border-box"><div id="infoCats" class="row" style="flex-wrap:wrap;gap:6px;margin-top:8px"></div><p id="infoCount" class="srv-sub" style="margin:8px 0 4px"></p><div id="infoList" style="display:flex;flex-direction:column;gap:6px"></div></div></div>
 <div id="modsPanel" class="overlay" hidden style="z-index:30"><div class="card"><div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">Mods</h2><button class="btn ghost small" id="modsClose">Close</button></div><p class="sub" style="margin-top:6px">Install a mod, then turn it on for worlds you host (server mods) or just for you (client mods). Server mods affect everyone who joins.</p><div id="modsList" style="display:flex;flex-direction:column;gap:10px;margin-top:10px"></div></div></div>
 <div id="menu" class="overlay">
@@ -237,6 +245,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <dt><kbd>R</kbd></dt><dd>Jump to the slot holding the block you're looking at</dd>
       <dt><kbd>1</kbd>–<kbd>9</kbd> / scroll</dt><dd>Choose hotbar slot</dd>
       <dt><kbd>P</kbd></dt><dd>Switch between first and third person</dd>
+      <dt><kbd>I</kbd></dt><dd>Place a named waypoint here (or remove the one you’re standing on)</dd>
       <dt><kbd>H</kbd> / <kbd>Esc</kbd></dt><dd>Open this menu</dd>
     </dl>
     <div class="mp">
@@ -3683,7 +3692,7 @@ window.addEventListener('keydown',e=>{
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code))e.preventDefault();
   if(paused){ if((e.code==='Enter'||e.code==='Space')&&!loading&&document.activeElement!==newBtn){e.preventDefault();closeMenu();} return; }
   if(dead){ if(e.code==='Enter'||e.code==='Space'){e.preventDefault();respawnPlayer();} return; }
-  if(bagOpen){ if(['Tab','KeyI','Escape','KeyE','KeyQ'].includes(e.code))closeBag(); return; }
+  if(bagOpen){ if(['Tab','Escape','KeyE','KeyQ'].includes(e.code))closeBag(); return; }
   keys[e.code]=true;
   if(e.repeat)return;
   switch(e.code){
@@ -3698,7 +3707,8 @@ window.addEventListener('keydown',e=>{
     case 'KeyX':dropOne();break;
     case 'KeyT':e.preventDefault();openChat();break;
     case 'Slash':e.preventDefault();openChat();chatIn.value='/';renderSugg();break;
-    case 'Tab':case 'KeyI':openBag(0);break;
+    case 'Tab':openBag(0);break;
+    case 'KeyI':waypointUI();break;
     case 'KeyH':case 'Escape':openMenu();break;
     default: if(/^Digit[1-9]$/.test(e.code))select(+e.code[5]-1);
   }
@@ -3736,6 +3746,7 @@ touchEl.querySelectorAll('button').forEach(b=>{
     e.preventDefault(); if(paused||dead)return;
     if(a==='chat'){chatOpen?closeChat():openChat();return;}
     if(a==='view'){toggleView();return;}
+    if(a==='mark'){waypointUI();return;}
     if(a==='bag'){bagOpen?closeBag():openBag(0);return;}
     if(bagOpen)return;
     if(k)keys[k]=true;
@@ -3956,14 +3967,81 @@ function demonBlockFx(dt){
     glowPart(c,x+.3+Math.random()*.4,y+(DEF[id].plant?.75:1.02),z+.3+Math.random()*.4,(Math.random()-.5)*.4,.9,(Math.random()-.5)*.4,.6,-.6);
   }
 }
+// ---------- Stackwild dialog (replaces browser alert/prompt) ----------
+const swDlg=document.getElementById('swDlg'), swDlgTitle=document.getElementById('swDlgTitle'), swDlgMsg=document.getElementById('swDlgMsg'), swDlgIn=document.getElementById('swDlgIn'), swDlgBtns=document.getElementById('swDlgBtns');
+let swDlgDone=null;
+function swDialog(o){
+  return new Promise(res=>{
+    if(swDlgDone)swDlgDone({value:null,text:''});
+    for(const k in keys)keys[k]=false;
+    swDlgTitle.textContent=o.title||'Stackwild'; swDlgMsg.textContent=o.msg||''; swDlgMsg.hidden=!o.msg;
+    swDlgIn.hidden=!o.input; swDlgIn.value=o.value||''; swDlgIn.placeholder=o.placeholder||'';
+    swDlgBtns.textContent='';
+    const finish=v=>{swDlg.hidden=true;swDlgDone=null;res({value:v,text:swDlgIn.value});};
+    swDlgDone=r=>{swDlg.hidden=true;swDlgDone=null;res(r);};
+    let primary=null;
+    for(const b of o.buttons||[{label:'OK',value:true,primary:true}]){
+      const el=document.createElement('button'); el.className='btn small'+(b.primary?'':' ghost')+(b.warn?' warn':''); el.textContent=b.label;
+      el.addEventListener('click',()=>finish(b.value)); swDlgBtns.appendChild(el); if(b.primary)primary=b;
+    }
+    swDlgIn.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'&&primary)finish(primary.value);if(e.key==='Escape')finish(null);};
+    swDlg.hidden=false; setTimeout(()=>{if(o.input)swDlgIn.focus();else{const f=swDlgBtns.querySelector('button:last-child');if(f)f.focus();}},30);
+  });
+}
+// ---------- waypoints: named markers everyone on the server sees ----------
+const wpList=()=>Array.isArray(meta['#wp'])?meta['#wp']:(meta['#wp']=[]);
+const wpMeshes=new Map(); let wpRef=null;
+async function waypointUI(){
+  if(dead||chatOpen||bagOpen||!swDlg.hidden)return;
+  const dim=dimOf(P.x), near=wpList().find(w=>dimOf(w.x)===dim&&Math.hypot(w.x-P.x,w.z-P.z)<4&&Math.abs(w.y-P.y)<6);
+  if(near){
+    const r=await swDialog({title:'Waypoint “'+near.n+'”',msg:'You’re standing at this waypoint. Remove it for everyone?',buttons:[{label:'Keep',value:null},{label:'Remove',value:'rm',warn:true,primary:true}]});
+    if(r.value==='rm'){meta['#wp']=wpList().filter(w=>w!==near);wpChanged();toast('Waypoint removed');}
+    return;
+  }
+  if(wpList().length>=30){await swDialog({title:'Too many waypoints',msg:'This world already has 30. Stand on one and press I to remove it first.'});return;}
+  const r=await swDialog({title:'New waypoint',msg:'Name this spot. It shows on everyone’s locator bar with a light beam in the world.',input:true,placeholder:'Base, Fortress, Diamonds…',buttons:[{label:'Cancel',value:null},{label:'Place',value:'ok',primary:true}]});
+  const name=(r.text||'').trim().slice(0,24);
+  if(r.value!=='ok'||!name)return;
+  wpList().push({n:name,x:Math.floor(P.x)+.5,y:Math.floor(P.y),z:Math.floor(P.z)+.5,h:Math.floor(Math.random()*360),by:MP.name||''});
+  wpChanged(); toast('Waypoint “'+name+'” placed');
+}
+function wpChanged(){wpRef=null;saveSoon();if(MP.connected)mpSend({t:'wp',l:wpList()});}
+function wpSync(){
+  const l=wpList(); if(l===wpRef&&wpMeshes.size===l.length)return; wpRef=l;
+  for(const g of wpMeshes.values()){scene.remove(g);g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose();}});}
+  wpMeshes.clear();
+  l.forEach((w,i)=>{
+    const g=new THREE.Group(), col=new THREE.Color().setHSL(w.h/360,.85,.6);
+    const beam=new THREE.Mesh(new THREE.BoxGeometry(.3,48,.3),new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.35,depthWrite:false,fog:false}));beam.position.y=24;g.add(beam);
+    const core=new THREE.Mesh(new THREE.BoxGeometry(.5,.5,.5),new THREE.MeshBasicMaterial({color:col,fog:false}));core.position.y=1.2;core.rotation.set(.6,.6,0);g.add(core);g.userData.core=core;
+    const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:nameTex(w.n),transparent:true,depthTest:false,fog:false}));tag.scale.set(2.2,.55,1);tag.position.y=2.4;tag.renderOrder=10;g.add(tag);
+    g.position.set(w.x,w.y,w.z); scene.add(g); wpMeshes.set(i,g);
+  });
+}
 // ---------- locator bar: a dot for every other player in your dimension, placed by direction ----------
 const locbar=document.getElementById('locbar'), locDots=new Map();
 const dimOf=x=>x<NETHER_MIN?0:isNetherX(x)?1:isDemonX(x)?2:3;
 function updateLocator(){
-  const on=MP.connected&&MP.peers.size>0&&!dead; locbar.hidden=!on;
+  wpSync();
+  for(const g of wpMeshes.values()){g.userData.core.rotation.y+=.03;g.visible=Math.hypot(g.position.x-P.x,g.position.z-P.z)<400;}
+  const dimNow=dimOf(P.x), wps=wpList().filter(w=>dimOf(w.x)===dimNow);
+  const on=((MP.connected&&MP.peers.size>0)||wps.length>0)&&!dead; locbar.hidden=!on;
   if(!on){for(const d of locDots.values())d.remove();locDots.clear();return;}
+  {
+    const fx0=-Math.sin(yaw), fz0=-Math.cos(yaw), rx0=Math.cos(yaw), rz0=-Math.sin(yaw);
+    wpList().forEach((w,i)=>{
+      const key='wp'+i; let el=locDots.get(key);
+      if(!el){el=document.createElement('div');el.className='wp';el.innerHTML='<b></b>';locbar.appendChild(el);locDots.set(key,el);}
+      const dx=w.x-P.x, dz=w.z-P.z, rel=Math.atan2(dx*rx0+dz*rz0,dx*fx0+dz*fz0), vis=dimOf(w.x)===dimNow&&Math.abs(rel)<Math.PI/2;
+      el.style.display=vis?'':'none'; if(!vis)return;
+      el.style.left=(50+rel/(Math.PI/2)*50).toFixed(1)+'%'; el.style.background='hsl('+w.h+',85%,60%)';
+      el.firstChild.textContent=Math.abs(rel)<.2?w.n+' · '+Math.round(Math.hypot(dx,dz))+'m':'';
+    });
+    for(const [k,el] of locDots)if(k.startsWith('wp')&&+k.slice(2)>=wpList().length){el.remove();locDots.delete(k);}
+  }
   const fx=-Math.sin(yaw), fz=-Math.cos(yaw), rx=Math.cos(yaw), rz=-Math.sin(yaw), seen=new Set();
-  for(const p of MP.peers.values()){
+  if(MP.connected)for(const p of MP.peers.values()){
     if(!p.seen||dimOf(p.x)!==dimOf(P.x))continue;
     const dx=p.x-P.x, dz=p.z-P.z, dist=Math.hypot(dx,dz), rel=Math.atan2(dx*rx+dz*rz,dx*fx+dz*fz);
     let el=locDots.get(p.id);
@@ -3976,7 +4054,7 @@ function updateLocator(){
     const dy=p.y-P.y, arr=el.firstChild; arr.textContent=dy>4?'▲':dy<-4?'▼':''; arr.style.top=dy>4?'-11px':'10px';
     el.lastChild.textContent=Math.abs(rel)<.18?p.n+' · '+Math.round(dist)+'m':'';
   }
-  for(const [id,el] of locDots)if(!seen.has(id)){el.remove();locDots.delete(id);}
+  for(const [id,el] of locDots)if(!String(id).startsWith('wp')&&!seen.has(id)){el.remove();locDots.delete(id);}
 }
 // ---------- wings, rockets & grappling hook ----------
 let gliding=false, spacePrev=false, boostT=0, grap=null, grapLine=null;
@@ -4540,6 +4618,7 @@ function mpOnMsg(o){
     case 'cor': if(o.c&&typeof o.c.x==='number'){const old=meta['#cor'];meta['#cor']=o.c;corDirty(old?old.r:0,o.c.r);} break;
     case 'corpull': if(MP.isHost)corStartRitual(); break;
     case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
+    case 'wp': if(Array.isArray(o.l)){meta['#wp']=o.l.filter(w=>w&&typeof w.n==='string'&&typeof w.x==='number'&&typeof w.y==='number'&&typeof w.z==='number').slice(0,30).map(w=>({n:w.n.slice(0,24),x:w.x,y:w.y,z:w.z,h:(w.h|0)%360,by:String(w.by||'').slice(0,16)}));wpRef=null;saveSoon();} break;
     case 'crater': if([o.x,o.y,o.z,o.r].every(v=>typeof v==='number'))carveCrater(o.x|0,o.y|0,o.z|0,Math.min(7,o.r)); break;
     case 'meteor': if([o.x,o.y,o.z].every(v=>typeof v==='number'))meteorStart(o.x,o.y,o.z,false); break;
     case 'rwave': if([o.x,o.y,o.z,o.dx,o.dy,o.dz].every(v=>typeof v==='number'))remoteWave(o); break;
