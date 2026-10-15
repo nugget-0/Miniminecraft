@@ -4597,6 +4597,55 @@ const bpOn=()=>clientModOn('buildplus')&&!worldMG;
 const heldIs=id=>!!(inv[sel]&&inv[sel].id===id);
 const BP_SKIP=new Set([PORTAL,DEMON_PORTAL,END_PORTAL,SPAWNER,DEMON_SPAWNER,DEMONISER,ENDERISER,CORRUPT_SWORD,END_CRYSTAL,WATER,LAVA]);
 const BP_ROTF={0:4,4:1,1:5,5:0};
+// built-in blueprints, generated in code (marked ★, can't be deleted)
+let bpDefCache=null;
+function bpMake(w,h,d,fn){const ids=[],m={};let i=0,n=0;for(let y=0;y<h;y++)for(let z=0;z<d;z++)for(let x=0;x<w;x++,i++){let v=fn(x,y,z)||0,mv;if(Array.isArray(v)){mv=v[1];v=v[0];}ids.push(v);if(v)n++;if(v&&mv!==undefined)m[i]=mv;}
+  let rle=[],prev=ids[0],cnt=0;for(const v of ids){if(v===prev)cnt++;else{rle.push(prev+'*'+cnt);prev=v;cnt=1;}}rle.push(prev+'*'+cnt);return{w,h,d,r:rle.join(','),m,n,t:0,def:1};}
+function bpDefaults(){
+  if(bpDefCache)return bpDefCache; const B={};
+  // cosy starter house
+  B['★ Starter House']=bpMake(9,8,9,(x,y,z)=>{const edge=x===0||x===8||z===0||z===8, corner=(x===0||x===8)&&(z===0||z===8);
+    if(y===0)return COBBLE;
+    if(y<=4){if(corner)return LOG;if(edge){if(z===0&&x===4&&y<=2)return y===1?[DOOR_LO,4]:y===2?[DOOR_HI,4]:0;if(y===2&&(x===2||x===6||z===2||z===6))return GLASS;if(y===4)return LOG;return PLANKS;}
+      if(y===1){if(x===1&&z===7)return CHEST;if(x===2&&z===7)return TABLE;if(x===3&&z===7)return FURNACE;if(x===7&&z===7)return BOOKSHELF;if(x===7&&z===6)return BOOKSHELF;}
+      if(y===3&&x===4&&z===4)return 0; return 0;}
+    const k=y-5; if(x>=k&&x<=8-k&&z>=k-1&&z<=9-k&&k<=3){if(x===k||x===8-k||z===Math.max(0,k-1)||z===Math.min(8,9-k))return k===3?SLABS[0]:PLANKS;if(k===0)return PLANKS;}
+    if(y===5&&x===4&&z===4)return LANTERN; return 0;});
+  // stone watchtower with a ladder inside
+  B['★ Watchtower']=bpMake(7,16,7,(x,y,z)=>{const ring=x===1||x===5||z===1||z===5, inX=x>=1&&x<=5&&z>=1&&z<=5;
+    if(y===0)return inX?STONE_BRICKS:0;
+    if(y<=11&&inX){if(ring){if(z===1&&x===3&&y<=2)return 0;if(y%4===2&&(x===3||z===3))return GLASS;return (x===1||x===5)&&(z===1||z===5)?STONE_BRICKS:COBBLE;}if(x===2&&z===4)return[LADDER,1];return 0;}
+    if(y===12)return x===2&&z===4?[LADDER,1]:STONE_BRICKS;
+    if(y===13&&(x===0||x===6||z===0||z===6))return (x+z)%2===0?STONE_BRICKS:0;
+    if(y===12&&(x===0||x===6||z===0||z===6))return STONE_BRICKS;
+    if(y===13&&x===3&&z===3)return LANTERN; if(y===12&&!inX&&(x===0||x===6||z===0||z===6))return STONE_BRICKS; return 0;});
+  // giant oak tree
+  B['★ Giant Tree']=bpMake(13,16,13,(x,y,z)=>{const dx=x-6,dz=z-6;
+    if(y<10&&Math.abs(dx)<=1&&Math.abs(dz)<=1&&(y<8||(dx===0&&dz===0)))return LOG;
+    if(y===0&&(Math.abs(dx)===2&&dz===0||Math.abs(dz)===2&&dx===0))return LOG;
+    const r=Math.hypot(dx,(y-11)*1.25,dz); if(y>=7&&r<6.2&&((x*7+y*13+z*5)%11)!==0)return LEAVES; return 0;});
+  // stone bridge
+  B['★ Stone Bridge']=bpMake(5,4,21,(x,y,z)=>{const arch=Math.round(Math.abs(z-10)*.15);
+    if(y===0)return (x===0||x===4)&&z%5===0?STONE_BRICKS:0;
+    if(y===1)return STONE_BRICKS;
+    if(y===2&&(x===0||x===4))return z%5===0?STONE_BRICKS:SLABS[2];
+    if(y===3&&(x===0||x===4)&&z%5===0)return LANTERN; return 0;});
+  // sandstone pyramid with a gold cap
+  B['★ Pyramid']=bpMake(21,11,21,(x,y,z)=>{const k=y;if(x<k||x>20-k||z<k||z>20-k)return 0;if(y===10)return GOLD_BLOCK;
+    if(x===k||x===20-k||z===k||z===20-k)return (z===k&&x===10&&y<=2)?0:SANDSTONE; if(y===0)return SANDSTONE; return 0;});
+  // castle keep with corner towers
+  B['★ Castle Keep']=bpMake(17,12,17,(x,y,z)=>{const t=(x<=3||x>=13)&&(z<=3||z>=13), edge=x===0||x===16||z===0||z===16, wall=x===2||x===14||z===2||z===14, inside=x>=2&&x<=14&&z>=2&&z<=14;
+    if(y===0)return inside||t?STONE_BRICKS:0;
+    if(t){const tx=x<=3?0:13,tz=z<=3?0:13,lx=x-tx,lz=z-tz,ring=lx===0||lx===3||lz===0||lz===3;if(y<=9&&ring)return y%3===2&&(lx===1||lz===1)?GLASS:STONE_BRICKS;if(y===9)return STONE_BRICKS;if(y===10&&ring&&(lx+lz)%2===0)return STONE_BRICKS;if(y===10&&lx===1&&lz===2)return LANTERN;return 0;}
+    if(wall&&inside){if(z===2&&x>=7&&x<=9&&y<=3)return y===4?STONE_BRICKS:0;if(y<=6)return y===3&&x%4===0&&z%4===0?GLASS:COBBLE;if(y===7)return (x+z)%2===0?STONE_BRICKS:0;}
+    if(y===1&&inside&&!wall){if(x===8&&z===12)return CHEST;if(x===7&&z===12)return TABLE;if(x===9&&z===12)return FURNACE;if((x===4||x===12)&&z===8)return LANTERN;}
+    return 0;});
+  // little market stall
+  B['★ Market Stall']=bpMake(7,5,5,(x,y,z)=>{if(y===0)return z<=3?PLANKS:0;if((x===0||x===6)&&(z===0||z===3)&&y<=3)return LOG;
+    if(y===1&&z===0&&x>0&&x<6)return x%2?PLANKS:CHEST; if(y===4&&z<=4)return (x+z)%2?RED_WOOL:YELLOW_WOOL; if(y===3&&z===4)return (x%2)?RED_WOOL:YELLOW_WOOL; return 0;});
+  return bpDefCache=B;
+}
+function bpAll(){return Object.assign({},bpDefaults(),bpLoad());}
 function bpLoad(){try{return JSON.parse(localStorage.getItem('stackwild:blueprints')||'{}')||{};}catch(e){return {};}}
 function bpSave(o){try{localStorage.setItem('stackwild:blueprints',JSON.stringify(o));return true;}catch(e){toast('Not enough storage for that blueprint');return false;}}
 function bpBox(){if(!bp1||!bp2)return null;return{x1:Math.min(bp1[0],bp2[0]),y1:Math.max(1,Math.min(bp1[1],bp2[1])),z1:Math.min(bp1[2],bp2[2]),x2:Math.max(bp1[0],bp2[0]),y2:Math.min(H-1,Math.max(bp1[1],bp2[1])),z2:Math.max(bp1[2],bp2[2])};}
@@ -4630,7 +4679,7 @@ function bpFill(b,id){
 async function bpMenu(){
   if(!bpOn()){toast('Turn on BuildPlus in Mods');return;}
   if(!swDlg.hidden||chatOpen||bagOpen)return;
-  const b=bpBox(), all=bpLoad();
+  const b=bpBox(), all=bpLoad(), every=bpAll();
   if(b){
     const vol=bpVol(b); if(vol>32768){toast('Too big to save (max 32,768 blocks)');return;}
     const r=await swDialog({title:'Save blueprint',msg:(b.x2-b.x1+1)+'×'+(b.y2-b.y1+1)+'×'+(b.z2-b.z1+1)+' ('+vol.toLocaleString()+' blocks). It’s saved on this device so you can stamp it in any world.',input:true,placeholder:'House, Tower, Bridge…',buttons:[{label:'Cancel',value:null},{label:'Save',value:'ok',primary:true}]});
@@ -4643,14 +4692,15 @@ async function bpMenu(){
     if(bpSave(all)){toast('Saved blueprint “'+name+'”');bp1=bp2=null;}
     return;
   }
-  const names=Object.keys(all).sort((a,c)=>(all[c].t||0)-(all[a].t||0));
+  const names=Object.keys(every).sort((a,c)=>(every[c].t||0)-(every[a].t||0));
   if(!names.length){await swDialog({title:'Blueprints',msg:'No blueprints yet. With the hammer, mark two corners (E, E) around a build, then press B to save it.'});return;}
-  const r=await swDialog({title:'Blueprints',msg:'Pick one to stamp. Saved on this device.',buttons:[...names.slice(0,12).map(n=>({label:n+' ('+all[n].w+'×'+all[n].h+'×'+all[n].d+')',value:n})),{label:'Cancel',value:null}]});
+  const r=await swDialog({title:'Blueprints',msg:'Pick one to stamp. ★ = built-in. Yours are saved on this device.',buttons:[...names.slice(0,18).map(n=>({label:n+' ('+every[n].w+'×'+every[n].h+'×'+every[n].d+')',value:n})),{label:'Cancel',value:null}]});
   if(!r.value)return; const name=r.value;
-  const r2=await swDialog({title:'“'+name+'”',msg:all[name].n.toLocaleString()+' blocks. Stamp it, or delete it?',buttons:[{label:'Delete',value:'del',warn:true},{label:'Cancel',value:null},{label:'Stamp',value:'st',primary:true}]});
+  const isDef=!!every[name].def&&!all[name];
+  const r2=await swDialog({title:'“'+name+'”',msg:every[name].n.toLocaleString()+' blocks. '+(isDef?'Stamp it?':'Stamp it, or delete it?'),buttons:[...(isDef?[]:[{label:'Delete',value:'del',warn:true}]),{label:'Cancel',value:null},{label:'Stamp',value:'st',primary:true}]});
   if(r2.value==='del'){delete all[name];bpSave(all);toast('Deleted “'+name+'”');return;}
   if(r2.value!=='st')return;
-  const bp=all[name], ids=[]; for(const part of bp.r.split(',')){const [v,c]=part.split('*').map(Number);for(let k=0;k<c;k++)ids.push(v);}
+  const bp=every[name], ids=[]; for(const part of bp.r.split(',')){const [v,c]=part.split('*').map(Number);for(let k=0;k<c;k++)ids.push(v);}
   bpStamp={name,w:bp.w,h:bp.h,d:bp.d,ids,m:bp.m||{}}; bpRot=0;
   toast('Aim where it goes · R rotate · E stamp · F cancel');
 }
