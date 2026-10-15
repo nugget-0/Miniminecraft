@@ -1956,6 +1956,17 @@ function doPlace(){
   let pid=DEF[it.id].places||it.id;
   if(pid===DRIP_UP&&target.ny===-1)pid=DRIP_DOWN;
   const pdef=DEF[pid];
+  // ladder on a ladder: extend the ladder up (looking up) or down (looking down), even while climbing it
+  if(pid===LADDER&&target.id===LADDER){
+    const lk0=target.x+','+target.y+','+target.z, f=meta[lk0]|0, wx=f===1?-1:f===0?1:0, wz=f===5?-1:f===4?1:0, dir=pitch>=-.15?1:-1;
+    let yy=target.y; while(getBlock(target.x,yy,target.z)===LADDER&&Math.abs(yy-target.y)<64)yy+=dir;
+    const c2=getBlock(target.x,yy,target.z);
+    if(yy<1||yy>=H||!(c2===AIR||c2===WATER||SOFT.has(c2))){toast('No room to extend the ladder');return;}
+    if(!solid(getBlock(target.x+wx,yy,target.z+wz))){toast('The ladder needs a wall behind it');return;}
+    meta[target.x+','+yy+','+target.z]=f;
+    if(setBlock(target.x,yy,target.z,LADDER)){swing();if(GM.mode!=='creative')takeSel();}
+    return;
+  }
   let x=target.x+target.nx,y=target.y+target.ny,z=target.z+target.nz;
   if(SOFT.has(target.id)){x=target.x;y=target.y;z=target.z;}
   const cur=getBlock(x,y,z);
@@ -1976,7 +1987,7 @@ function doPlace(){
     if(pid===DRIP_DOWN){if(cur===WATER||!solid(getBlock(x,y+1,z))){toast('Needs a block above');return;}}
     else if(cur===WATER||!solid(getBlock(x,y-1,z))){toast('Needs solid ground');return;}
   }
-  else{
+  else if(!pdef.nosolid){
     if(x+1>P.x-PW&&x<P.x+PW&&y+1>P.y&&y<P.y+PH&&z+1>P.z-PW&&z<P.z+PW)return;
     for(const m of mobs)if(x+1>m.x-m.hw&&x<m.x+m.hw&&y+1>m.y&&y<m.y+m.h&&z+1>m.z-m.hw&&z<m.z+m.hw)return;
   }
