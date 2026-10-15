@@ -3961,7 +3961,7 @@ function runCommand(line){
     case 'help': case '?':
       say('/give <item> [count] · /tp <x y z | player> · /time set <day|noon|night|midnight|0-24>');
       say('/gamemode <survival|creative> · /difficulty <peaceful|easy|normal|hard> · /heal · /kill · /clear');
-      say('/setblock <x y z> <block> · /fill <x1 y1 z1> <x2 y2 z2> <block> · /summon <mob|tnt> · /locate <chamber|nether|fortress>');
+      say('/setblock <x y z> <block> · /fill <x1 y1 z1> <x2 y2 z2> <block> · /summon <mob|tnt> · /repeatsummon <mob|tnt> <amount> · /dummy <hp> · /locate <chamber|nether|fortress>');
       say('/pvp <on|off> · /spawnpoint · /seed · /list · /items  (use ~ for your own position, e.g. /tp ~ ~10 ~)');
       if(isAdmin())say('Admin: /kick <player> [reason] · /ban <player> [reason] · /unban <player> · /banlist · /broadcast <msg> · /perfectcrit <on|off> · /admin');
       break;
@@ -4079,6 +4079,21 @@ function runCommand(line){
       for(let y=y1;y<=y2;y++)for(let z=z1;z<=z2;z++)for(let x=x1;x<=x2;x++)if(getBlock(x,y,z)!==id&&setBlock(x,y,z,id,{noSync:vol>2000}))n++;
       say('Filled '+n+' blocks.'+(MP.connected&&vol>2000?' Fills over 2000 blocks reach other players when they next join.':'')); break;
     }
+    case 'repeatsummon':{
+      if(!canCheat())break;
+      const t=(a[0]||'').toLowerCase(), max=isAdmin()?500:100, n=Math.max(1,Math.min(max,parseInt(a[1]||'5',10)||5));
+      if(!MOB_TYPES.includes(t)&&t!=='tnt'&&t!=='megatnt'){say('Usage: /repeatsummon <'+MOB_TYPES.join('|')+'|tnt|megatnt> <amount>');break;}
+      camera.getWorldDirection(camDir);
+      const cx=P.x+camDir.x*(4+Math.sqrt(n)), cz=P.z+camDir.z*(4+Math.sqrt(n)); let made=0;
+      for(let i=0;i<n;i++){
+        const ang=i*2.39996, rad=Math.sqrt(i)*1.1, bx=Math.floor(cx+Math.cos(ang)*rad), bz=Math.floor(cz+Math.sin(ang)*rad);
+        let by=Math.floor(P.y)+6; while(by>1&&!solid(getBlock(bx,by-1,bz)))by--;
+        if(t==='tnt'||t==='megatnt'){if(getBlock(bx,by,bz)===AIR&&setBlock(bx,by,bz,t==='tnt'?TNT:MEGA_TNT,{noSync:true})){igniteTNT(bx,by,bz,3+i*.05);made++;}}
+        else{spawnMob(t,bx+.5,by+.02,bz+.5,Math.floor(Math.random()*3));made++;}
+      }
+      say('Summoned '+made+' × '+t+(t.includes('tnt')?'. RUN!':GM.diff===0&&!['cow','pig','sheep','chicken','villager','dummy'].includes(t)?' (they vanish on Peaceful).':'.'));
+      break;
+    }
     case 'summon':{
       if(!canCheat())break;
       camera.getWorldDirection(camDir);
@@ -4129,7 +4144,7 @@ chatIn.addEventListener('keyup',e=>e.stopPropagation());
 
 // command suggestions
 const suggEl=document.getElementById('sugg');
-const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','dummy','alwaysday','locate','spawnpoint','seed','list','items'];
+const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','repeatsummon','dummy','alwaysday','locate','spawnpoint','seed','list','items'];
 const blockKeys=()=>['air',...Object.keys(ITEM_KEYS).filter(k=>{const d=DEF[ITEM_KEYS[k]];return !d.item||d.places;})];
 let suggList=[], suggSel=0;
 function suggFor(){
@@ -4144,6 +4159,7 @@ function suggFor(){
     case 'gamemode': case 'gm': opts=idx===1?['survival','creative']:[]; break;
     case 'difficulty': opts=idx===1?['peaceful','easy','normal','hard']:[]; break;
     case 'summon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:[]; break;
+    case 'repeatsummon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:idx===2?['5','10','25','50','100']:[]; break;
     case 'locate': opts=idx===1?['chamber','nether','fortress']:[]; break;
     case 'dummy': opts=idx===1?['20','100','1000','10000']:[]; break;
     case 'alwaysday': opts=idx===1?['on','off']:[]; break;
