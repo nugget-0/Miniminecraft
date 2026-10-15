@@ -1533,14 +1533,14 @@ function physics(dt){
   const sneak=crouchKey&&!flying&&!inWater; sneaking=sneak;
   const sprint=!sneak&&(shift||sprintLatch||(joy.on&&Math.hypot(joy.x,joy.y)>.96))&&food>6&&fw>0;
   let speed=sprint?6.2:4.4; if(inWater)speed*=inLava?.4:.6; if(sneak)speed*=.32;
-  if(fx.speed>0)speed*=1.35; if(enderSet())speed*=1.1;
+  if(fx.speed>0)speed*=1.35; speed*=admSpeed; if(enderSet())speed*=1.1;
   for(const k in fx)if(fx[k]>0)fx[k]-=dt;
   const onLadder=!!(DEF[fb].ladder||DEF[wb].ladder);
   if(inLava&&!flying){lavaT+=dt;if(lavaT>=.5){lavaT=0;if(fireResT<=0)hurt(4);burstC([255,150,40],P.x-.5,P.y+.4,P.z-.5,5);}}else lavaT=.45;
   if(fireResT>0)fireResT-=dt;
   if(regenBuffT>0){regenBuffT-=dt;buffHealT+=dt;if(buffHealT>=.6){buffHealT=0;if(!dead)health=Math.min(20,health+1);}}
   tickPortal(dt);
-  if(flying)speed=sprint?16:10;
+  if(flying)speed=(sprint?16:10)*admSpeed;
   const k=Math.min(1,dt*(onGround||flying?14:inWater?6:3.5));
   const spEdge=keys.Space&&!spacePrev; spacePrev=!!keys.Space;
   if(spEdge&&!onGround&&!inWater&&!flying&&!gliding&&!grap&&wingTier()>=0&&V.y<1.5){gliding=true;toast('Gliding');const m0=WING_STAT[wingTier()][0]*.35,cp=Math.cos(pitch);if(Math.hypot(V.x,V.z)<m0){V.x=-Math.sin(yaw)*cp*m0;V.z=-Math.cos(yaw)*cp*m0;}}
@@ -1549,7 +1549,7 @@ function physics(dt){
   const wasGround=onGround;
   if(grap){grapplePhysics(dt);}
   else if(gliding){glidePhysics(dt);}
-  else if(GM.mode==='creative'&&flying){V.y=((keys.Space?1:0)-(crouchKey?1:0))*9;}
+  else if((GM.mode==='creative'||admFly)&&flying){V.y=((keys.Space?1:0)-(crouchKey?1:0))*9;}
   else if(onLadder&&!inWater){
     if(keys.Space||fw>0)V.y=3.4; else if(crouchKey)V.y=0; else V.y=Math.max(V.y-30*dt,-2.6);
   }
@@ -1578,7 +1578,7 @@ function physics(dt){
   moveAxis('y',V.y*dt);
   if(gliding&&hitWall&&preSp>18&&wingTier()<6){hurt(Math.min(18,Math.floor((preSp-18)*.25)));gliding=false;toast('Crashed!');}
   if(flying&&onGround)flying=false;
-  if(GM.mode==='creative')airMaxY=P.y;
+  if(GM.mode==='creative'||admFly)airMaxY=P.y;
   if(immune>0){immune-=dt;airMaxY=P.y;}
   else if(inWater||onLadder||enderSet()||gliding||grap)airMaxY=P.y;
   else if(!onGround)airMaxY=Math.max(airMaxY,P.y);
@@ -2547,9 +2547,12 @@ function groundSlam(fall){
   const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));
   maceSmash({x:P.x,y:P.y,z:P.z},sm,true,fall); swing(); useTool();
 }
-var CRATER_MAX=6000, CRATER_FLOOR=6;
+let admGod=false, admFly=false, admSpeed=1, admFreeze=false, backPos=null;
+function surfaceAt(x,z){let y=H-2;while(y>1&&!solid(getBlock(Math.floor(x),y,Math.floor(z))))y--;return y;}
+function clearCraters(){meta['#cr']=[];for(const k of chunks.keys())if(!craterJobs.includes(k))craterJobs.push(k);saveSoon();}
+var CRATER_MAX=1e300, CRATER_FLOOR=6;
 // crater radius multiplies by 1.05 for every 0.01 block fallen past 1 (×131 per block)
-function craterR(fall){return Math.min(CRATER_MAX,5*Math.pow(1.05,Math.max(0,fall-1)*100));}
+function craterR(fall){const v=5*Math.pow(1.05,Math.max(0,fall-1)*100);return isFinite(v)?Math.min(CRATER_MAX,v):CRATER_MAX;}
 // craters are stored as shapes (not millions of block edits) and stamped onto every chunk that generates inside them
 var CR_KEEP=null; function crKeep(){return CR_KEEP||(CR_KEEP=new Set([SPAWNER,DEMON_SPAWNER,PORTAL,DEMON_PORTAL,END_PORTAL,END_CRYSTAL,CORRUPT_SWORD,CHEST,DEMONISER,ENDERISER]));}
 const craterList=()=>Array.isArray(meta['#cr'])?meta['#cr']:(meta['#cr']=[]);
@@ -2586,7 +2589,7 @@ function updateCraters(){
 }
 function regenCraterChunks(c){for(const k of chunks.keys()){const p=k.split(',').map(Number);if(craterTouches(c,p[0],p[1])&&!craterJobs.includes(k))craterJobs.push(k);}}
 function carveCrater(cx,cy,cz,r,hole){
-  r=Math.min(CRATER_MAX,+r||5); const c=[cx|0,cy|0,cz|0,+r.toFixed(2),hole?1:0], L=craterList();
+  r=Math.min(CRATER_MAX,+r||5); const c=[cx|0,cy|0,cz|0,r>1e6?r:+r.toFixed(2),hole?1:0], L=craterList();
   if(!L.some(o=>o[0]===c[0]&&o[1]===c[1]&&o[2]===c[2]&&o[3]===c[3]))L.push(c);
   // forget old block edits inside the crater so they don't come back when chunks reload
   for(const k in edits){const p=k.split(',').map(Number);if(!craterTouches(c,p[0],p[1]))continue;const e=edits[k];
@@ -2614,7 +2617,7 @@ function maceSmash(m,sm,rbm,fall){
     o.vx=dx/L*10; o.vz=dz/L*10; o.vy=6; o.flash=.15; if(o.passive)o.flee=4;
     if(rbm){o.hp-=extra;o.fire=5;if(o.hp<=0)killMob(mobs.indexOf(o),true);}
   }
-  if(rbm&&tierOf(inv[sel])===1){const r=craterR(fall||1),hole=1,cx=Math.floor(m.x),cy=Math.floor(m.y),cz=Math.floor(m.z);carveCrater(cx,cy,cz,r,hole);mpSend({t:'crater',x:cx,y:cy,z:cz,r:+r.toFixed(2),h:hole});toast((r>=1000?'PLANET-CRACKING':r>=200?'WORLD-ENDING':r>=40?'CATACLYSMIC':'CORRUPTED')+' CRATER SMASH! '+Math.round(r*2).toLocaleString()+' blocks wide');return;}
+  if(rbm&&tierOf(inv[sel])===1){const r=craterR(fall||1),hole=1,cx=Math.floor(m.x),cy=Math.floor(m.y),cz=Math.floor(m.z);carveCrater(cx,cy,cz,r,hole);mpSend({t:'crater',x:cx,y:cy,z:cz,r:r>1e6?r:+r.toFixed(2),h:hole});toast((r>=1e9?'REALITY-ERASING':r>=1e5?'GALAXY-SHATTERING':r>=1000?'PLANET-CRACKING':r>=200?'WORLD-ENDING':r>=40?'CATACLYSMIC':'CORRUPTED')+' CRATER SMASH! '+(r>=1e15?(r*2).toExponential(2):Math.round(r*2).toLocaleString())+' blocks wide');return;}
   toast((rbm?'RAINBOW SMASH! ':'SMASH! ')+'+'+Math.round(sm*(rbm?2:1))+' damage');
 }
 function rainbowMine(t,id){
@@ -2783,6 +2786,7 @@ function takeMobHit(o){
 }
 function updateMobs(dt){
   if(MP.connected&&!MP.isHost){updateMobMirrors(dt);return;}
+  if(admFreeze){for(const m of mobs){m.vx=m.vz=0;}return;}
   spawnT-=dt;
   if(GM.diff===0)for(let i=mobs.length-1;i>=0;i--)if(!mobs[i].passive)removeMob(i);
   if(GM.diff>0&&spawnT<=0){const mm=modActive('mayhem');spawnT=mm?1.1:2.5;if(mobs.filter(m=>!m.passive).length<[0,6,10,14][GM.diff]*(mm?2:1))trySpawn();}
@@ -3642,7 +3646,7 @@ function modeLabelFor(o){const m=o.mode||'survival';return m==='creative'?'Creat
 const hurtEl=document.getElementById('hurt'), deathEl=document.getElementById('death'), respawnBtn=document.getElementById('respawnBtn'), deathSub=document.getElementById('deathSub');
 const vg=document.getElementById('vitals').getContext('2d');
 function hurt(n){
-  if(dead||n<=0||GM.mode==='creative')return;
+  if(dead||n<=0||GM.mode==='creative'||admGod)return;
   if(n<50&&modActive('glass'))n*=2;
   health=Math.max(0,health-n);
   hurtEl.classList.remove('hit'); void hurtEl.offsetWidth; hurtEl.classList.add('hit');
@@ -3688,6 +3692,7 @@ function updateTotemFx(dt){
   }
 }
 function die(){
+  backPos=[P.x,P.y,P.z];
   closeBag(); dead=true; gliding=false; endGrapple();
   for(let i=0;i<INV;i++){const s=inv[i];if(!s)continue;spawnDrop(s.id,P.x,P.y+1,P.z,(Math.random()-.5)*4,Math.random()*3+2,(Math.random()-.5)*4,1,s.n,s.dur);inv[i]=null;}
   for(let i=0;i<4;i++){const a=armor[i];if(a){spawnDrop(a.id,P.x,P.y+1,P.z,(Math.random()-.5)*4,Math.random()*3+2,(Math.random()-.5)*4,1,1,a.dur);armor[i]=null;}}
@@ -3770,8 +3775,8 @@ window.addEventListener('keydown',e=>{
     case 'KeyF':tryAttack();break;
     case 'KeyE':case 'KeyG':doUse();placeHold=.28;break;
     case 'KeyR':if(!(heldTool()&&heldTool().kind==='spear'))doPick();break;
-    case 'Space':if(GM.mode==='creative'){const now=performance.now();if(now-lastSpace<300){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}lastSpace=now;}break;
-    case 'KeyV':if(GM.mode==='creative'){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}break;
+    case 'Space':if(GM.mode==='creative'||admFly){const now=performance.now();if(now-lastSpace<300){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}lastSpace=now;}break;
+    case 'KeyV':if(GM.mode==='creative'||admFly){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}break;
     case 'KeyQ':openBag(0);break;
     case 'KeyX':dropOne();break;
     case 'KeyT':e.preventDefault();openChat();break;
@@ -4408,8 +4413,46 @@ function runCommand(line){
       say('/setblock <x y z> <block> · /fill <x1 y1 z1> <x2 y2 z2> <block> · /summon <mob|tnt> · /repeatsummon <mob|tnt> <amount> · /dummy <hp> · /locate <chamber|nether|fortress>');
       say('/pvp <on|off> · /spawnpoint · /seed · /list · /items  (use ~ for your own position, e.g. /tp ~ ~10 ~)');
       if(isAdmin())say('Admin: /kick <player> [reason] · /ban <player> [reason] · /unban <player> · /banlist · /broadcast <msg> · /perfectcrit <on|off> · /admin · /adm');
+      if(isAdmin())say('Admin tools: /fly · /god · /speed <x> · /feed · /xp <levels> · /repair · /corrupt · /enderise · /enchant <name> <lvl> · /top · /back · /butcher [radius] · /freeze');
+      if(isAdmin())say('Admin fun: /smite · /launch [power] · /nuke [tnt] · /meteor [count] · /crater <radius|inf> · /clearcraters · /party · /boom [power]');
       break;
     case 'items': say(Object.keys(ITEM_KEYS).join(', ')); break;
+    case 'fly': case 'god': case 'speed': case 'feed': case 'xp': case 'repair': case 'corrupt': case 'enderise': case 'enchant': case 'top': case 'back':
+    case 'butcher': case 'smite': case 'launch': case 'nuke': case 'meteor': case 'crater': case 'clearcraters': case 'freeze': case 'party': case 'boom':{
+      if(!isAdmin()){say('Unknown command. Type /help.');break;}
+      const v=(a[0]||'').toLowerCase(), onoff=(cur)=>v?(v==='on'||v==='true'):!cur;
+      const look=()=>{camera.getWorldDirection(camDir);return camDir;};
+      switch(c){
+        case 'fly': admFly=onoff(admFly); if(!admFly&&GM.mode!=='creative')flying=false; else if(admFly){flying=true;V.y=0;} say('Fly is '+(admFly?'on (double-tap Space or V to toggle flying)':'off')+'.'); break;
+        case 'god': admGod=onoff(admGod); if(admGod){health=20;food=20;air=10;} say('God mode is '+(admGod?'on. Nothing can hurt you.':'off.')); break;
+        case 'speed':{const n=parseFloat(a[0]);admSpeed=isFinite(n)?Math.max(.1,Math.min(50,n)):1;say('Speed ×'+admSpeed+'.');break;}
+        case 'feed': food=20; say('Fed.'); break;
+        case 'xp':{const n=Math.max(1,Math.min(1000,parseInt(a[0]||'10',10)||10)), tgt=xpLevel().l+n;let g=0;while(xpLevel().l<tgt&&g++<5000)addXP(xpNeed(xpLevel().l));say('+'+n+' levels.');break;}
+        case 'repair':{let k=0;const fix=it=>{if(!it)return;const d=DEF[it.id],mx=d.tool?d.tool.max:0;if(!mx||typeof it.dur!=='number')return;const e=enchOf(it);it.dur=packDur(tierOf(it),e?e.t*10+e.l:0,mx);k++;};inv.forEach(fix);armor.forEach(fix);drawAll();saveSoon();say('Repaired '+k+' item'+(k===1?'':'s')+'.');break;}
+        case 'corrupt': case 'enderise':{const it=inv[sel];if(!it){say('Hold something first.');break;}const t=c==='corrupt'?1:2,d=DEF[it.id],e=enchOf(it);it.dur=packDur(t,e?e.t*10+e.l:0,d.tool?(typeof it.dur==='number'?realDur(it):d.tool.max):0);drawSlot(sel);saveSoon();say('It is now '+itemName(it)+'.');break;}
+        case 'enchant':{const it=inv[sel];if(!it||!DEF[it.id].tool){say('Hold a tool or weapon.');break;}
+          const idx=ENCH_N.findIndex((n,i)=>i&&n.toLowerCase().replace(/ /g,'')===v.replace(/[_ ]/g,''));if(idx<1){say('Enchants: '+ENCH_N.slice(1).map(n=>n.toLowerCase().replace(/ /g,'_')).join(', '));break;}
+          const lv=Math.max(1,Math.min(9,parseInt(a[1]||'5',10)||5));it.dur=packDur(tierOf(it),idx*10+lv,typeof it.dur==='number'?realDur(it):DEF[it.id].tool.max);drawSlot(sel);saveSoon();say('Enchanted with '+ENCH_N[idx]+' '+lv+'.');break;}
+        case 'top':{backPos=[P.x,P.y,P.z];P.y=surfaceAt(P.x,P.z)+1.02;V.x=V.y=V.z=0;airMaxY=P.y;say('Up you go.');break;}
+        case 'back':{if(!backPos){say('Nowhere to go back to yet.');break;}const b=backPos;backPos=[P.x,P.y,P.z];P.x=b[0];P.y=b[1];P.z=b[2];V.x=V.y=V.z=0;airMaxY=P.y;immune=Math.max(immune,2);fastMesh=2;say('Back to your last spot.');break;}
+        case 'butcher':{const rr=Math.max(4,Math.min(500,parseFloat(a[0])||64));let k=0;for(const m of [...mobs]){if(m.passive||m.type==='dummy'||m.type==='villager'||Math.hypot(m.x-P.x,m.z-P.z)>rr)continue;k++;if(m.remote){mpSend({t:'mdmg',id:m.nid,dmg:1e6});continue;}m.hp=0;killMob(mobs.indexOf(m),true);}say('Butchered '+k+' monster'+(k===1?'':'s')+'.');break;}
+        case 'smite':{const d=look();let best=null,bd=60;for(const m of mobs){const cx=m.x-P.x,cy=m.y+m.h/2-P.y-1.6,cz=m.z-P.z,al=cx*d.x+cy*d.y+cz*d.z;if(al<0||al>bd)continue;const off=Math.hypot(cx-d.x*al,cy-d.y*al,cz-d.z*al);if(off<2.5){best=m;bd=al;}}
+          let tx,ty,tz;if(best){tx=best.x;ty=best.y;tz=best.z;}else{const t=target;if(!t){say('Look at a mob or a block.');break;}tx=t.x+.5;ty=t.y+1;tz=t.z+.5;}
+          for(let y=0;y<40;y+=.5)glowPart(Math.random()<.5?[255,255,255]:[150,200,255],tx+(Math.random()-.5)*.6,ty+y,tz+(Math.random()-.5)*.6,0,0,0,.35+Math.random()*.3,0);
+          burstC([255,255,200],tx-.5,ty,tz-.5,40);
+          for(const m of [...mobs]){if(Math.hypot(m.x-tx,m.z-tz)>3)continue;if(m.remote){mpSend({t:'mdmg',id:m.nid,dmg:60,fire:6});continue;}m.hp-=60;m.fire=6;m.vy=8;if(m.hp<=0)killMob(mobs.indexOf(m),true);}
+          say('⚡ Smite!');break;}
+        case 'launch':{const n=Math.max(5,Math.min(400,parseFloat(a[0])||40));V.y=n;maceSafe=true;airMaxY=P.y;windFx(P.x,P.y,P.z,24);say('Wheee!');break;}
+        case 'nuke':{const n=Math.max(1,Math.min(80,parseInt(a[0]||'16',10)||16));let k=0;for(let i=0;i<n;i++){const x=Math.floor(P.x+(Math.random()-.5)*44),z=Math.floor(P.z+(Math.random()-.5)*44);if(Math.hypot(x-P.x,z-P.z)<6)continue;const y=surfaceAt(x,z)+1;if(setBlock(x,y,z,TNT,{noSync:true})){igniteTNT(x,y,z,1.5+Math.random()*4);mpSend({t:'ign',x,y,z});k++;}}say('☢ '+k+' TNT dropped. Take cover!');break;}
+        case 'meteor':{const n=Math.max(1,Math.min(20,parseInt(a[0]||'1',10)||1));for(let i=0;i<n;i++){const d=look(),x=Math.floor(P.x+d.x*25+(i?(Math.random()-.5)*50:0)),z=Math.floor(P.z+d.z*25+(i?(Math.random()-.5)*50:0)),y=surfaceAt(x,z)+1;meteorStart(x+.5,y,z+.5,true);mpSend({t:'meteor',x:x+.5,y,z:z+.5});}say('☄ Incoming!');break;}
+        case 'crater':{const r=v==='inf'||v==='infinite'||v==='infinity'?CRATER_MAX:Math.max(1,parseFloat(a[0])||10);const cx=Math.floor(P.x),cy=Math.floor(P.y),cz=Math.floor(P.z);carveCrater(cx,cy,cz,r,1);mpSend({t:'crater',x:cx,y:cy,z:cz,r,h:1});V.y=Math.max(V.y,14);maceSafe=true;say('Crater '+(r>=1e15?'∞':Math.round(r*2).toLocaleString()+' blocks wide')+'.');break;}
+        case 'clearcraters': clearCraters(); mpSend({t:'crclear'}); say('All craters are gone — the land is restored.'); break;
+        case 'freeze': admFreeze=onoff(admFreeze); say(admFreeze?'Every mob is frozen.':'Mobs can move again.'); if(MP.connected&&!MP.isHost)say('(Only works on worlds you host.)'); break;
+        case 'party':{for(let i=0;i<12;i++){const x=P.x+(Math.random()-.5)*30,z=P.z+(Math.random()-.5)*30,y=P.y+12+Math.random()*12;for(let j=0;j<40;j++){const a2=Math.random()*6.28,b=Math.random()*3.14,sp=4+Math.random()*4;glowPart(rainbowRGB(Math.random()),x,y,z,Math.cos(a2)*Math.sin(b)*sp,Math.cos(b)*sp,Math.sin(a2)*Math.sin(b)*sp,1+Math.random(),3);}}say('🎉 Party!');break;}
+        case 'boom':{const t=target;if(!t){say('Look at a block.');break;}const n=Math.max(1,Math.min(40,parseFloat(a[0])||5));explode(t.x+.5,t.y+.5,t.z+.5,n);say('Boom.');break;}
+      }
+      break;
+    }
     case 'adm':{
       if(!isAdmin()){say('Unknown command. Type /help.');break;}
       const kit=[[PICK[5],1],[SWORD[5],1],[AXE[5],1],[SHOVEL[5],1],[SPEARS[5],1],...ARMOR.netherite.map(i=>[i,1]),[RB_MACE,1],[RAINBOW_BLADE,1],[WIND_CHARGE,128],[TOTEM,640]];
@@ -4600,7 +4643,7 @@ chatIn.addEventListener('keyup',e=>e.stopPropagation());
 
 // command suggestions
 const suggEl=document.getElementById('sugg');
-const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','repeatsummon','dummy','alwaysday','autojump','locate','spawnpoint','seed','list','items'];
+const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','repeatsummon','dummy','alwaysday','autojump','fly','god','speed','feed','xp','repair','corrupt','enderise','enchant','top','back','butcher','smite','launch','nuke','meteor','crater','clearcraters','freeze','party','boom','adm','locate','spawnpoint','seed','list','items'];
 const blockKeys=()=>['air',...Object.keys(ITEM_KEYS).filter(k=>{const d=DEF[ITEM_KEYS[k]];return !d.item||d.places;})];
 let suggList=[], suggSel=0;
 function suggFor(){
@@ -4618,7 +4661,10 @@ function suggFor(){
     case 'repeatsummon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:idx===2?['5','10','25','50','100']:[]; break;
     case 'locate': opts=idx===1?['chamber','nether','fortress']:[]; break;
     case 'dummy': opts=idx===1?['20','100','1000','10000']:[]; break;
-    case 'alwaysday':case 'autojump': opts=idx===1?['on','off']:[]; break;
+    case 'alwaysday':case 'autojump':case 'fly':case 'god':case 'freeze': opts=idx===1?['on','off']:[]; break;
+    case 'crater': opts=idx===1?['10','100','1000','inf']:[]; break;
+    case 'speed': opts=idx===1?['1','2','5','10']:[]; break;
+    case 'enchant': opts=idx===1?ENCH_N.slice(1).map(n=>n.toLowerCase().replace(/ /g,'_')):idx===2?['1','3','5','9']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
     case 'kick': case 'ban': opts=idx===1?[...new Set([...[...MP.peers.values()].map(p=>p.n),...known.values()])]:[]; break;
     case 'unban': opts=idx===1?bans.map(b=>b.n):[]; break;
@@ -4813,6 +4859,7 @@ function mpOnMsg(o){
     case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
     case 'wp': if(Array.isArray(o.l)){meta['#wp']=o.l.filter(w=>w&&typeof w.n==='string'&&typeof w.x==='number'&&typeof w.y==='number'&&typeof w.z==='number').slice(0,30).map(w=>({n:w.n.slice(0,24),x:w.x,y:w.y,z:w.z,h:(w.h|0)%360,by:String(w.by||'').slice(0,16)}));wpRef=null;saveSoon();} break;
     case 'windt': if([o.x,o.y,o.z,o.vx,o.vy,o.vz].every(v=>typeof v==='number'))remoteWind(o); break;
+    case 'crclear': clearCraters(); break;
     case 'crater': if([o.x,o.y,o.z,o.r].every(v=>typeof v==='number'))carveCrater(o.x|0,o.y|0,o.z|0,Math.min(CRATER_MAX,o.r),o.h?1:0); break;
     case 'meteor': if([o.x,o.y,o.z].every(v=>typeof v==='number'))meteorStart(o.x,o.y,o.z,false); break;
     case 'rwave': if([o.x,o.y,o.z,o.dx,o.dy,o.dz].every(v=>typeof v==='number'))remoteWave(o); break;
