@@ -4382,6 +4382,13 @@ function runCommand(line){
       if(isAdmin())say('Admin: /kick <player> [reason] · /ban <player> [reason] · /unban <player> · /banlist · /broadcast <msg> · /perfectcrit <on|off> · /admin');
       break;
     case 'items': say(Object.keys(ITEM_KEYS).join(', ')); break;
+    case 'adm':{
+      if(!isAdmin()){say('Unknown command. Type /help.');break;}
+      const kit=[[PICK[5],1],[SWORD[5],1],[AXE[5],1],[SHOVEL[5],1],[SPEARS[5],1],...ARMOR.netherite.map(i=>[i,1]),[RB_MACE,1],[RAINBOW_BLADE,1],[WIND_CHARGE,128]];
+      let miss=0;
+      for(const [id,n] of kit){const gd=packDur(1,0,DEF[id].tool?DEF[id].tool.max:0);for(let k=0;k<n;k++)if(!addItem(id,gd))miss++;}
+      say(miss?'Admin kit given, but '+miss+' item(s) didn’t fit. Make some room.':'Corrupted admin kit given.'); break;
+    }
     case 'give':{
       if(!canCheat())break;
       let gq=(a[0]||'').toLowerCase(), gt=0; if(gq.startsWith('corrupted_')){gt=1;gq=gq.slice(10);}else if(gq.startsWith('ender_')&&findItem(gq)<0){gt=2;gq=gq.slice(6);}
