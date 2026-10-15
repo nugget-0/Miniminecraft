@@ -2492,7 +2492,7 @@ function tryAttack(){
   const tool=blade&&!rb?null:heldTool(), dmw=!!tool&&isDm(inv[sel]), base=((tool?(tool.dmg||tool.tier+1):1)+(tool?1.25*enchLvl(inv[sel],1):0))*(tool?tierMul(inv[sel],2.2,1.6):1)*(fx.strength>0?1.5:1), cr=rollCrit();
   let dmg=(rb?base*(cr?1.5:1):cr===2?18:cr===1?base*1.5:base)*(modActive('glass')?2:1);
   const mace=!!(tool&&tool.kind==='mace'), rbm=mace&&!!DEF[inv[sel].id].rainbow;
-  if(mace){const fall=airMaxY-P.y;if(fall>1.5&&!onGround){const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));dmg+=sm*(rbm?2:1);maceSmash(m,sm,rbm);}}
+  if(mace){const fall=airMaxY-P.y, crm=rbm&&tierOf(inv[sel])===1;if((fall>1.5||(crm&&fall>.7))&&!onGround){const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));dmg+=sm*(rbm?2:1);maceSmash(m,sm,rbm);}}
   if(spr){const hs=Math.hypot(V.x,V.z);if(hs>5.5){const cb=Math.min(30,(hs-4)*.9);dmg+=cb;toast('CHARGE! +'+Math.round(cb));for(let i=0;i<12;i++)glowPart([255,255,255],m.x,m.y+1,m.z,(Math.random()-.5)*4,Math.random()*3,(Math.random()-.5)*4,.4,4);}}
   critFx(cr,m.x,m.y+m.h-.9,m.z);
   const dx=m.x-P.x,dz=m.z-P.z,L=Math.hypot(dx,dz)||1, kb=rb?12:spr?9:7;
@@ -2538,8 +2538,9 @@ function areaBreak(x,y,z,filter){
 }
 // corrupted rainbow fire mace: smashes carve a glitching crater with a corrupted rim
 const CRATER_SAFE=new Set([SPAWNER,DEMON_SPAWNER,PORTAL,DEMON_PORTAL,END_PORTAL,END_CRYSTAL,CORRUPT_SWORD,CHEST,DEMONISER,ENDERISER,WATER,LAVA]);
-function carveCrater(cx,cy,cz,r){
+function carveCrater(cx,cy,cz,r,hole){
   const R=Math.ceil(r+1.5);
+  if(hole>0){const hr=Math.max(1.6,r*.32);for(let dy=-Math.ceil(r)-hole;dy<=0;dy++)for(let dz=-3;dz<=3;dz++)for(let dx=-3;dx<=3;dx++){const x=cx+dx,y=cy+dy,z=cz+dz;if(y<=1||Math.hypot(dx,dz)>hr)continue;const id=getBlock(x,y,z);if(id!==AIR&&!CRATER_SAFE.has(id))setBlock(x,y,z,AIR,{noSync:true});}}
   for(let dy=-R;dy<=2;dy++)for(let dz=-R;dz<=R;dz++)for(let dx=-R;dx<=R;dx++){
     const x=cx+dx,y=cy+dy,z=cz+dz; if(y<=1||y>=H)continue;
     const id=getBlock(x,y,z); if(id===AIR||CRATER_SAFE.has(id))continue;
@@ -2567,7 +2568,7 @@ function maceSmash(m,sm,rbm){
     o.vx=dx/L*10; o.vz=dz/L*10; o.vy=6; o.flash=.15; if(o.passive)o.flee=4;
     if(rbm){o.hp-=extra;o.fire=5;if(o.hp<=0)killMob(mobs.indexOf(o),true);}
   }
-  if(rbm&&tierOf(inv[sel])===1){const r=Math.min(6.5,2.5+sm*.18),cx=Math.floor(m.x),cy=Math.floor(m.y),cz=Math.floor(m.z);carveCrater(cx,cy,cz,r);mpSend({t:'crater',x:cx,y:cy,z:cz,r:+r.toFixed(2)});toast('CORRUPTED CRATER SMASH! +'+Math.round(sm*2)+' damage');return;}
+  if(rbm&&tierOf(inv[sel])===1){const r=Math.min(9,5+sm*.15),hole=Math.min(18,6+Math.round(sm*.4)),cx=Math.floor(m.x),cy=Math.floor(m.y),cz=Math.floor(m.z);carveCrater(cx,cy,cz,r,hole);mpSend({t:'crater',x:cx,y:cy,z:cz,r:+r.toFixed(2),h:hole});toast('CORRUPTED CRATER SMASH! +'+Math.round(sm*2)+' damage');return;}
   toast((rbm?'RAINBOW SMASH! ':'SMASH! ')+'+'+Math.round(sm*(rbm?2:1))+' damage');
 }
 function rainbowMine(t,id){
@@ -4759,7 +4760,7 @@ function mpOnMsg(o){
     case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
     case 'wp': if(Array.isArray(o.l)){meta['#wp']=o.l.filter(w=>w&&typeof w.n==='string'&&typeof w.x==='number'&&typeof w.y==='number'&&typeof w.z==='number').slice(0,30).map(w=>({n:w.n.slice(0,24),x:w.x,y:w.y,z:w.z,h:(w.h|0)%360,by:String(w.by||'').slice(0,16)}));wpRef=null;saveSoon();} break;
     case 'windt': if([o.x,o.y,o.z,o.vx,o.vy,o.vz].every(v=>typeof v==='number'))remoteWind(o); break;
-    case 'crater': if([o.x,o.y,o.z,o.r].every(v=>typeof v==='number'))carveCrater(o.x|0,o.y|0,o.z|0,Math.min(7,o.r)); break;
+    case 'crater': if([o.x,o.y,o.z,o.r].every(v=>typeof v==='number'))carveCrater(o.x|0,o.y|0,o.z|0,Math.min(9,o.r),typeof o.h==='number'?Math.min(18,o.h|0):0); break;
     case 'meteor': if([o.x,o.y,o.z].every(v=>typeof v==='number'))meteorStart(o.x,o.y,o.z,false); break;
     case 'rwave': if([o.x,o.y,o.z,o.dx,o.dy,o.dz].every(v=>typeof v==='number'))remoteWave(o); break;
     case 'totem': if(typeof o.x==='number'&&typeof o.y==='number'&&typeof o.z==='number'){totemPop(o.x,o.y,o.z,false);chatSys(peerName(o.s)+' was saved by a Totem of Revival');} break;
