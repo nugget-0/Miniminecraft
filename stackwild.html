@@ -241,7 +241,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
     <button data-key="KeyC">Crouch</button><button data-key="Space">Jump</button>
-    <button data-act="view">View</button><button data-act="mark">Mark</button><button data-act="stab" data-key="KeyR">Stab</button><button data-act="hb">Hitbox</button><button data-key="KeyT" id="aimTouchBtn" hidden>Aim</button><button data-act="reload" id="reloadTouchBtn" hidden>Reload</button><button data-act="admp" id="admTouchBtn" hidden>Admin</button>
+    <button data-act="view">View</button><button data-act="mark">Mark</button><button data-act="stab" data-key="KeyR">Stab</button><button data-act="hb">Hitbox</button><button data-key="KeyT" id="aimTouchBtn" hidden>Aim</button><button data-act="reload" id="reloadTouchBtn" hidden>Reload</button><button data-act="bp" id="bpTouchBtn" hidden>Blueprints</button><button data-act="bprot" id="bpRotBtn" hidden>Rotate</button><button data-act="admp" id="admTouchBtn" hidden>Admin</button>
   </div>
 </div>
 
@@ -523,6 +523,8 @@ const GUNS={
   251:{k:'sniper',name:'Sniper Rifle',mag:5,rpm:44,dmg:60,auto:0,spread:6,ads:0,recoil:7,reload:3.1,range:320,pellets:1,fov:9,hs:2.5,sh:.15,scope:1,bolt:1,lp:2600,dec:.95,th:1.2},
   252:{k:'rpg',name:'Rocket Launcher',mag:1,rpm:30,dmg:0,auto:0,spread:.6,ads:.5,recoil:6,reload:3.4,range:200,pellets:1,fov:50,hs:1,sh:.17,rocket:1,lp:900,dec:.8,th:1.3}};
 GUN_IDS.forEach((id,i)=>I(id,GUNS[id].name,241+i,{tool:{kind:'gun',tier:0,max:1,dmg:1},admin:true,gun:GUNS[id]}));
+const HAMMER=253;
+I(HAMMER,'Builder Hammer',247,{tool:{kind:'hammer',tier:1,max:9999,dmg:3}});
 const NETHER_END_MIN=250000, END_X=300000;
 // item extras ride in the durability number: tier*1e6 + enchant*1e4 + durability (survives drops, chests, saves, sync)
 const DM=1000000, EN=10000;
@@ -866,6 +868,7 @@ const atlas=document.createElement('canvas'); atlas.width=AW*16; atlas.height=AH
        (x,y)=>R_(x,y,0,7,7,7)?GM_[1]:R_(x,y,7,6,11,8)?GM_[0]:R_(x,y,12,6,15,9)?[150,130,90]:R_(x,y,5,4,10,5)?[25,25,30]:R_(x,y,9,9,9,10)?GM_[1]:null,
        (x,y)=>R_(x,y,1,6,14,9)?[70,85,60]:R_(x,y,0,5,1,10)?[60,60,60]:R_(x,y,8,10,9,12)?GM_[1]:null];
      GT.forEach((f,i)=>tile(241+i,(x,y)=>{const c=f(x,y);return c?sh(c,.9+rnd()*.15):T;}));}
+    tile(247,(x,y)=>{if(seg(x,y,3,13,10,6)<.8)return sh(woodC,.85+rnd()*.2);if(x>=7&&x<=13&&y>=2&&y<=6&&x+y>=9)return sh([150,155,165],(y<4?1.15:.85)+rnd()*.1);return T;});
     tile(238,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5),a=Math.atan2(y-7.5,x-7.5);if(d>6.2)return T;const sw=Math.sin(a*3+d*1.3);return sw>.3?[230,250,255]:d<2?[180,230,255]:sw>-.2?sh([140,200,240],.9+rnd()*.1):T;});
     tile(231,(x,y)=>{if(x>=6&&x<=9&&y>=3&&y<=11)return y<5?[220,40,40]:x===6?[200,200,200]:sh([236,236,236],.9+rnd()*.1);if(y<=2&&Math.abs(x-7.5)<=y)return[220,40,40];if(y>=12&&x>=5&&x<=10&&rnd()<.7)return rnd()<.5?[255,200,60]:[255,120,30];return T;});
     tile(232,(x,y)=>{if(seg(x,y,3,13,10,6)<.85)return sh(woodC,.85+rnd()*.2);if(Math.hypot(x-11.5,y-4.5)<2.4&&!(x>11&&y>4))return sh([180,180,188],.85+rnd()*.25);if((x+y)%2===0&&seg(x,y,10,6,14,2)<.6)return[120,100,70];return T;});
@@ -1968,7 +1971,7 @@ function breakAt(t){
 }
 function updateMining(dt){
   mineCd=Math.max(0,mineCd-dt);
-  if(gunHeld()){mine.key='';crack.visible=false;return;}
+  if(gunHeld()||(bpOn()&&(heldIs(HAMMER)||bpStamp))){mine.key='';crack.visible=false;return;}
   if(mineLatch&&(!target||latchKey!==target.x+','+target.y+','+target.z))mineLatch=false;
   const want=keys.KeyF||ptrMine||touchDig||mineLatch;
   if(!want||!target){mine.key='';mine.t=Math.min(mine.t,0);crack.visible=false;return;}
@@ -1989,7 +1992,7 @@ const SOFT=new Set([TALL_GRASS,FLOWER_RED,FLOWER_YELLOW,DEAD_BUSH]);
 function doUse(){
   const mv=mobRay(target?Math.min(4,target.t):4);
   if(mv&&mv.type==='villager'){swing();openBag('trade',mv);return;}
-  {const hh=inv[sel]?inv[sel].id:0;if(gunHeld())return;if(hh===BOW){startBow();return;}if(hh===WIND_CHARGE){throwWind();return;}if(DEF[hh]&&DEF[hh].tool&&DEF[hh].tool.kind==='spear'&&!(target&&[TABLE,FURNACE,CHEST,DEMONISER,ENDERISER,ENCHANT_TABLE,BREWING_STAND].includes(target.id))){spearLunge();return;}if(!target&&hh===ROCKET){useRocket();return;}if(!target&&hh===GRAPPLE){useGrapple();return;}}
+  {const hh=inv[sel]?inv[sel].id:0;if(gunHeld())return;if(bpOn()&&bpUse(hh))return;if(hh===BOW){startBow();return;}if(hh===WIND_CHARGE){throwWind();return;}if(DEF[hh]&&DEF[hh].tool&&DEF[hh].tool.kind==='spear'&&!(target&&[TABLE,FURNACE,CHEST,DEMONISER,ENDERISER,ENCHANT_TABLE,BREWING_STAND].includes(target.id))){spearLunge();return;}if(!target&&hh===ROCKET){useRocket();return;}if(!target&&hh===GRAPPLE){useGrapple();return;}}
   if(bladeHeld()){if(isAdmin())rainbowWave();else toast('Only admins can wield the Rainbow Fire Blade');return;}
   if(target&&inv[sel]&&inv[sel].id===IGNITER&&![TABLE,FURNACE,CHEST,END_FRAME].includes(target.id)&&!DEF[target.id].door){useIgniter(target);return;}
   if(target){
@@ -2020,6 +2023,7 @@ function useBed(t){
   saveSoon();
 }
 function doPlace(){
+  if(bpNoPlace)return;
   const it=inv[sel];
   if(it&&DEF[it.id].potion){drinkPotion(it);return;}
   if(it&&it.id===GLASS_BOTTLE){fillBottle();return;}
@@ -2574,6 +2578,7 @@ function mobRay(maxT){
 }
 function tryAttack(){
   if(gunHeld())return true;
+  if(bpOn()&&(heldIs(HAMMER)||bpStamp)){bpReset();return true;}
   if(atkCd>0||dead)return false;
   const spr=!!(heldTool()&&heldTool().kind==='spear'), reach=spr?5.5:3.5;
   const lim=target?Math.min(reach,target.t):reach, ph=peerRay(lim);
@@ -3234,7 +3239,7 @@ const RECIPES=[];
   r(WINGS[5],1,[[WINGS[4],1],[NETHERITE_INGOT,2]],TABLE); r(WINGS[6],1,[[WINGS[5],1],[DRAGON_SCALE,8]],TABLE);
   r(ROCKET,3,[[COAL,1],[REDSTONE,1],[FIBER,1]]);
   [['planks',2],[COBBLE,2],[IRON,2],[DIAMOND,2]].forEach(([m,n],k)=>r(SPEARS[k+1],1,[[m,n],[STICK,3]],TABLE)); r(SPEARS[5],1,[[SPEARS[4],1],[NETHERITE_INGOT,1]],TABLE);
-  r(WIND_CHARGE,4,[[FIBER,3],[GLASS,1]]); r(BOW,1,[[STICK,3],[FIBER,3]],TABLE); r(ARROW,4,[[STICK,1],[COBBLE,1],[FIBER,1]]); r(GRAPPLE,1,[[IRON,3],[STICK,2],[FIBER,4]],TABLE);
+  r(WIND_CHARGE,4,[[FIBER,3],[GLASS,1]]); r(HAMMER,1,[[IRON,2],[STICK,2]],TABLE); r(BOW,1,[[STICK,3],[FIBER,3]],TABLE); r(ARROW,4,[[STICK,1],[COBBLE,1],[FIBER,1]]); r(GRAPPLE,1,[[IRON,3],[STICK,2],[FIBER,4]],TABLE);
   r(IGNITER,1,[[IRON,1],['fuel',1]]); r(TOTEM,1,[[GOLD_BLOCK,2],[DIAMOND,2],[GOLDEN_APPLE,1]],TABLE);
   r(TUFF_BRICKS,4,[[COBBLE,3],[GRAVEL,1]],TABLE); r(COPPER_BULB,1,[[GOLD,1],[REDSTONE,2],[TORCH,1]],TABLE);
   r(CINDER_BRICKS,4,[[EMBERROCK,4],['fuel',1]],FURNACE); r(GOLD,1,[[EMBER_ORE,1],['fuel',1]],FURNACE);
@@ -3269,6 +3274,7 @@ const MODS=[
   {id:'fps',name:'FPS Counter',type:'client',desc:'Shows frames per second, ping-free, in the top corner.'},
   {id:'zoom',name:'Zoom',type:'client',desc:'Hold Z to zoom in like a spyglass.'},
   {id:'guns',name:'Guns',type:'client',admin:true,desc:'ADMIN ONLY. Real working guns: pistol, SMG, assault rifle, shotgun, scoped sniper and rocket launcher. Mags, reloads, recoil, spread, headshots, tracers and sound. Hold T to aim, R to reload. Type /guns for the kit.'},
+  {id:'buildplus',name:'BuildPlus',type:'client',desc:'Building tools. Craft a Builder Hammer (2 iron + 2 sticks). With the hammer: E marks corner 1 then corner 2, F clears them. Then hold any block and press E to fill the box with it. B saves the box as a blueprint (kept on this device) or opens your blueprints to stamp them. R rotates a stamp.'},
   {id:'rainbowsky',name:'Rainbow Sky',type:'client',desc:'The daytime sky slowly cycles through every colour. Just for you.'},
 ];
 const lsGet=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v===null?d:v;}catch(e){return d;}};
@@ -3357,6 +3363,7 @@ const SYS_INFO=[
   ['Rockets','Use a rocket (E / Build) while gliding for a big speed boost. On the ground with wings on, it launches you into a glide.'],
   ['Grappling hook','Aim at a block up to 32 blocks away and use it: you get pulled straight there. Use it again or press C to let go.'],
   ['Bow & arrows','Craft a bow (3 sticks + 3 fiber at a table) and arrows (stick + cobble + fiber makes 4). Hold E (or the use button) to draw, let go to shoot. A full draw shoots fastest and hits hardest. Arrows that stick in blocks can be picked back up.'],
+  ['BuildPlus','Client mod (Mods page). Craft a Builder Hammer: 2 iron + 2 sticks at a table. With the hammer, E marks corner 1 and corner 2 (F clears). Hold any block and press E to fill the box (survival uses blocks from your inventory). With a box marked, B saves it as a blueprint on this device. Press B with no box to pick a blueprint, aim where it goes, R to rotate, E to stamp, F to cancel.'],
   ['Hitboxes','Press G (or the Hitbox button) to show hitboxes. White boxes are players and monsters, green are animals, the red ring is eye height, and the blue line is where they’re looking. For other players the blue line goes all the way to the block they’re aiming at, outlined in yellow.'],
   ['Spears','Hold R (or the Stab button) to brace the spear forward. While held, anything the tip runs into takes damage based on how fast you’re moving at it — sprint, dive, fly with wings or ride a wind charge for massive stabs. Your arm tires after ~8s. Long reach (5.5 blocks). Hit while sprinting or flying for charge damage. Use (E) to lunge forward and spear everything in your path. Enchant with Lunge for a longer dash.'],
   ['Wind charges','Throw with E. They burst into a gust that flings mobs and launches you high if you’re close (no fall damage). Great for rocket-jumping. Maces can get the Wind Burst enchant for bigger launches.'],
@@ -3871,7 +3878,7 @@ window.addEventListener('keydown',e=>{
     case 'KeyF':tryAttack();break;
     case 'KeyE':doUse();placeHold=.28;break;
     case 'KeyG':toggleHitboxes();break;
-    case 'KeyR':if(gunHeld()){reloadGun();break;}if(!(heldTool()&&heldTool().kind==='spear'))doPick();break;
+    case 'KeyR':if(bpStamp&&bpOn()){bpRot=(bpRot+1)%4;toast('Rotated '+bpRot*90+'°');break;}if(gunHeld()){reloadGun();break;}if(!(heldTool()&&heldTool().kind==='spear'))doPick();break;
     case 'Space':if(GM.mode==='creative'||admFly){const now=performance.now();if(now-lastSpace<300){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}lastSpace=now;}break;
     case 'KeyV':if(GM.mode==='creative'||admFly){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}break;
     case 'KeyQ':openBag(0);break;
@@ -3880,6 +3887,7 @@ window.addEventListener('keydown',e=>{
     case 'Slash':e.preventDefault();openChat();chatIn.value='/';renderSugg();break;
     case 'Tab':openBag(0);break;
     case 'KeyI':waypointUI();break;
+    case 'KeyB':if(bpOn()&&heldIs(HAMMER))bpMenu();break;
     case 'KeyH':if(isAdmin()){toggleAdmPanel();break;}openMenu();break;
     case 'Escape':if(admOpen){toggleAdmPanel();break;}openMenu();break;
     default: if(/^Digit[1-9]$/.test(e.code))select(+e.code[5]-1);
@@ -3921,6 +3929,8 @@ touchEl.querySelectorAll('button').forEach(b=>{
     if(a==='mark'){waypointUI();return;}
     if(a==='hb'){toggleHitboxes();return;}
     if(a==='reload'){reloadGun();return;}
+    if(a==='bp'){bpMenu();return;}
+    if(a==='bprot'){bpRot=(bpRot+1)%4;toast('Rotated '+bpRot*90+'°');return;}
     if(a==='admp'){toggleAdmPanel();return;}
     if(a==='bag'){bagOpen?closeBag():openBag(0);return;}
     if(bagOpen)return;
@@ -4517,6 +4527,103 @@ function updateArrows(dt){
     a.g.position.set(nx,ny,nz); a.g.lookAt(nx-a.vx,ny-a.vy,nz-a.vz);
   }
 }
+// ---------- BuildPlus (client mod): hammer selection, fill, blueprints ----------
+let bp1=null, bp2=null, bpStamp=null, bpRot=0, bpNoPlace=false, bpSelMesh=null, bpPrevMesh=null, bpMarks=[];
+const bpOn=()=>clientModOn('buildplus');
+const heldIs=id=>!!(inv[sel]&&inv[sel].id===id);
+const BP_SKIP=new Set([PORTAL,DEMON_PORTAL,END_PORTAL,SPAWNER,DEMON_SPAWNER,DEMONISER,ENDERISER,CORRUPT_SWORD,END_CRYSTAL,WATER,LAVA]);
+const BP_ROTF={0:4,4:1,1:5,5:0};
+function bpLoad(){try{return JSON.parse(localStorage.getItem('stackwild:blueprints')||'{}')||{};}catch(e){return {};}}
+function bpSave(o){try{localStorage.setItem('stackwild:blueprints',JSON.stringify(o));return true;}catch(e){toast('Not enough storage for that blueprint');return false;}}
+function bpBox(){if(!bp1||!bp2)return null;return{x1:Math.min(bp1[0],bp2[0]),y1:Math.max(1,Math.min(bp1[1],bp2[1])),z1:Math.min(bp1[2],bp2[2]),x2:Math.max(bp1[0],bp2[0]),y2:Math.min(H-1,Math.max(bp1[1],bp2[1])),z2:Math.max(bp1[2],bp2[2])};}
+const bpVol=b=>(b.x2-b.x1+1)*(b.y2-b.y1+1)*(b.z2-b.z1+1);
+function bpReset(){if(bpStamp){bpStamp=null;toast('Stamp cancelled');return;}if(bp1||bp2){bp1=bp2=null;toast('Selection cleared');}}
+function bpUse(hh){
+  if(bpStamp){bpDoStamp();return true;}
+  if(hh===HAMMER){
+    if(!target){toast('Aim at a block');return true;}
+    const c=[target.x,target.y,target.z];
+    if(!bp1||bp2){bp1=c;bp2=null;toast('Corner 1 set ('+c.join(' ')+')');}
+    else{bp2=c;const b=bpBox();toast('Corner 2 set · '+(b.x2-b.x1+1)+'×'+(b.y2-b.y1+1)+'×'+(b.z2-b.z1+1)+' = '+bpVol(b)+' blocks. Hold a block + E to fill, B to save');}
+    swing(); return true;
+  }
+  const b=bpBox(); if(!b||!hh||!DEF[hh]||DEF[hh].item&&!DEF[hh].places||DEF[hh].tool)return false;
+  bpFill(b,DEF[hh].places||hh); return true;
+}
+function bpFill(b,id){
+  const vol=bpVol(b); if(vol>32768){toast('Too big: '+vol+' blocks (max 32,768)');return;}
+  if(DEF[id].door){toast('Doors can’t be used to fill');return;}
+  const creative=GM.mode==='creative'; let have=creative?Infinity:countItem(inv[sel].id), n=0;
+  const big=vol>2000;
+  for(let y=b.y1;y<=b.y2&&have>0;y++)for(let z=b.z1;z<=b.z2&&have>0;z++)for(let x=b.x1;x<=b.x2&&have>0;x++){
+    const cur=getBlock(x,y,z); if(cur===id||BP_SKIP.has(cur)&&cur!==WATER)continue;
+    if(setBlock(x,y,z,id,{noSync:big})){n++;if(!creative)have--;}
+  }
+  if(!creative){removeItems(inv[sel].id,n);saveSoon();}
+  bpNoPlace=true; swing();
+  toast('Filled '+n.toLocaleString()+' block'+(n===1?'':'s')+(have===0&&!creative?' (ran out)':''));
+}
+async function bpMenu(){
+  if(!bpOn()){toast('Turn on BuildPlus in Mods');return;}
+  if(!swDlg.hidden||chatOpen||bagOpen)return;
+  const b=bpBox(), all=bpLoad();
+  if(b){
+    const vol=bpVol(b); if(vol>32768){toast('Too big to save (max 32,768 blocks)');return;}
+    const r=await swDialog({title:'Save blueprint',msg:(b.x2-b.x1+1)+'×'+(b.y2-b.y1+1)+'×'+(b.z2-b.z1+1)+' ('+vol.toLocaleString()+' blocks). It’s saved on this device so you can stamp it in any world.',input:true,placeholder:'House, Tower, Bridge…',buttons:[{label:'Cancel',value:null},{label:'Save',value:'ok',primary:true}]});
+    if(r.value!=='ok')return; const name=(r.text||'').trim().slice(0,24)||('Blueprint '+(Object.keys(all).length+1));
+    const w=b.x2-b.x1+1,h=b.y2-b.y1+1,d=b.z2-b.z1+1, ids=[], m={}; let i=0, nonAir=0;
+    for(let y=0;y<h;y++)for(let z=0;z<d;z++)for(let x=0;x<w;x++,i++){let id=getBlock(b.x1+x,b.y1+y,b.z1+z);if(BP_SKIP.has(id))id=AIR;ids.push(id);if(id)nonAir++;const mv=meta[(b.x1+x)+','+(b.y1+y)+','+(b.z1+z)];if(id&&typeof mv==='number')m[i]=mv;}
+    if(!nonAir){toast('That box is empty');return;}
+    let rle=[],prev=ids[0],cnt=0;for(const v of ids){if(v===prev)cnt++;else{rle.push(prev+'*'+cnt);prev=v;cnt=1;}}rle.push(prev+'*'+cnt);
+    all[name]={w,h,d,r:rle.join(','),m,n:nonAir,t:Date.now()};
+    if(bpSave(all)){toast('Saved blueprint “'+name+'”');bp1=bp2=null;}
+    return;
+  }
+  const names=Object.keys(all).sort((a,c)=>(all[c].t||0)-(all[a].t||0));
+  if(!names.length){await swDialog({title:'Blueprints',msg:'No blueprints yet. With the hammer, mark two corners (E, E) around a build, then press B to save it.'});return;}
+  const r=await swDialog({title:'Blueprints',msg:'Pick one to stamp. Saved on this device.',buttons:[...names.slice(0,12).map(n=>({label:n+' ('+all[n].w+'×'+all[n].h+'×'+all[n].d+')',value:n})),{label:'Cancel',value:null}]});
+  if(!r.value)return; const name=r.value;
+  const r2=await swDialog({title:'“'+name+'”',msg:all[name].n.toLocaleString()+' blocks. Stamp it, or delete it?',buttons:[{label:'Delete',value:'del',warn:true},{label:'Cancel',value:null},{label:'Stamp',value:'st',primary:true}]});
+  if(r2.value==='del'){delete all[name];bpSave(all);toast('Deleted “'+name+'”');return;}
+  if(r2.value!=='st')return;
+  const bp=all[name], ids=[]; for(const part of bp.r.split(',')){const [v,c]=part.split('*').map(Number);for(let k=0;k<c;k++)ids.push(v);}
+  bpStamp={name,w:bp.w,h:bp.h,d:bp.d,ids,m:bp.m||{}}; bpRot=0;
+  toast('Aim where it goes · R rotate · E stamp · F cancel');
+}
+function bpOrigin(){if(!target||!bpStamp)return null;const s=bpStamp, rw=bpRot%2?s.d:s.w, rd=bpRot%2?s.w:s.d;
+  return{x:target.x+target.nx-Math.floor(rw/2),y:target.y+target.ny,z:target.z+target.nz-Math.floor(rd/2),rw,rd};}
+function bpDoStamp(){
+  const s=bpStamp, o=bpOrigin(); if(!o){toast('Aim at a block');return;}
+  const cells=[]; let i=0;
+  for(let y=0;y<s.h;y++)for(let z=0;z<s.d;z++)for(let x=0;x<s.w;x++,i++){const id=s.ids[i];if(!id||!DEF[id])continue;
+    const r=bpRot, X=r===0?x:r===1?s.d-1-z:r===2?s.w-1-x:z, Z=r===0?z:r===1?x:r===2?s.d-1-z:s.w-1-x;
+    let mv=s.m[i]; if(typeof mv==='number'&&(DEF[id].facing||DEF[id].hfacing||DEF[id].ladder||DEF[id].door||DEF[id].stair)&&BP_ROTF[mv]!==undefined)for(let k=0;k<r;k++)mv=BP_ROTF[mv];
+    cells.push([o.x+X,o.y+y,o.z+Z,id,mv]);}
+  if(GM.mode!=='creative'){
+    const need={}; for(const c of cells){if(getBlock(c[0],c[1],c[2])===c[3])continue;const it=DEF[c[3]].door?(c[3]===DOOR_LO||c[3]===DOOR_LO_O?DOOR_ITEM:0):c[3];if(it)need[it]=(need[it]||0)+1;}
+    const miss=Object.keys(need).filter(k=>countItem(+k)<need[k]);
+    if(miss.length){toast('Missing: '+miss.slice(0,4).map(k=>(need[k]-countItem(+k))+' '+DEF[k].name).join(', ')+(miss.length>4?'…':''));return;}
+    for(const k in need)removeItems(+k,need[k]); saveSoon();
+  }
+  const big=cells.length>2000; let n=0;
+  for(const c of cells){if(c[1]<1||c[1]>=H)continue;if(BP_SKIP.has(getBlock(c[0],c[1],c[2]))&&getBlock(c[0],c[1],c[2])!==WATER)continue;const lk=c[0]+','+c[1]+','+c[2];if(typeof c[4]==='number')meta[lk]=c[4];
+    if(setBlock(c[0],c[1],c[2],c[3],{noSync:big})){n++;if(c[3]===CHEST&&!chests[lk])chests[lk]=new Array(27).fill(null);}}
+  bpNoPlace=true; swing(); toast('Stamped “'+s.name+'” ('+n.toLocaleString()+' blocks)');
+}
+function bpEdges(col){const g=new THREE.EdgesGeometry(new THREE.BoxGeometry(1,1,1));const m=new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:col,depthTest:false,transparent:true,fog:false}));m.renderOrder=998;m.visible=false;scene.add(m);return m;}
+function updateBP(){
+  if(bpNoPlace&&!keys.KeyE&&!touchUse)bpNoPlace=false;
+  const on=bpOn(), hammer=on&&heldIs(HAMMER);
+  const tb=document.getElementById('bpTouchBtn'), rb=document.getElementById('bpRotBtn'); if(tb&&tb.hidden===hammer)tb.hidden=!hammer; if(rb&&rb.hidden===!!(on&&bpStamp))rb.hidden=!(on&&bpStamp);
+  if(!bpSelMesh){bpSelMesh=bpEdges(0x4dff88);bpPrevMesh=bpEdges(0x4dd8ff);bpMarks=[bpEdges(0xffe14d),bpEdges(0xffe14d)];}
+  const b=on?bpBox():null;
+  if(b){bpSelMesh.visible=true;bpSelMesh.scale.set(b.x2-b.x1+1.04,b.y2-b.y1+1.04,b.z2-b.z1+1.04);bpSelMesh.position.set((b.x1+b.x2+1)/2,(b.y1+b.y2+1)/2,(b.z1+b.z2+1)/2);}else bpSelMesh.visible=false;
+  [bp1,bp2].forEach((c,i)=>{const m=bpMarks[i];if(on&&c){m.visible=true;m.scale.setScalar(1.08);m.position.set(c[0]+.5,c[1]+.5,c[2]+.5);}else m.visible=false;});
+  const o=on&&bpStamp?bpOrigin():null;
+  if(o){bpPrevMesh.visible=true;bpPrevMesh.scale.set(o.rw+.02,bpStamp.h+.02,o.rd+.02);bpPrevMesh.position.set(o.x+o.rw/2,o.y+bpStamp.h/2,o.z+o.rd/2);}else bpPrevMesh.visible=false;
+  if(!on&&heldIs(HAMMER)&&(keys.KeyE||keys.KeyF)&&!bpWarned){bpWarned=true;toast('Install & turn on BuildPlus in Mods to use the hammer');}
+}
+let bpWarned=false;
 // ---------- hitboxes (G): boxes around players & mobs, plus where everyone is looking ----------
 let showHB=false, hbLines=null;
 const HB_MAX=6000;
@@ -4741,7 +4848,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); updateGuns(dt); updateBow(dt); updateArrows(dt); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); updateGuns(dt); updateBow(dt); updateArrows(dt); updateBP(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
   {const gf=gunWantFov(), want=gf?gf:keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*(gf?14:4));camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
