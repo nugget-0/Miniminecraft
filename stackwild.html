@@ -184,7 +184,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
     <button data-key="KeyC">Crouch</button><button data-key="Space">Jump</button>
-    <button data-act="view">View</button><button data-act="mark">Mark</button><button data-act="stab" data-key="KeyR">Stab</button>
+    <button data-act="view">View</button><button data-act="mark">Mark</button><button data-act="stab" data-key="KeyR">Stab</button><button data-act="hb">Hitbox</button>
   </div>
 </div>
 
@@ -3262,6 +3262,7 @@ const SYS_INFO=[
   ['Wings & gliding','Wear wings in your chestplate slot. Jump off something, then press Jump again in the air to glide. Look down to dive and gain speed, look up to climb. Wooden wings sink fast; Dragon wings fly furthest and fastest. Crashing into walls at high speed hurts.'],
   ['Rockets','Use a rocket (E / Build) while gliding for a big speed boost. On the ground with wings on, it launches you into a glide.'],
   ['Grappling hook','Aim at a block up to 32 blocks away and use it: you get pulled straight there. Use it again or press C to let go.'],
+  ['Hitboxes','Press G (or the Hitbox button) to show hitboxes. White boxes are players and monsters, green are animals, the red ring is eye height, and the blue line is where they’re looking. For other players the blue line goes all the way to the block they’re aiming at, outlined in yellow.'],
   ['Spears','Hold R (or the Stab button) to brace the spear forward. While held, anything the tip runs into takes damage based on how fast you’re moving at it — sprint, dive, fly with wings or ride a wind charge for massive stabs. Your arm tires after ~8s. Long reach (5.5 blocks). Hit while sprinting or flying for charge damage. Use (E) to lunge forward and spear everything in your path. Enchant with Lunge for a longer dash.'],
   ['Wind charges','Throw with E. They burst into a gust that flings mobs and launches you high if you’re close (no fall damage). Great for rocket-jumping. Maces can get the Wind Burst enchant for bigger launches.'],
   ['Mace','Hit while falling for a smash: extra damage the further you fell, no fall damage, nearby mobs knocked away.'],
@@ -3773,7 +3774,8 @@ window.addEventListener('keydown',e=>{
     case 'KeyW':{const now=performance.now();if(now-lastW<300)sprintLatch=true;lastW=now;break;}
     case 'KeyP':toggleView();break;
     case 'KeyF':tryAttack();break;
-    case 'KeyE':case 'KeyG':doUse();placeHold=.28;break;
+    case 'KeyE':doUse();placeHold=.28;break;
+    case 'KeyG':toggleHitboxes();break;
     case 'KeyR':if(!(heldTool()&&heldTool().kind==='spear'))doPick();break;
     case 'Space':if(GM.mode==='creative'||admFly){const now=performance.now();if(now-lastSpace<300){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}lastSpace=now;}break;
     case 'KeyV':if(GM.mode==='creative'||admFly){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}break;
@@ -3821,6 +3823,7 @@ touchEl.querySelectorAll('button').forEach(b=>{
     if(a==='chat'){chatOpen?closeChat():openChat();return;}
     if(a==='view'){toggleView();return;}
     if(a==='mark'){waypointUI();return;}
+    if(a==='hb'){toggleHitboxes();return;}
     if(a==='bag'){bagOpen?closeBag():openBag(0);return;}
     if(bagOpen)return;
     if(k)keys[k]=true;
@@ -4155,6 +4158,39 @@ function updateLunge(dt){
     if(m.hp<=0)killMob(mobs.indexOf(m),true);
   }
 }
+// ---------- hitboxes (G): boxes around players & mobs, plus where everyone is looking ----------
+let showHB=false, hbLines=null;
+const HB_MAX=6000;
+function toggleHitboxes(){showHB=!showHB;toast(showHB?'Hitboxes shown':'Hitboxes hidden');if(hbLines)hbLines.visible=showHB;}
+function lookHit(ex,ey,ez,dx,dy,dz,max){for(let t=.3;t<max;t+=.15){const x=Math.floor(ex+dx*t),y=Math.floor(ey+dy*t),z=Math.floor(ez+dz*t);const id=getBlock(x,y,z);if(id!==AIR&&id!==WATER)return{t,x,y,z};}return null;}
+function updateHitboxes(){
+  if(!showHB){if(hbLines)hbLines.visible=false;return;}
+  if(!hbLines){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(HB_MAX*6),3));g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(HB_MAX*6),3));
+    hbLines=new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,depthTest:false,transparent:true,fog:false}));hbLines.renderOrder=999;hbLines.frustumCulled=false;scene.add(hbLines);}
+  hbLines.visible=true;
+  const pa=hbLines.geometry.attributes.position.array, ca=hbLines.geometry.attributes.color.array; let n=0;
+  const seg=(x1,y1,z1,x2,y2,z2,c)=>{if(n>=HB_MAX)return;const i=n*6;pa[i]=x1;pa[i+1]=y1;pa[i+2]=z1;pa[i+3]=x2;pa[i+4]=y2;pa[i+5]=z2;ca[i]=ca[i+3]=c[0];ca[i+1]=ca[i+4]=c[1];ca[i+2]=ca[i+5]=c[2];n++;};
+  const box=(x0,y0,z0,x1,y1,z1,c)=>{seg(x0,y0,z0,x1,y0,z0,c);seg(x1,y0,z0,x1,y0,z1,c);seg(x1,y0,z1,x0,y0,z1,c);seg(x0,y0,z1,x0,y0,z0,c);
+    seg(x0,y1,z0,x1,y1,z0,c);seg(x1,y1,z0,x1,y1,z1,c);seg(x1,y1,z1,x0,y1,z1,c);seg(x0,y1,z1,x0,y1,z0,c);
+    seg(x0,y0,z0,x0,y1,z0,c);seg(x1,y0,z0,x1,y1,z0,c);seg(x1,y0,z1,x1,y1,z1,c);seg(x0,y0,z1,x0,y1,z1,c);};
+  const W=[1,1,1], RED=[1,.15,.15], BLUE=[.25,.55,1], YEL=[1,.9,.2];
+  const ent=(x,y,z,hw,h,eye,fx,fy,fz,col,ray)=>{
+    box(x-hw,y,z-hw,x+hw,y+h,z+hw,col);
+    seg(x-hw,y+eye,z-hw,x+hw,y+eye,z-hw,RED);seg(x+hw,y+eye,z-hw,x+hw,y+eye,z+hw,RED);seg(x+hw,y+eye,z+hw,x-hw,y+eye,z+hw,RED);seg(x-hw,y+eye,z+hw,x-hw,y+eye,z-hw,RED);
+    const L=ray?0:2; if(!ray){seg(x,y+eye,z,x+fx*L,y+eye+fy*L,z+fz*L,BLUE);return;}
+    const hit=lookHit(x,y+eye,z,fx,fy,fz,ray), t=hit?hit.t:ray;
+    seg(x,y+eye,z,x+fx*t,y+eye+fy*t,z+fz*t,BLUE);
+    if(hit){const e=.02;box(hit.x-e,hit.y-e,hit.z-e,hit.x+1+e,hit.y+1+e,hit.z+1+e,YEL);}
+  };
+  // other players: box + eye line + full look ray to the block they're aiming at
+  for(const p of MP.peers.values()){if(!p.seen)continue;const yw=p.yaw!==undefined?p.yaw:p.tyaw, pi=p.pi!==undefined?p.pi:p.tpi, cp=Math.cos(pi);
+    ent(p.x,p.y,p.z,PW,PH,EYE,-Math.sin(yw)*cp,Math.sin(pi),-Math.cos(yw)*cp,W,60);}
+  // yourself (useful in third person)
+  if(viewMode!==0){const cp=Math.cos(pitch);ent(P.x,P.y,P.z,PW,PH,EYE,-Math.sin(yaw)*cp,Math.sin(pitch),-Math.cos(yaw)*cp,W,60);}
+  // mobs
+  for(const m of mobs){if(Math.hypot(m.x-P.x,m.z-P.z)>64)continue;ent(m.x,m.y,m.z,m.hw,m.h,m.h*.85,Math.sin(m.yaw||0),0,Math.cos(m.yaw||0),m.passive?[.4,1,.4]:W,0);}
+  hbLines.geometry.setDrawRange(0,n*2); hbLines.geometry.attributes.position.needsUpdate=true; hbLines.geometry.attributes.color.needsUpdate=true;
+}
 // ---------- leaf decay: leaves with no log nearby fall apart over time ----------
 const LEAFSET=new Set([LEAVES,BIRCH_LEAVES,SPRUCE_LEAVES,JUNGLE_LEAVES,ACACIA_LEAVES]), LOGSET=new Set([LOG,BIRCH_LOG,SPRUCE_LOG,JUNGLE_LOG,ACACIA_LOG]);
 const leafQ=new Map();
@@ -4322,7 +4358,7 @@ function frame(now){
     }
     if(collide()){P.y+=1;V.y=0;}
     physics(dt);
-    if(!bagOpen&&(keys.KeyE||keys.KeyG)){placeHold-=dt;if(placeHold<=0){doPlace();placeHold=.25;}}
+    if(!bagOpen&&keys.KeyE){placeHold-=dt;if(placeHold<=0){doPlace();placeHold=.25;}}
     saveT+=dt; if(saveT>4){saveT=0;saveNow();}
   }
   eyeDrop+=((sneaking?.28:0)-eyeDrop)*Math.min(1,dt*12);
@@ -4346,7 +4382,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
   {const want=keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
