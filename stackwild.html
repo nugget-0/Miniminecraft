@@ -184,7 +184,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
     <button data-key="KeyC">Crouch</button><button data-key="Space">Jump</button>
-    <button data-act="view">View</button><button data-act="mark">Mark</button>
+    <button data-act="view">View</button><button data-act="mark">Mark</button><button data-act="stab" data-key="KeyR">Stab</button>
   </div>
 </div>
 
@@ -3202,7 +3202,7 @@ const SYS_INFO=[
   ['Wings & gliding','Wear wings in your chestplate slot. Jump off something, then press Jump again in the air to glide. Look down to dive and gain speed, look up to climb. Wooden wings sink fast; Dragon wings fly furthest and fastest. Crashing into walls at high speed hurts.'],
   ['Rockets','Use a rocket (E / Build) while gliding for a big speed boost. On the ground with wings on, it launches you into a glide.'],
   ['Grappling hook','Aim at a block up to 32 blocks away and use it: you get pulled straight there. Use it again or press C to let go.'],
-  ['Spears','Long reach (5.5 blocks). Hit while sprinting or flying for charge damage. Use (E) to lunge forward and spear everything in your path. Enchant with Lunge for a longer dash.'],
+  ['Spears','Hold R (or the Stab button) to brace the spear forward. While held, anything the tip runs into takes damage based on how fast you’re moving at it — sprint, dive, fly with wings or ride a wind charge for massive stabs. Your arm tires after ~8s. Long reach (5.5 blocks). Hit while sprinting or flying for charge damage. Use (E) to lunge forward and spear everything in your path. Enchant with Lunge for a longer dash.'],
   ['Wind charges','Throw with E. They burst into a gust that flings mobs and launches you high if you’re close (no fall damage). Great for rocket-jumping. Maces can get the Wind Burst enchant for bigger launches.'],
   ['Mace','Hit while falling for a smash: extra damage the further you fell, no fall damage, nearby mobs knocked away.'],
   ['Trial spawners','Wake when you come close and send a wave of mobs. Beat it for loot; it rests 4 minutes.'],
@@ -3713,7 +3713,7 @@ window.addEventListener('keydown',e=>{
     case 'KeyP':toggleView();break;
     case 'KeyF':tryAttack();break;
     case 'KeyE':case 'KeyG':doUse();placeHold=.28;break;
-    case 'KeyR':doPick();break;
+    case 'KeyR':if(!(heldTool()&&heldTool().kind==='spear'))doPick();break;
     case 'Space':if(GM.mode==='creative'){const now=performance.now();if(now-lastSpace<300){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}lastSpace=now;}break;
     case 'KeyV':if(GM.mode==='creative'){flying=!flying;V.y=0;toast(flying?'Flying':'Walking');}break;
     case 'KeyQ':openBag(0);break;
@@ -3945,6 +3945,7 @@ function updateViewModel(dt){
   const s=swingT>0?Math.sin((1-swingT)*Math.PI):0;
   vm.position.set(.36+Math.cos(bobPh)*.012,-.36-Math.abs(Math.sin(bobPh))*.018-s*.08,-.55+s*.06);
   vm.rotation.set(-s*.9,s*.25,s*.15);
+  if(stabPose>0){const q=stabPose, j=stabT>.25&&!stabTired?Math.sin(performance.now()/40)*.006:0;vm.position.x-=q*.2;vm.position.y+=q*.12+j;vm.position.z-=q*.12;vm.rotation.x-=q*1.05;vm.rotation.y-=q*.35;}
   const b=Math.max(.35,curBright,heldGlow(inv[sel]?inv[sel].id:0)*.95);
   if(skinMat.userData.base)skinMat.color.copy(skinMat.userData.base).multiplyScalar(b);
   if(sleeveMat.userData.base)sleeveMat.color.copy(sleeveMat.userData.base).multiplyScalar(b);
@@ -4093,6 +4094,39 @@ function updateLunge(dt){
     if(m.hp<=0)killMob(mobs.indexOf(m),true);
   }
 }
+// ---------- spear charge: hold R, damage depends on how fast the tip hits ----------
+let stabT=0, stabTired=false, stabCd=new Map(), stabPose=0;
+function updateStab(dt){
+  const t=heldTool(), hold=!!keys.KeyR&&t&&t.kind==='spear'&&!dead&&!bagOpen;
+  for(const [m,c] of stabCd){if(c-dt<=0)stabCd.delete(m);else stabCd.set(m,c-dt);}
+  if(!hold){stabT=0;stabTired=false;stabPose=Math.max(0,stabPose-dt*6);return;}
+  if(stabTired){stabPose=Math.max(0,stabPose-dt*6);return;}
+  stabT+=dt; stabPose=Math.min(1,stabPose+dt*6);
+  if(stabT>8){stabTired=true;toast('Your arm is tired… let go of R');return;}
+  if(stabT<.25)return;
+  camera.getWorldDirection(camDir);
+  const ex=P.x, ey=P.y+1.55, ez=P.z, reach=4.5;
+  for(const m of mobs){
+    if(stabCd.has(m)||m.hp<=0)continue;
+    const cx=m.x-ex, cy=m.y+m.h*.5-ey, cz=m.z-ez, along=cx*camDir.x+cy*camDir.y+cz*camDir.z;
+    if(along<.3||along>reach+m.hw)continue;
+    const px=cx-camDir.x*along, py=cy-camDir.y*along, pz=cz-camDir.z*along;
+    if(Math.hypot(px,pz)>m.hw+.35||Math.abs(py)>m.h*.5+.35)continue;
+    // closing speed of the spear tip toward the mob along the stab direction
+    const rel=(V.x-(m.vx||0))*camDir.x+(V.y-(m.vy||0))*camDir.y+(V.z-(m.vz||0))*camDir.z;
+    if(rel<3.5)continue;
+    const fat=stabT>5?.6:1;
+    const dmg=Math.min(90,(rel*rel*.09+rel*.6)*(1+(t.dmg||3)*.18)*(1+.15*enchLvl(inv[sel],1))*tierMul(inv[sel],2.2,1.6)*(fx.strength>0?1.5:1)*(modActive('glass')?2:1)*fat);
+    stabCd.set(m,.7); useTool();
+    floatNum(m.x,m.y+m.h+.2,m.z,dmg,rel>14?2:rel>9?1:0);
+    burstC(rel>14?[255,210,90]:[240,240,255],m.x-.5,m.y+m.h*.5-.5,m.z-.5,8+Math.min(20,rel|0));
+    if(rel>9)toast((rel>14?'BRUTAL STAB! ':'STAB! ')+Math.round(rel)+' m/s');
+    const kb=Math.min(16,4+rel*.5);
+    if(m.remote){mpSend({t:'mdmg',id:m.nid,dmg,kx:+(camDir.x*kb/7).toFixed(2),kz:+(camDir.z*kb/7).toFixed(2)});continue;}
+    m.angry=true; m.flash=.2; m.hp-=dmg; m.vx=camDir.x*kb; m.vz=camDir.z*kb; m.vy=Math.max(3,camDir.y*kb+3); if(m.passive)m.flee=4;
+    if(m.hp<=0)killMob(mobs.indexOf(m),true);
+  }
+}
 // ---------- wind charges: throw, burst, launch ----------
 const winds=[];
 function throwWind(){
@@ -4226,7 +4260,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); if(!paused){updateLunge(dt);updateWinds(dt);}
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);}
   {const want=keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
