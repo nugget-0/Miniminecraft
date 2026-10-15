@@ -163,7 +163,11 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){ #hurt.hit{animation-duration:.2s} }
 
 /* ---------- admin panel (H) ---------- */
-#admPanel{position:fixed;top:12px;right:12px;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 140px);display:flex;flex-direction:column;z-index:60;background:linear-gradient(180deg,rgba(22,14,26,.94),rgba(12,10,16,.94));border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 3px rgba(0,0,0,.4),0 18px 50px rgba(0,0,0,.6),0 0 30px rgba(242,193,78,.12);color:var(--text);font-family:var(--font-ui);animation:swpop .16s ease-out}
+#menuBtn{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));right:10px;z-index:58;width:42px;height:42px;display:flex;align-items:center;justify-content:center;background:var(--panel);border:2px solid var(--panel-edge);border-radius:6px;cursor:pointer;padding:0;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+#menuBtn:hover,#menuBtn:focus-visible{border-color:var(--accent);outline:none}#menuBtn:active{transform:translateY(1px)}
+#menuBtn i{display:block;width:18px;height:3px;background:var(--text);box-shadow:0 -6px 0 var(--text),0 6px 0 var(--text);border-radius:1px}
+#menuBtn[hidden]{display:none}
+#admPanel{position:fixed;top:62px;right:12px;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 190px);display:flex;flex-direction:column;z-index:60;background:linear-gradient(180deg,rgba(22,14,26,.94),rgba(12,10,16,.94));border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 3px rgba(0,0,0,.4),0 18px 50px rgba(0,0,0,.6),0 0 30px rgba(242,193,78,.12);color:var(--text);font-family:var(--font-ui);animation:swpop .16s ease-out}
 #admPanel[hidden]{display:none}
 #admPanel .ap-bar{height:5px;background:repeating-linear-gradient(90deg,var(--accent) 0 12px,rgba(0,0,0,.3) 12px 16px)}
 #admPanel .ap-head{display:flex;align-items:center;gap:8px;padding:10px 12px 6px}
@@ -215,7 +219,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 </style>
 
 <div id="game"></div>
-<div id="cross"></div><div id="hitmk"></div><div id="scopeOv" hidden><div class="sc-h"></div><div class="sc-v"></div></div><div id="gunHud" hidden><div class="gh-n"></div><div class="gh-a"></div><div class="gh-r"><i></i></div></div>
+<button id="menuBtn" aria-label="Menu" title="Menu" hidden><i></i></button><div id="cross"></div><div id="hitmk"></div><div id="scopeOv" hidden><div class="sc-h"></div><div class="sc-v"></div></div><div id="gunHud" hidden><div class="gh-n"></div><div class="gh-a"></div><div class="gh-r"><i></i></div></div>
 <div id="stats">loading…</div>
 <div id="toast"></div>
 <div id="ghost" hidden><canvas width="32" height="32"></canvas><span></span></div>
@@ -3471,7 +3475,7 @@ function plantCorruption(){
   corBroadcast(); corDirty(0,3);
 }
 const meteors=[]; let meteorT=30, modBcT=0, fpsAcc=0, fpsN=0, fpsT=0;
-const fpsEl=(()=>{const d=document.createElement('div');d.style.cssText='position:fixed;top:10px;right:12px;font:700 13px monospace;color:#9dff4a;text-shadow:0 1px 2px #000;pointer-events:none;z-index:6';d.hidden=true;document.body.appendChild(d);return d;})();
+const fpsEl=(()=>{const d=document.createElement('div');d.style.cssText='position:fixed;top:18px;right:62px;font:700 13px monospace;color:#9dff4a;text-shadow:0 1px 2px #000;pointer-events:none;z-index:6';d.hidden=true;document.body.appendChild(d);return d;})();
 function meteorStart(x,y,z,auth){
   const m=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,1.4),new THREE.MeshBasicMaterial({color:0xff7a20,fog:false}));
   const sx=x+40,sy=y+70,sz=z+25; m.position.set(sx,sy,sz); scene.add(m);
@@ -3845,8 +3849,11 @@ function drawVitals(){
 // ---------- input ----------
 const menu=document.getElementById('menu'), startBtn=document.getElementById('startBtn');
 let paused=true;
-function openMenu(){closeBag();paused=true;menu.hidden=false;for(const k in keys)keys[k]=false;startBtn.focus();}
-function closeMenu(){if(loading)return;paused=false;menu.hidden=true;}
+const menuBtn=document.getElementById('menuBtn');
+menuBtn.addEventListener('click',e=>{e.stopPropagation();menuBtn.blur();if(!paused&&!loading)openMenu();});
+['pointerdown','touchstart'].forEach(ev=>menuBtn.addEventListener(ev,e=>e.stopPropagation(),{passive:true}));
+function openMenu(){closeBag();paused=true;menu.hidden=false;menuBtn.hidden=true;for(const k in keys)keys[k]=false;startBtn.focus();}
+function closeMenu(){if(loading)return;paused=false;menu.hidden=true;menuBtn.hidden=false;}
 startBtn.addEventListener('click',closeMenu);
 const newBtn=document.getElementById('newBtn'); let confirmNew=false, confirmT=0;
 newBtn.addEventListener('click',()=>{
@@ -5261,7 +5268,7 @@ function loadWorld(key,forcedSeed,opts){
   if(st&&st.player){P.x=st.player.x;P.y=st.player.y;P.z=st.player.z;yaw=st.player.yaw||0;pitch=st.player.pitch||0;}else respawn();
   V.x=V.y=V.z=0; dead=false; deathEl.hidden=true; immune=3; airMaxY=P.y; closeBag();
   drawAll(); loading=true; startBtn.disabled=true; startBtn.textContent='Building terrain…';
-  paused=true; menu.hidden=false;
+  paused=true; menu.hidden=false; menuBtn.hidden=true;
 }
 function playerName(){const n=mpName.value.trim().slice(0,16)||'Player';rememberName(n);mpPrefs.name=n;try{localStorage.setItem('stackwild:mp',JSON.stringify(mpPrefs));}catch(e){}return n;}
 function mpOpen(code,onReady){
@@ -5558,7 +5565,7 @@ function beKicked(msg){
   mpDisconnect();
   const own=servers.find(s=>s.type!=='joined'&&!s.over)||servers[0];
   if(own&&own.type!=='multi')playServer(own);
-  paused=true; menu.hidden=false; mpSetStatus(msg); chatSys(msg);
+  paused=true; menu.hidden=false; menuBtn.hidden=true; mpSetStatus(msg); chatSys(msg);
 }
 function onAdminMsg(topic,payload){
   if(topic===BAN_TOPIC){
