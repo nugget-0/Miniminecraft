@@ -4379,12 +4379,12 @@ function runCommand(line){
       say('/gamemode <survival|creative> · /difficulty <peaceful|easy|normal|hard> · /heal · /kill · /clear');
       say('/setblock <x y z> <block> · /fill <x1 y1 z1> <x2 y2 z2> <block> · /summon <mob|tnt> · /repeatsummon <mob|tnt> <amount> · /dummy <hp> · /locate <chamber|nether|fortress>');
       say('/pvp <on|off> · /spawnpoint · /seed · /list · /items  (use ~ for your own position, e.g. /tp ~ ~10 ~)');
-      if(isAdmin())say('Admin: /kick <player> [reason] · /ban <player> [reason] · /unban <player> · /banlist · /broadcast <msg> · /perfectcrit <on|off> · /admin');
+      if(isAdmin())say('Admin: /kick <player> [reason] · /ban <player> [reason] · /unban <player> · /banlist · /broadcast <msg> · /perfectcrit <on|off> · /admin · /adm');
       break;
     case 'items': say(Object.keys(ITEM_KEYS).join(', ')); break;
     case 'adm':{
       if(!isAdmin()){say('Unknown command. Type /help.');break;}
-      const kit=[[PICK[5],1],[SWORD[5],1],[AXE[5],1],[SHOVEL[5],1],[SPEARS[5],1],...ARMOR.netherite.map(i=>[i,1]),[RB_MACE,1],[RAINBOW_BLADE,1],[WIND_CHARGE,128]];
+      const kit=[[PICK[5],1],[SWORD[5],1],[AXE[5],1],[SHOVEL[5],1],[SPEARS[5],1],...ARMOR.netherite.map(i=>[i,1]),[RB_MACE,1],[RAINBOW_BLADE,1],[WIND_CHARGE,128],[TOTEM,640]];
       let miss=0;
       for(const [id,n] of kit){const gd=packDur(1,0,DEF[id].tool?DEF[id].tool.max:0);for(let k=0;k<n;k++)if(!addItem(id,gd))miss++;}
       say(miss?'Admin kit given, but '+miss+' item(s) didn’t fit. Make some room.':'Corrupted admin kit given.'); break;
