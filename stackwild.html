@@ -2522,7 +2522,7 @@ function isAdmin(){
   if(adminCache===null)adminCache=recentNames().some(adminName);
   return adminCache;
 }
-function rollCrit(){if(!(!onGround&&V.y<-.5))return 0;return (isAdmin()&&perfectAll)||Math.random()<.1?2:1;}
+function rollCrit(){if(!(!onGround&&V.y<-.5))return 0;return (isAdmin()&&perfectAll)||Math.random()<.01?2:1;}
 function critFx(cr,x,y,z){
   if(cr===2){burstC([255,215,60],x-.5,y,z-.5,26);burstC([255,255,255],x-.5,y,z-.5,10);toast('PERFECT CRIT!');}
   else if(cr===1){burstC([255,240,140],x-.5,y,z-.5,14);toast('Critical hit!');}
