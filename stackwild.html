@@ -4553,7 +4553,7 @@ function runCommand(line){
       if(!isAdmin()){say('Only admins can change that.');break;}
       const v=(a[0]||'').toLowerCase(); perfectAll=v==='on'?true:v==='off'?false:!perfectAll;
       try{localStorage.setItem('thing.perfectcrit',String(perfectAll));}catch(e){}
-      say('Every crit is '+(perfectAll?'now a perfect crit (18 half-hearts).':'back to normal (perfect crits are a 10% chance).')); break;
+      say('Every crit is '+(perfectAll?'now a perfect crit (18 half-hearts).':'back to normal (perfect crits are a 1% chance).')); break;
     }
     case 'kick':{
       if(!isAdmin()){say('Only admins can kick players.');break;}
