@@ -451,6 +451,10 @@ const WING_STAT=[[30,3.2],[40,2.8],[52,2.3],[60,1.8],[72,1.7],[88,1.4],[115,.9]]
 const WING_COL=[[150,110,62],[136,136,140],[214,214,222],[240,200,60],[90,224,218],[78,66,72],[70,20,110]];
 WINGS.forEach((id,k)=>I(id,WING_N[k]+' Wings',224+k,{armor:{slot:1,pts:[0,0,1,1,2,3,4][k]},wings:k}));
 I(ROCKET,'Rocket',231); I(GRAPPLE,'Grappling Hook',232,{tool:{kind:'grapple',tier:1,max:200,dmg:1}});
+// ---- spears & wind charges ----
+const SPEARS=[0,239,240,241,242,243], WIND_CHARGE=244;
+['','Wooden','Stone','Iron','Diamond','Netherite'].forEach((n,t)=>{if(t)I(SPEARS[t],n+' Spear',232+t,{tool:{kind:'spear',tier:t,max:[0,70,140,260,1600,2100][t],dmg:t+2}});});
+I(WIND_CHARGE,'Wind Charge',238);
 const NETHER_END_MIN=250000, END_X=300000;
 // item extras ride in the durability number: tier*1e6 + enchant*1e4 + durability (survives drops, chests, saves, sync)
 const DM=1000000, EN=10000;
@@ -460,7 +464,7 @@ const tierMul=(s,a,b)=>{const t=tierOf(s);return t===2?b:t===1?a:1;};
 const enchOf=s=>{if(!s||typeof s.dur!=='number')return null;const e=Math.floor(s.dur/EN)%100;return e?{t:Math.floor(e/10),l:e%10}:null;};
 const realDur=s=>s.dur%EN;
 const packDur=(tier,ench,rd)=>tier*DM+ench*EN+(rd||0);
-const ENCH_N=['','Sharpness','Fire Aspect','Efficiency','Unbreaking','Fortune','Protection','Feather Falling'];
+const ENCH_N=['','Sharpness','Fire Aspect','Efficiency','Unbreaking','Fortune','Protection','Feather Falling','Wind Burst','Lunge'];
 const ROMAN=['','I','II','III','IV','V'];
 const enchLvl=(s,t)=>{const e=enchOf(s);return e&&e.t===t?e.l:0;};
 const itemName=s=>{if(!s)return'';const t=tierOf(s),e=enchOf(s);return(t===2?'Ender ':t===1?'Corrupted ':'')+DEF[s.id].name+(e?' · '+ENCH_N[e.t]+' '+ROMAN[e.l]:'');};
@@ -781,6 +785,9 @@ const atlas=document.createElement('canvas'); atlas.width=AW*16; atlas.height=AH
       if(k===6)return vein?[200,140,255]:sh(c,.75+rnd()*.35);
       return sh(c,vein?.7:.88+rnd()*.2);
     }));
+    {const TCs=[null,[150,110,60],[130,130,135],[222,222,228],[90,225,220],[78,66,72]];
+     for(let t=1;t<=5;t++)tile(232+t,(x,y)=>{if(seg(x,y,2,14,10.5,5.5)<.75)return sh(woodC,.85+rnd()*.2);if(seg(x,y,10,6,14,2)<1.3&&x+y<=17)return sh(TCs[t],(x+y<14?1.15:.85)+rnd()*.1);if(Math.hypot(x-10,y-6)<1.3)return sh([60,50,40],.9);return T;});}
+    tile(238,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5),a=Math.atan2(y-7.5,x-7.5);if(d>6.2)return T;const sw=Math.sin(a*3+d*1.3);return sw>.3?[230,250,255]:d<2?[180,230,255]:sw>-.2?sh([140,200,240],.9+rnd()*.1):T;});
     tile(231,(x,y)=>{if(x>=6&&x<=9&&y>=3&&y<=11)return y<5?[220,40,40]:x===6?[200,200,200]:sh([236,236,236],.9+rnd()*.1);if(y<=2&&Math.abs(x-7.5)<=y)return[220,40,40];if(y>=12&&x>=5&&x<=10&&rnd()<.7)return rnd()<.5?[255,200,60]:[255,120,30];return T;});
     tile(232,(x,y)=>{if(seg(x,y,3,13,10,6)<.85)return sh(woodC,.85+rnd()*.2);if(Math.hypot(x-11.5,y-4.5)<2.4&&!(x>11&&y>4))return sh([180,180,188],.85+rnd()*.25);if((x+y)%2===0&&seg(x,y,10,6,14,2)<.6)return[120,100,70];return T;});
   }
@@ -1893,7 +1900,7 @@ const SOFT=new Set([TALL_GRASS,FLOWER_RED,FLOWER_YELLOW,DEAD_BUSH]);
 function doUse(){
   const mv=mobRay(target?Math.min(4,target.t):4);
   if(mv&&mv.type==='villager'){swing();openBag('trade',mv);return;}
-  {const hh=inv[sel]?inv[sel].id:0;if(!target&&hh===ROCKET){useRocket();return;}if(!target&&hh===GRAPPLE){useGrapple();return;}}
+  {const hh=inv[sel]?inv[sel].id:0;if(hh===WIND_CHARGE){throwWind();return;}if(DEF[hh]&&DEF[hh].tool&&DEF[hh].tool.kind==='spear'&&!(target&&[TABLE,FURNACE,CHEST,DEMONISER,ENDERISER,ENCHANT_TABLE,BREWING_STAND].includes(target.id))){spearLunge();return;}if(!target&&hh===ROCKET){useRocket();return;}if(!target&&hh===GRAPPLE){useGrapple();return;}}
   if(bladeHeld()){if(isAdmin())rainbowWave();else toast('Only admins can wield the Rainbow Fire Blade');return;}
   if(target&&inv[sel]&&inv[sel].id===IGNITER&&![TABLE,FURNACE,CHEST,END_FRAME].includes(target.id)&&!DEF[target.id].door){useIgniter(target);return;}
   if(target){
@@ -2466,7 +2473,8 @@ function mobRay(maxT){
 }
 function tryAttack(){
   if(atkCd>0||dead)return false;
-  const lim=target?Math.min(3.5,target.t):3.5, ph=peerRay(lim);
+  const spr=!!(heldTool()&&heldTool().kind==='spear'), reach=spr?5.5:3.5;
+  const lim=target?Math.min(reach,target.t):reach, ph=peerRay(lim);
   const m=mobRay(ph?ph.t:lim);
   if(!m&&ph)return hitPeer(ph.p);
   if(!m)return false;
@@ -2476,8 +2484,9 @@ function tryAttack(){
   let dmg=(rb?base*(cr?1.5:1):cr===2?18:cr===1?base*1.5:base)*(modActive('glass')?2:1);
   const mace=!!(tool&&tool.kind==='mace'), rbm=mace&&!!DEF[inv[sel].id].rainbow;
   if(mace){const fall=airMaxY-P.y;if(fall>1.5&&!onGround){const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));dmg+=sm*(rbm?2:1);maceSmash(m,sm,rbm);}}
+  if(spr){const hs=Math.hypot(V.x,V.z);if(hs>5.5){const cb=Math.min(30,(hs-4)*.9);dmg+=cb;toast('CHARGE! +'+Math.round(cb));for(let i=0;i<12;i++)glowPart([255,255,255],m.x,m.y+1,m.z,(Math.random()-.5)*4,Math.random()*3,(Math.random()-.5)*4,.4,4);}}
   critFx(cr,m.x,m.y+m.h-.9,m.z);
-  const dx=m.x-P.x,dz=m.z-P.z,L=Math.hypot(dx,dz)||1, kb=rb?12:7;
+  const dx=m.x-P.x,dz=m.z-P.z,L=Math.hypot(dx,dz)||1, kb=rb?12:spr?9:7;
   atkCd=rb?.3:.45; swing(); if(tool)useTool(); mine.t=-.35; m.flash=.2;
   if(rb){bladeSlash();rainbowBurst(m.x,m.y+m.h*.5,m.z,30);}
   if(rbm)rainbowBurst(m.x,m.y+m.h*.5,m.z,24);
@@ -2533,7 +2542,7 @@ function carveCrater(cx,cy,cz,r){
   for(let i=0;i<30;i++){const a=i/30*6.28;glowPart([20,0,20],cx+.5+Math.cos(a)*r,cy+.3,cz+.5+Math.sin(a)*r,Math.cos(a)*3,1,Math.sin(a)*3,.8,2);}
 }
 function maceSmash(m,sm,rbm){
-  airMaxY=P.y; V.y=Math.max(V.y,Math.min(rbm?30:24,(rbm?12:10)+sm*.55)); maceSafe=true;
+  airMaxY=P.y; V.y=Math.max(V.y,Math.min(rbm?30:24,(rbm?12:10)+sm*.55)+enchLvl(inv[sel],8)*6); maceSafe=true; if(enchLvl(inv[sel],8))windFx(P.x,P.y+.2,P.z,14);
   const gy=Math.floor(m.y-.5), gid=getBlock(Math.floor(m.x),gy,Math.floor(m.z));
   for(let i=0;i<28;i++){
     const a=i/28*Math.PI*2, r=.6+Math.random()*.4;
@@ -2898,7 +2907,7 @@ function updateTrials(dt){
       if(Math.hypot(P.x-x,P.y-y,P.z-z)<20)toast('Demon spawner defeated!');
     }else if(st.left<=0&&alive===0){
       st.on=false; st.cd=240;
-      const R2=[[IRON,.9],[GOLD,.7],[DIAMOND,.35],[GOLDEN_APPLE,.3],[OBSIDIAN,.4],[TOTEM,.12],[COOKED,.6],[REDSTONE,.4]];
+      const R2=[[WIND_CHARGE,.6],[IRON,.9],[GOLD,.7],[DIAMOND,.35],[GOLDEN_APPLE,.3],[OBSIDIAN,.4],[TOTEM,.12],[COOKED,.6],[REDSTONE,.4]];
       for(const [id,p] of R2)if(Math.random()<p){const n=DEF[id].tool?1:1+Math.floor(Math.random()*3);for(let i=0;i<n;i++)spawnDrop(id,x+.5,y+1.3,z+.5,(Math.random()-.5)*3,4,(Math.random()-.5)*3,.6);}
       for(let i=0;i<40;i++)glowPart(Math.random()<.5?[255,214,60]:[120,230,220],x+.5,y+1,z+.5,(Math.random()-.5)*6,Math.random()*6,(Math.random()-.5)*6,.9,8);
       if(Math.hypot(P.x-x,P.y-y,P.z-z)<20)toast('Trial cleared! The spawner pays out');
@@ -3071,7 +3080,9 @@ const RECIPES=[];
   r(ENDER_EYE,1,[[ENDER_PEARL,1],[GLEAMSTONE,1]]); r(END_FRAME,1,[[OBSIDIAN,2],[ENDER_EYE,1]],TABLE); r(END_STONE,1,[[COBBLE,1],[ENDER_PEARL,1]],TABLE);
   [['planks',6],[COBBLE,6],[IRON,6],[GOLD,6],[DIAMOND,6]].forEach(([m,n],k)=>r(WINGS[k],1,[[m,n],[FIBER,4],[STICK,2]],TABLE));
   r(WINGS[5],1,[[WINGS[4],1],[NETHERITE_INGOT,2]],TABLE); r(WINGS[6],1,[[WINGS[5],1],[DRAGON_SCALE,8]],TABLE);
-  r(ROCKET,3,[[COAL,1],[REDSTONE,1],[FIBER,1]]); r(GRAPPLE,1,[[IRON,3],[STICK,2],[FIBER,4]],TABLE);
+  r(ROCKET,3,[[COAL,1],[REDSTONE,1],[FIBER,1]]);
+  [['planks',2],[COBBLE,2],[IRON,2],[DIAMOND,2]].forEach(([m,n],k)=>r(SPEARS[k+1],1,[[m,n],[STICK,3]],TABLE)); r(SPEARS[5],1,[[SPEARS[4],1],[NETHERITE_INGOT,1]],TABLE);
+  r(WIND_CHARGE,4,[[FIBER,3],[GLASS,1]]); r(GRAPPLE,1,[[IRON,3],[STICK,2],[FIBER,4]],TABLE);
   r(IGNITER,1,[[IRON,1],['fuel',1]]); r(TOTEM,1,[[GOLD_BLOCK,2],[DIAMOND,2],[GOLDEN_APPLE,1]],TABLE);
   r(TUFF_BRICKS,4,[[COBBLE,3],[GRAVEL,1]],TABLE); r(COPPER_BULB,1,[[GOLD,1],[REDSTONE,2],[TORCH,1]],TABLE);
   r(CINDER_BRICKS,4,[[EMBERROCK,4],['fuel',1]],FURNACE); r(GOLD,1,[[EMBER_ORE,1],['fuel',1]],FURNACE);
@@ -3191,6 +3202,8 @@ const SYS_INFO=[
   ['Wings & gliding','Wear wings in your chestplate slot. Jump off something, then press Jump again in the air to glide. Look down to dive and gain speed, look up to climb. Wooden wings sink fast; Dragon wings fly furthest and fastest. Crashing into walls at high speed hurts.'],
   ['Rockets','Use a rocket (E / Build) while gliding for a big speed boost. On the ground with wings on, it launches you into a glide.'],
   ['Grappling hook','Aim at a block up to 32 blocks away and use it: you get pulled straight there. Use it again or press C to let go.'],
+  ['Spears','Long reach (5.5 blocks). Hit while sprinting or flying for charge damage. Use (E) to lunge forward and spear everything in your path. Enchant with Lunge for a longer dash.'],
+  ['Wind charges','Throw with E. They burst into a gust that flings mobs and launches you high if you’re close (no fall damage). Great for rocket-jumping. Maces can get the Wind Burst enchant for bigger launches.'],
   ['Mace','Hit while falling for a smash: extra damage the further you fell, no fall damage, nearby mobs knocked away.'],
   ['Trial spawners','Wake when you come close and send a wave of mobs. Beat it for loot; it rests 4 minutes.'],
   ['Redstone','Levers, buttons and pressure plates power wire, lamps, pistons and TNT. Mega TNT has double the blast.'],
@@ -3210,7 +3223,7 @@ function infoBuild(){
     if(!d||INFO_SKIP.has(id)||d.admin)return;
     const kind=d.tool?'Tools':d.armor?'Tools':d.potion||d.food?'Items':d.item?'Items':'Blocks';
     const lines=[];
-    if(d.tool)lines.push(d.tool.kind==='sword'||d.tool.kind==='mace'?'Weapon · '+d.tool.dmg+' damage · '+d.tool.max+' durability':'Tool · '+d.tool.max+' durability');
+    if(d.tool)lines.push(d.tool.kind==='sword'||d.tool.kind==='mace'||d.tool.kind==='spear'?'Weapon · '+d.tool.dmg+' damage · '+d.tool.max+' durability':'Tool · '+d.tool.max+' durability');
     if(d.armor)lines.push('Armor · '+d.armor.pts+' protection points');
     if(d.food)lines.push('Food · fills '+d.food+(d.heal?' · heals '+d.heal/2+' hearts':''));
     if(d.potion)lines.push('Potion · drink with E');
@@ -3373,7 +3386,7 @@ let encItem=[null], encSeed=Math.floor(Math.random()*1e9), encAt=null;
 const encEl=makeSlotEl(0,false,()=>{clickArr(encItem,0,c=>encPool(c).length>0);paintEnc();afterClick();}); document.getElementById('encSlot').appendChild(encEl.s);
 function encPool(it){
   if(!it)return[]; const d=DEF[it.id];
-  if(d.tool){const k=d.tool.kind;if(k==='sword'||k==='mace')return[[1,5],[2,2],[4,3]];if(k==='axe')return[[1,5],[3,5],[4,3]];if(k==='pick'||k==='shovel'||k==='hoe')return[[3,5],[4,3],[5,3]];return[[4,3]];}
+  if(d.tool){const k=d.tool.kind;if(k==='mace')return[[1,5],[8,3],[4,3]];if(k==='spear')return[[1,5],[9,3],[4,3]];if(k==='sword')return[[1,5],[2,2],[4,3]];if(k==='axe')return[[1,5],[3,5],[4,3]];if(k==='pick'||k==='shovel'||k==='hoe')return[[3,5],[4,3],[5,3]];return[[4,3]];}
   if(d.armor)return d.armor.slot===3?[[6,4],[7,4]]:[[6,4]];
   return[];
 }
@@ -4056,6 +4069,59 @@ function updateLocator(){
   }
   for(const [id,el] of locDots)if(!String(id).startsWith('wp')&&!seen.has(id)){el.remove();locDots.delete(id);}
 }
+// ---------- spears: long reach, charge damage, and a lunge (E) ----------
+let lungeT=0, lungeCd=0, lungeHit=null;
+function spearLunge(){
+  if(lungeCd>0||dead)return;
+  const t=heldTool(), lv=enchLvl(inv[sel],9), cp=Math.cos(pitch), sp=16+lv*5;
+  V.x=-Math.sin(yaw)*cp*sp; V.z=-Math.cos(yaw)*cp*sp; V.y=Math.max(V.y,Math.sin(pitch)*sp*.6+3);
+  lungeT=.38; lungeCd=1.1; lungeHit=new Set(); swing(); useTool();
+  for(let i=0;i<14;i++)glowPart([235,245,255],P.x,P.y+1,P.z,-V.x*.15+(Math.random()-.5)*2,Math.random()*2,-V.z*.15+(Math.random()-.5)*2,.4,0);
+}
+function updateLunge(dt){
+  lungeCd=Math.max(0,lungeCd-dt); if(lungeT<=0)return; lungeT-=dt;
+  const t=heldTool(); if(!t||t.kind!=='spear'){lungeT=0;return;}
+  for(const m of mobs){
+    if(lungeHit.has(m)||Math.hypot(m.x-P.x,m.z-P.z)>m.hw+1.3||m.y>P.y+1.8||m.y+m.h<P.y)continue;
+    lungeHit.add(m);
+    const dmg=((t.dmg||3)*1.5+1.25*enchLvl(inv[sel],1))*tierMul(inv[sel],2.2,1.6)*(fx.strength>0?1.5:1)*(modActive('glass')?2:1)+Math.min(20,Math.hypot(V.x,V.z)*.5);
+    const L=Math.hypot(V.x,V.z)||1, kx=V.x/L, kz=V.z/L;
+    m.flash=.2; if(m.type==='dummy')floatNum(m.x,m.y+m.h+.2,m.z,dmg,1);
+    burstC([240,240,255],m.x-.5,m.y+m.h*.5-.5,m.z-.5,10);
+    if(m.remote){mpSend({t:'mdmg',id:m.nid,dmg,kx:+(kx*1.4).toFixed(2),kz:+(kz*1.4).toFixed(2)});continue;}
+    m.angry=true; m.hp-=dmg; m.vx=kx*10; m.vz=kz*10; m.vy=5; if(m.passive)m.flee=4;
+    if(m.hp<=0)killMob(mobs.indexOf(m),true);
+  }
+}
+// ---------- wind charges: throw, burst, launch ----------
+const winds=[];
+function throwWind(){
+  if(dead)return; camera.getWorldDirection(camDir); swing(); if(GM.mode!=='creative')takeSel();
+  const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),new THREE.MeshBasicMaterial({color:0xd8f2ff,fog:false}));
+  const o=camera.position; m.position.set(o.x+camDir.x*.6,o.y+camDir.y*.6-.1,o.z+camDir.z*.6); scene.add(m);
+  winds.push({m,vx:camDir.x*24,vy:camDir.y*24,vz:camDir.z*24,t:0,mine:true});
+  if(MP.connected)mpSend({t:'windt',x:+m.position.x.toFixed(2),y:+m.position.y.toFixed(2),z:+m.position.z.toFixed(2),vx:+(camDir.x*24).toFixed(2),vy:+(camDir.y*24).toFixed(2),vz:+(camDir.z*24).toFixed(2)});
+}
+function remoteWind(o){const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),new THREE.MeshBasicMaterial({color:0xd8f2ff,fog:false}));m.position.set(o.x,o.y,o.z);scene.add(m);winds.push({m,vx:o.vx,vy:o.vy,vz:o.vz,t:0,mine:false});}
+function windFx(x,y,z,n){for(let i=0;i<n;i++){const a=i/n*Math.PI*2;glowPart(i%2?[255,255,255]:[170,225,255],x+Math.cos(a)*.6,y,z+Math.sin(a)*.6,Math.cos(a)*7,1+Math.random()*2,Math.sin(a)*7,.45,0);}}
+function windBurst(x,y,z){
+  windFx(x,y,z,32);
+  for(let i=0;i<14;i++)glowPart([230,245,255],x,y,z,(Math.random()-.5)*6,Math.random()*7,(Math.random()-.5)*6,.6,3);
+  const dx=P.x-x, dy=P.y+.9-y, dz=P.z-z, d=Math.hypot(dx,dy,dz);
+  if(d<3.8&&!dead){const L=Math.hypot(dx,dz)||1, f=1-d/3.8;V.x+=dx/L*9*f;V.z+=dz/L*9*f;V.y=Math.max(V.y,6+12*f);maceSafe=true;airMaxY=P.y;gliding=false;}
+  if(!MP.connected||MP.isHost)for(const m of mobs){if(m.remote||m.type==='dragon')continue;const mx=m.x-x,mz=m.z-z,md=Math.hypot(mx,m.y+m.h*.5-y,mz);if(md>3.8)continue;const L=Math.hypot(mx,mz)||1,f=1-md/3.8;m.vx=mx/L*14*f;m.vz=mz/L*14*f;m.vy=7+6*f;m.flash=.15;if(m.passive)m.flee=3;}
+}
+function updateWinds(dt){
+  for(let i=winds.length-1;i>=0;i--){
+    const w=winds[i]; w.t+=dt; const p=w.m.position;
+    const nx=p.x+w.vx*dt, ny=p.y+w.vy*dt, nz=p.z+w.vz*dt;
+    let hit=w.t>2.5||solid(getBlock(Math.floor(nx),Math.floor(ny),Math.floor(nz)));
+    if(!hit)for(const m of mobs)if(Math.abs(m.x-nx)<m.hw+.25&&Math.abs(m.z-nz)<m.hw+.25&&ny>m.y&&ny<m.y+m.h){hit=true;break;}
+    if(hit){windBurst(p.x,p.y,p.z);scene.remove(w.m);w.m.geometry.dispose();w.m.material.dispose();winds.splice(i,1);continue;}
+    p.set(nx,ny,nz); w.m.rotation.x+=dt*12; w.m.rotation.y+=dt*9;
+    if(Math.random()<.6)glowPart([220,240,255],nx,ny,nz,0,0,0,.25,0);
+  }
+}
 // ---------- wings, rockets & grappling hook ----------
 let gliding=false, spacePrev=false, boostT=0, grap=null, grapLine=null;
 function wingTier(){const c=armor[1];return c&&DEF[c.id].wings!==undefined?DEF[c.id].wings:-1;}
@@ -4160,7 +4226,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine();
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); if(!paused){updateLunge(dt);updateWinds(dt);}
   {const want=keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
@@ -4623,6 +4689,7 @@ function mpOnMsg(o){
     case 'corpull': if(MP.isHost)corStartRitual(); break;
     case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
     case 'wp': if(Array.isArray(o.l)){meta['#wp']=o.l.filter(w=>w&&typeof w.n==='string'&&typeof w.x==='number'&&typeof w.y==='number'&&typeof w.z==='number').slice(0,30).map(w=>({n:w.n.slice(0,24),x:w.x,y:w.y,z:w.z,h:(w.h|0)%360,by:String(w.by||'').slice(0,16)}));wpRef=null;saveSoon();} break;
+    case 'windt': if([o.x,o.y,o.z,o.vx,o.vy,o.vz].every(v=>typeof v==='number'))remoteWind(o); break;
     case 'crater': if([o.x,o.y,o.z,o.r].every(v=>typeof v==='number'))carveCrater(o.x|0,o.y|0,o.z|0,Math.min(7,o.r)); break;
     case 'meteor': if([o.x,o.y,o.z].every(v=>typeof v==='number'))meteorStart(o.x,o.y,o.z,false); break;
     case 'rwave': if([o.x,o.y,o.z,o.dx,o.dy,o.dz].every(v=>typeof v==='number'))remoteWave(o); break;
