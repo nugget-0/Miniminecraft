@@ -266,7 +266,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       </div>
       <div class="row" style="margin-top:8px">
         <span class="srv-sub">Difficulty of the world you’re in</span>
-        <label class="srv-sub" style="display:inline-flex;gap:6px;align-items:center;margin-right:10px;cursor:pointer"><input type="checkbox" id="alwaysDay"> Always day</label><select id="curDiff" aria-label="Current world difficulty"><option value="0">Peaceful</option><option value="1">Easy</option><option value="2">Normal</option><option value="3">Hard</option></select>
+        <label class="srv-sub" style="display:inline-flex;gap:6px;align-items:center;margin-right:10px;cursor:pointer"><input type="checkbox" id="alwaysDay"> Always day</label><label class="srv-sub" style="display:inline-flex;gap:6px;align-items:center;margin-right:10px;cursor:pointer"><input type="checkbox" id="autoJumpEl" onchange="setAutoJump(this.checked)"> Auto-jump</label><select id="curDiff" aria-label="Current world difficulty"><option value="0">Peaceful</option><option value="1">Easy</option><option value="2">Normal</option><option value="3">Hard</option></select>
       </div>
       <p class="label" style="margin-top:12px">Public servers</p>
       <div id="pubList" class="srv-list"></div>
@@ -1305,6 +1305,8 @@ function setBlock(x,y,z,id,opt){
   if(opt&&opt.dm&&id!==AIR){demonBlocks.add(lk);meta['d'+lk]=+opt.dm||1;}
   else if(demonBlocks.has(lk)){demonBlocks.delete(lk);delete meta['d'+lk];}
   if((old===DEMONISER||old===ENDERISER)&&id!==old)spillDemoniser(lk,!!(opt&&opt.remote));
+  if(LEAFSET.has(old)&&id!==old&&meta[lk]===99)delete meta[lk];
+  if(LOGSET.has(old)&&!LOGSET.has(id)&&(!MP.connected||MP.isHost))queueLeafDecay(x,y,z);
   if(DEF[id].glow||DEF[old].glow){const rr=(opt&&opt.dm)||meta['d'+lk]?2:1;for(let a=-rr;a<=rr;a++)for(let b=-rr;b<=rr;b++){const kk=ck(cx+a,cz+b);if(meshes.has(kk))dirty.add(kk);}}
   if(DEF[id].rs||DEF[old].rs||rsNear(x,y,z))rsDirty=true;
   if(id===BUTTON_ON)rsTimers.push({x,y,z,t:1,from:BUTTON_ON,to:BUTTON});
@@ -1511,6 +1513,12 @@ function entAxis(e,ax,d){
   }
 }
 const keys={};
+let autoJump=(()=>{try{const v=localStorage.getItem('stackwild:autojump');if(v!==null)return v==='1';}catch(e){}return !!(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches);})();
+function setAutoJump(v){autoJump=!!v;try{localStorage.setItem('stackwild:autojump',autoJump?'1':'0');}catch(e){}const el=document.getElementById('autoJumpEl');if(el)el.checked=autoJump;}
+function frontStep(wx,wz){
+  const L=Math.hypot(wx,wz)||1, px=Math.floor(P.x+wx/L*(PW+.35)), pz=Math.floor(P.z+wz/L*(PW+.35)), y=Math.floor(P.y+.05);
+  return solid(getBlock(px,y,pz))&&!solid(getBlock(px,y+1,pz))&&!solid(getBlock(px,y+2,pz))&&!solid(getBlock(Math.floor(P.x),Math.floor(P.y)+2,Math.floor(P.z)));
+}
 function physics(dt){
   const shift=keys.ShiftLeft||keys.ShiftRight, crouchKey=!!keys.KeyC;
   let fw=(keys.KeyW?1:0)-(keys.KeyS?1:0), st=(keys.KeyD?1:0)-(keys.KeyA?1:0);
@@ -1554,7 +1562,7 @@ function physics(dt){
     V.y=Math.max(V.y,-4);
   }else{
     V.y-=30*dt*(modActive('lowgrav')?.33:1);
-    if(keys.Space&&onGround){V.y=fx.jump>0?11.6:9.2;food=Math.max(0,food-.05);}
+    if((keys.Space||(autoJump&&!sneak&&hitWall&&L>0&&frontStep(wx,wz)))&&onGround){V.y=fx.jump>0?11.6:9.2;food=Math.max(0,food-.05);}
     V.y=Math.max(V.y,-50);
   }
   onGround=false; hitWall=false;
@@ -1674,7 +1682,7 @@ function addItem(id,dur){
 function takeSel(){const it=inv[sel];if(!it)return null;const out={id:it.id,dur:it.dur};if(--it.n<=0)inv[sel]=null;drawSlot(sel);saveSoon();return out;}
 function heldTool(){const it=inv[sel];if(!it||(DEF[it.id].admin&&!isAdmin()))return null;return DEF[it.id].tool||null;}
 function useTool(){
-  const it=inv[sel]; if(!it||!DEF[it.id].tool||GM.mode==='creative'||DEF[it.id].admin)return;
+  const it=inv[sel]; if(!it||!DEF[it.id].tool||GM.mode==='creative'||DEF[it.id].admin||DEF[it.id].tool.kind==='grapple')return;
   if(tierOf(it)===1||(tierOf(it)===2&&Math.random()<.5))return;
   {const u=enchLvl(it,4);if(u&&Math.random()<u/(u+1))return;}
   it.dur--; if(realDur(it)<=0){toast(itemName(it)+' broke');inv[sel]=null;}
@@ -1976,6 +1984,7 @@ function doPlace(){
     const ax=Math.abs(camDir.x),ay=Math.abs(camDir.y),az=Math.abs(camDir.z);
     meta[x+','+y+','+z]=ay>=ax&&ay>=az?(camDir.y<0?2:3):ax>=az?(camDir.x<0?0:1):(camDir.z<0?4:5);
   }
+  if(LEAFSET.has(pid))meta[x+','+y+','+z]=99; // player-placed leaves never decay
   if(setBlock(x,y,z,pid,isDm(it)?{dm:tierOf(it)}:undefined)){swing();if(GM.mode!=='creative')takeSel();if(pid===CHEST)chests[x+','+y+','+z]=new Array(27).fill(null);}
 }
 // ---------- status effects, XP, farming, doors, potions ----------
@@ -3223,7 +3232,7 @@ function infoBuild(){
     if(!d||INFO_SKIP.has(id)||d.admin)return;
     const kind=d.tool?'Tools':d.armor?'Tools':d.potion||d.food?'Items':d.item?'Items':'Blocks';
     const lines=[];
-    if(d.tool)lines.push(d.tool.kind==='sword'||d.tool.kind==='mace'||d.tool.kind==='spear'?'Weapon · '+d.tool.dmg+' damage · '+d.tool.max+' durability':'Tool · '+d.tool.max+' durability');
+    if(d.tool&&d.tool.kind==='grapple')lines.push('Tool · never breaks');else if(d.tool)lines.push(d.tool.kind==='sword'||d.tool.kind==='mace'||d.tool.kind==='spear'?'Weapon · '+d.tool.dmg+' damage · '+d.tool.max+' durability':'Tool · '+d.tool.max+' durability');
     if(d.armor)lines.push('Armor · '+d.armor.pts+' protection points');
     if(d.food)lines.push('Food · fills '+d.food+(d.heal?' · heals '+d.heal/2+' hearts':''));
     if(d.potion)lines.push('Potion · drink with E');
@@ -4094,6 +4103,31 @@ function updateLunge(dt){
     if(m.hp<=0)killMob(mobs.indexOf(m),true);
   }
 }
+// ---------- leaf decay: leaves with no log nearby fall apart over time ----------
+const LEAFSET=new Set([LEAVES,BIRCH_LEAVES,SPRUCE_LEAVES,JUNGLE_LEAVES,ACACIA_LEAVES]), LOGSET=new Set([LOG,BIRCH_LOG,SPRUCE_LOG,JUNGLE_LOG,ACACIA_LOG]);
+const leafQ=new Map();
+function queueLeafDecay(x,y,z){
+  for(let dy=-4;dy<=5;dy++)for(let dz=-4;dz<=4;dz++)for(let dx=-4;dx<=4;dx++){
+    const bx=x+dx,by=y+dy,bz=z+dz,k=bx+','+by+','+bz;
+    if(leafQ.has(k)||!LEAFSET.has(getBlock(bx,by,bz))||meta[k]===99)continue;
+    leafQ.set(k,{x:bx,y:by,z:bz,t:1.5+Math.random()*9});
+  }
+}
+function leafSupported(x,y,z){
+  for(let dy=-4;dy<=4;dy++)for(let dz=-4;dz<=4;dz++)for(let dx=-4;dx<=4;dx++)if(LOGSET.has(getBlock(x+dx,y+dy,z+dz)))return true;
+  return false;
+}
+function updateLeafDecay(dt){
+  if(!leafQ.size)return; let n=0;
+  for(const [k,q] of leafQ){
+    q.t-=dt; if(q.t>0)continue; leafQ.delete(k);
+    const id=getBlock(q.x,q.y,q.z); if(!LEAFSET.has(id)||meta[k]===99||leafSupported(q.x,q.y,q.z))continue;
+    if(!setBlock(q.x,q.y,q.z,AIR))continue;
+    burst(id,q.x,q.y,q.z);
+    for(const dd of dropsOf(id))spawnDrop(dd,q.x+.5,q.y+.5,q.z+.5);
+    if(++n>=12)break;
+  }
+}
 // ---------- spear charge: hold R, damage depends on how fast the tip hits ----------
 let stabT=0, stabTired=false, stabCd=new Map(), stabPose=0;
 function updateStab(dt){
@@ -4260,7 +4294,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);}
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}
   {const want=keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
@@ -4471,6 +4505,7 @@ function runCommand(line){
       else say('Usage: /summon <'+MOB_TYPES.join('|')+'|tnt>');
       break;
     }
+    case 'autojump':{const v=(a[0]||'').toLowerCase();setAutoJump(v?(v==='on'||v==='true'):!autoJump);say('Auto-jump is '+(autoJump?'on':'off')+'.');break;}
     case 'alwaysday':{
       if(!canCheat())break;
       if(current.type==='joined'){say('Only the host can change that.');break;}
@@ -4511,7 +4546,7 @@ chatIn.addEventListener('keyup',e=>e.stopPropagation());
 
 // command suggestions
 const suggEl=document.getElementById('sugg');
-const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','repeatsummon','dummy','alwaysday','locate','spawnpoint','seed','list','items'];
+const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','repeatsummon','dummy','alwaysday','autojump','locate','spawnpoint','seed','list','items'];
 const blockKeys=()=>['air',...Object.keys(ITEM_KEYS).filter(k=>{const d=DEF[ITEM_KEYS[k]];return !d.item||d.places;})];
 let suggList=[], suggSel=0;
 function suggFor(){
@@ -4529,7 +4564,7 @@ function suggFor(){
     case 'repeatsummon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:idx===2?['5','10','25','50','100']:[]; break;
     case 'locate': opts=idx===1?['chamber','nether','fortress']:[]; break;
     case 'dummy': opts=idx===1?['20','100','1000','10000']:[]; break;
-    case 'alwaysday': opts=idx===1?['on','off']:[]; break;
+    case 'alwaysday':case 'autojump': opts=idx===1?['on','off']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
     case 'kick': case 'ban': opts=idx===1?[...new Set([...[...MP.peers.values()].map(p=>p.n),...known.values()])]:[]; break;
     case 'unban': opts=idx===1?bans.map(b=>b.n):[]; break;
@@ -5020,7 +5055,7 @@ function renderServers(){
   curDiff.value=String(GM.diff); curDiff.disabled=GM.mode!=='survival'||current.type==='joined';
   alwaysDayEl.checked=!!current.alwaysDay; alwaysDayEl.disabled=current.type==='joined';
 }
-const curDiff=document.getElementById('curDiff'), alwaysDayEl=document.getElementById('alwaysDay');
+const curDiff=document.getElementById('curDiff'), alwaysDayEl=document.getElementById('alwaysDay'); setAutoJump(autoJump);
 alwaysDayEl.addEventListener('change',()=>{if(current.type==='joined')return;current.alwaysDay=alwaysDayEl.checked;saveReg();if(current.alwaysDay){dayT=.25;if(MP.isHost)mpSend({t:'time',d:dayT,h:1});}mpSetStatus(current.alwaysDay?'Always day is on for this world. Monsters still spawn in dark places.':'Day and night are back on.');});
 curDiff.addEventListener('change',()=>{
   if(GM.mode!=='survival'||current.type==='joined')return;
