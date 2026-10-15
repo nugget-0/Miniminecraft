@@ -438,7 +438,7 @@ I(ENDER_PEARL,'Ender Pearl',216); I(ENDER_EYE,'Eye of Ender',217); I(DRAGON_SCAL
 // ---- wings, rockets, grapple ----
 const WING_N=['Wooden','Stone','Iron','Gold','Diamond','Netherite','Dragon'];
 const WINGS=[230,231,232,233,234,235,236], ROCKET=237, GRAPPLE=238;
-const WING_STAT=[[9,3.2],[11,2.8],[13,2.3],[14,1.8],[16,1.7],[18,1.4],[22,.9]];
+const WING_STAT=[[30,3.2],[40,2.8],[52,2.3],[60,1.8],[72,1.7],[88,1.4],[115,.9]];
 const WING_COL=[[150,110,62],[136,136,140],[214,214,222],[240,200,60],[90,224,218],[78,66,72],[70,20,110]];
 WINGS.forEach((id,k)=>I(id,WING_N[k]+' Wings',224+k,{armor:{slot:1,pts:[0,0,1,1,2,3,4][k]},wings:k}));
 I(ROCKET,'Rocket',231); I(GRAPPLE,'Grappling Hook',232,{tool:{kind:'grapple',tier:1,max:200,dmg:1}});
@@ -1518,7 +1518,7 @@ function physics(dt){
   if(flying)speed=sprint?16:10;
   const k=Math.min(1,dt*(onGround||flying?14:inWater?6:3.5));
   const spEdge=keys.Space&&!spacePrev; spacePrev=!!keys.Space;
-  if(spEdge&&!onGround&&!inWater&&!flying&&!gliding&&!grap&&wingTier()>=0&&V.y<1.5){gliding=true;toast('Gliding');}
+  if(spEdge&&!onGround&&!inWater&&!flying&&!gliding&&!grap&&wingTier()>=0&&V.y<1.5){gliding=true;toast('Gliding');const m0=WING_STAT[wingTier()][0]*.35,cp=Math.cos(pitch);if(Math.hypot(V.x,V.z)<m0){V.x=-Math.sin(yaw)*cp*m0;V.z=-Math.cos(yaw)*cp*m0;}}
   if(gliding&&(onGround||inWater||flying||wingTier()<0))gliding=false;
   if(!gliding&&!grap){V.x+=(wx*speed-V.x)*k; V.z+=(wz*speed-V.z)*k;}
   const wasGround=onGround;
@@ -1551,7 +1551,7 @@ function physics(dt){
   }else{moveAxis('x',V.x*dt); moveAxis('z',V.z*dt);}
   const preSp=Math.hypot(V.x,V.z);
   moveAxis('y',V.y*dt);
-  if(gliding&&hitWall&&preSp>9&&wingTier()<6){hurt(Math.floor((preSp-9)*.6));gliding=false;toast('Crashed!');}
+  if(gliding&&hitWall&&preSp>18&&wingTier()<6){hurt(Math.min(18,Math.floor((preSp-18)*.25)));gliding=false;toast('Crashed!');}
   if(flying&&onGround)flying=false;
   if(GM.mode==='creative')airMaxY=P.y;
   if(immune>0){immune-=dt;airMaxY=P.y;}
@@ -3695,7 +3695,7 @@ let loading=true;
 const statsEl=document.getElementById('stats');
 function stream(){
   const pcx=Math.floor(P.x/CS),pcz=Math.floor(P.z/CS);
-  const genBudget=loading?60:fastMesh>0?10:4, meshBudget=loading?40:fastMesh>0?12:3;
+  const genBudget=loading?60:fastMesh>0?14:4, meshBudget=loading?40:fastMesh>0?16:3;
   const need=[];
   for(let dz=-R-1;dz<=R+1;dz++)for(let dx=-R-1;dx<=R+1;dx++){if(!chunks.has(ck(pcx+dx,pcz+dz)))need.push([dx*dx+dz*dz,pcx+dx,pcz+dz]);}
   need.sort((a,b)=>a[0]-b[0]);
@@ -3916,10 +3916,11 @@ function glidePhysics(dt){
   const wt=wingTier(), [mx,sink]=WING_STAT[Math.max(0,wt)], cp=Math.cos(pitch);
   const d=[-Math.sin(yaw)*cp,Math.sin(pitch),-Math.cos(yaw)*cp];
   let sp=Math.hypot(V.x,V.y,V.z);
-  sp+=-d[1]*16*dt; sp-=.06*sp*dt;
-  if(boostT>0){boostT-=dt;sp+=30*dt;if(Math.random()<.7)glowPart(Math.random()<.5?[255,200,60]:[255,120,30],P.x-d[0]*.8,P.y+.6-d[1]*.8,P.z-d[2]*.8,-d[0]*3,-d[1]*3,-d[2]*3,.4,0);}
+  sp+=-d[1]*mx*1.4*dt; sp-=.03*sp*dt; if(Math.abs(d[1])<.35&&sp<mx*.45)sp+=mx*.25*dt;
+  if(sp>25)fastMesh=Math.max(fastMesh,.5);
+  if(boostT>0){boostT-=dt;sp+=mx*1.6*dt;if(Math.random()<.7)glowPart(Math.random()<.5?[255,200,60]:[255,120,30],P.x-d[0]*.8,P.y+.6-d[1]*.8,P.z-d[2]*.8,-d[0]*3,-d[1]*3,-d[2]*3,.4,0);}
   sp=Math.max(2,Math.min(sp,boostT>0?mx*1.9:mx));
-  const a=Math.min(1,dt*2.5);
+  const a=Math.min(1,dt*4);
   V.x+=(d[0]*sp-V.x)*a; V.y+=(d[1]*sp-sink-V.y)*a; V.z+=(d[2]*sp-V.z)*a;
   airMaxY=P.y;
   if(wt===6&&Math.random()<dt*10)glowPart([180,110,255],P.x+(Math.random()-.5),P.y+1,P.z+(Math.random()-.5),0,0,0,.6,1);
@@ -4013,7 +4014,7 @@ function frame(now){
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
   updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine();
-  {const want=gliding?Math.min(95,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*1.2):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
+  {const want=gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
   if(viewMode===1&&!dead){
