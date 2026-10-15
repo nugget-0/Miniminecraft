@@ -1419,7 +1419,7 @@ function boxHit(x,y,z,hw,h){
   }
   return false;
 }
-let canStep=false, stepped=false;
+let canStep=false, stepped=false, maceSafe=false;
 const collide=()=>boxHit(P.x,P.y,P.z,PW,PH);
 function moveAxis(ax,d){
   if(!d)return;
@@ -1503,7 +1503,7 @@ function physics(dt){
   if(immune>0){immune-=dt;airMaxY=P.y;}
   else if(inWater||onLadder||enderSet())airMaxY=P.y;
   else if(!onGround)airMaxY=Math.max(airMaxY,P.y);
-  else{ if(!wasGround){const f=airMaxY-P.y;if(getBlock(fx,Math.floor(P.y),fz)===DRIP_UP&&f>1)hurt(Math.ceil(f*1.5)+1);else if(f>3.4)hurt(Math.round(Math.floor(f-3)*(1-.2*enchLvl(armor[3],7))));} airMaxY=P.y; }
+  else{ if(!wasGround&&maceSafe){maceSafe=false;airMaxY=P.y;} if(!wasGround){const f=airMaxY-P.y;if(getBlock(fx,Math.floor(P.y),fz)===DRIP_UP&&f>1)hurt(Math.ceil(f*1.5)+1);else if(f>3.4)hurt(Math.round(Math.floor(f-3)*(1-.2*enchLvl(armor[3],7))));} airMaxY=P.y; }
   if(getBlock(fx,Math.floor(P.y+EYE),fz)===WATER){
     air=Math.max(0,air-dt/1.5);
     if(air<=0){drownT+=dt;if(drownT>=1){drownT=0;hurt(2);}}
@@ -2150,7 +2150,37 @@ function makeSkitter(){
   return{g,legs,mats:[body,dark],base:cols.map(c=>new THREE.Color(c)),kind:'crawler'};
 }
 // ---- animals & villagers (original blocky designs) ----
-const MOB_TYPES=['shambler','skitter','cow','pig','sheep','chicken','villager','vaultkeeper','cinder','wisp','demon','imp','overlord','voidling','dragon'];
+const MOB_TYPES=['shambler','skitter','cow','pig','sheep','chicken','villager','vaultkeeper','cinder','wisp','demon','imp','overlord','voidling','dragon','dummy'];
+function makeDummy(){
+  const g=new THREE.Group(), cols=[0x7a5530,0xd8c08a,0xc83030,0xf2efe6];
+  const [wood,straw,red,white]=cols.map(c=>new THREE.MeshBasicMaterial({color:c}));
+  part(g,wood,.14,1.9,.14,0,.95,0); part(g,wood,.5,.12,.5,0,.06,0);
+  part(g,straw,.56,.72,.3,0,1.2,0); part(g,wood,1.3,.12,.12,0,1.45,0);
+  part(g,straw,.46,.46,.46,0,1.82,0);
+  part(g,white,.34,.34,.02,0,1.82,-.24); part(g,red,.24,.24,.02,0,1.82,-.25); part(g,white,.12,.12,.02,0,1.82,-.26);
+  part(g,red,.3,.3,.02,0,1.22,-.16);
+  return{g,legs:[],mats:[wood,straw,red,white],base:cols.map(c=>new THREE.Color(c)),kind:'dummy'};
+}
+function hpTex(t){const c=document.createElement('canvas');c.width=256;c.height=56;const g=c.getContext('2d');g.font='bold 34px monospace';g.textAlign='center';g.textBaseline='middle';g.fillStyle='rgba(0,0,0,.55)';g.fillRect(0,0,256,56);g.fillStyle='#ff6b6b';g.fillText(t,128,30);const tx=new THREE.CanvasTexture(c);tx.minFilter=THREE.LinearFilter;return tx;}
+function dummyTag(m){
+  const hp=m.remote?(m.hpAbs!==undefined?m.hpAbs:m.maxhp):m.hp, t='♥ '+Math.max(0,Math.ceil(hp))+' / '+m.maxhp;
+  if(m.tagTxt===t)return; m.tagTxt=t;
+  if(!m.tag){m.tag=new THREE.Sprite(new THREE.SpriteMaterial({map:hpTex(t),depthTest:false,transparent:true,fog:false}));m.tag.scale.set(1.5,.33,1);m.tag.position.y=2.45;m.tag.renderOrder=11;m.v.g.add(m.tag);}
+  else{m.tag.material.map.dispose();m.tag.material.map=hpTex(t);}
+}
+const floats=[];
+function floatNum(x,y,z,n,cr){
+  const c=document.createElement('canvas');c.width=128;c.height=64;const g=c.getContext('2d');g.font='bold 44px monospace';g.textAlign='center';g.textBaseline='middle';
+  g.lineWidth=6;g.strokeStyle='#000';const t=(Math.round(n*10)/10)+(cr===2?'!!':cr?'!':'');g.strokeText(t,64,34);g.fillStyle=cr===2?'#ffd23a':cr?'#ffa040':'#ffffff';g.fillText(t,64,34);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false,transparent:true,fog:false}));sp.scale.set(cr?1.1:.8,cr?.55:.4,1);sp.renderOrder=12;
+  sp.position.set(x+(Math.random()-.5)*.6,y,z+(Math.random()-.5)*.6);scene.add(sp);floats.push({sp,t:1.1});
+}
+function updateFloats(dt){for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.t-=dt;f.sp.position.y+=dt*1.1;f.sp.material.opacity=Math.min(1,f.t*2);if(f.t<=0){scene.remove(f.sp);f.sp.material.map.dispose();f.sp.material.dispose();floats.splice(i,1);}}}
+function dummyTick(m,dt){
+  m.vx=m.vz=0; if(m.vy>0)m.vy=0; m.vy-=30*dt; m.vy=Math.max(m.vy,-40); m.ground=false; entAxis(m,'y',m.vy*dt); m.flee=0;
+  m.v.g.position.set(m.x,m.y,m.z); m.v.g.rotation.y=m.yaw; m.v.g.rotation.z=m.flash>0?Math.sin(performance.now()/30)*.12*m.flash/.2:0;
+  animMob(m,dt,0); dummyTag(m);
+}
 function makeVoidling(){
   const g=new THREE.Group(), cols=[0x14101a,0x0a080e];
   const [body,dark]=cols.map(c=>new THREE.MeshBasicMaterial({color:c}));
@@ -2252,6 +2282,7 @@ function spawnMob(type,x,y,z,prof){
   else if(type==='wisp'){v=makeWisp();o={hw:.32,h:1.1,hp:10,speed:2.6,dmg:3,fly:true,fireproof:true};}
   else if(type==='demon'){v=makeBrute([0x3a0c10,0x16080a,0x240a0e,0xb01030],0xff2040,true);o={hw:.34,h:2.2,hp:30,speed:2.1,dmg:7,fireproof:true};}
   else if(type==='imp'){v=makeWisp([0xff3050,0x6a0a40]);o={hw:.32,h:1.1,hp:14,speed:3,dmg:4,fly:true,fireproof:true};}
+  else if(type==='dummy'){v=makeDummy();const mh=Math.max(1,Math.min(1e6,prof|0||20));o={hw:.35,h:2.1,hp:mh,maxhp:mh,speed:0,dmg:0,passive:true,prof:mh};}
   else if(type==='voidling'){v=makeVoidling();o={hw:.3,h:2.8,hp:40,speed:2.6,dmg:7,neutral:true};}
   else if(type==='dragon'){v=makeDragon();o={hw:2.4,h:2,hp:250,maxhp:250,speed:9,dmg:10,fly:true,fireproof:true,st:'circle',stT:8,ang:0,cx:x,cz:z};}
   else if(type==='overlord'){v=makeBrute([0x28060a,0x0c0406,0x1a0608,0xff2050],0xffe040,true);v.g.scale.setScalar(1.6);o={hw:.55,h:3.5,hp:120,speed:1.7,dmg:11,fireproof:true};}
@@ -2375,6 +2406,7 @@ function tryAttack(){
   atkCd=rb?.3:.45; swing(); if(tool)useTool(); mine.t=-.35; m.flash=.2;
   if(rb){bladeSlash();rainbowBurst(m.x,m.y+m.h*.5,m.z,30);}
   if(rbm)rainbowBurst(m.x,m.y+m.h*.5,m.z,24);
+  if(m.type==='dummy')floatNum(m.x,m.y+m.h+.2,m.z,dmg,cr);
   {const fa=enchLvl(inv[sel],2);if(fa&&!rb&&!rbm&&!dmw){m.fire=Math.max(m.fire||0,3*fa);m.fireDm=true;}}
   if(dmw&&!rb&&!rbm){m.fireDm=true;burstC([255,30,60],m.x-.5,m.y+m.h*.5-.5,m.z-.5,10);}
   if(m.remote){mpSend({t:'mdmg',id:m.nid,dmg,fire:(rb||rbm)?6:dmw?3:0,fd:dmw&&!rb&&!rbm?1:0,kx:+(dx/L*kb/7).toFixed(2),kz:+(dz/L*kb/7).toFixed(2)});return true;}
@@ -2412,7 +2444,7 @@ function areaBreak(x,y,z,filter){
   return true;
 }
 function maceSmash(m,sm,rbm){
-  airMaxY=P.y; V.y=Math.max(V.y,rbm?9:6);
+  airMaxY=P.y; V.y=Math.max(V.y,Math.min(rbm?30:24,(rbm?12:10)+sm*.55)); maceSafe=true;
   const gy=Math.floor(m.y-.5), gid=getBlock(Math.floor(m.x),gy,Math.floor(m.z));
   for(let i=0;i<28;i++){
     const a=i/28*Math.PI*2, r=.6+Math.random()*.4;
@@ -2566,7 +2598,7 @@ function syncMobs(l){
     seen.add(nid);
     let m=mobs.find(q=>q.remote&&q.nid===nid);
     if(!m){spawnMob(MOB_TYPES[tp]||'shambler',x,y,z,e[7]);m=mobs[mobs.length-1];m.nid=nid;m.remote=true;}
-    m.tx=x;m.ty=y;m.tz=z;m.tyaw=+yw||0;if(fl)m.flash=.2;if(typeof e[8]==='number')m.hpf=e[8];
+    m.tx=x;m.ty=y;m.tz=z;m.tyaw=+yw||0;if(fl)m.flash=.2;if(typeof e[8]==='number'){m.hpf=e[8];if(m.type==='dummy')m.hpAbs=e[8];}
   }
   for(let i=mobs.length-1;i>=0;i--)if(mobs[i].remote&&!seen.has(mobs[i].nid))killMob(i,false);
 }
@@ -2580,6 +2612,7 @@ function updateMobMirrors(dt){
     const ms=Math.hypot(m.x-ox,m.z-oz)/Math.max(dt,1e-3); m.phase+=dt*ms*3;
     m.v.g.position.set(m.x,m.y,m.z); m.v.g.rotation.y=m.yaw;
     animMob(m,dt,ms);
+    if(m.type==='dummy')dummyTag(m);
   }
 }
 function hostMobDamage(o){
@@ -2619,6 +2652,7 @@ function updateMobs(dt){
   for(let i=mobs.length-1;i>=0;i--){
     const m=mobs[i], tg=mobTarget(m), dx=tg.x-m.x, dz=tg.z-m.z, dy=tg.y-m.y, dist=Math.hypot(dx,dz);
     if(m.type==='dragon'){dragonAI(m,dt,tg);continue;}
+    if(m.type==='dummy'){dummyTick(m,dt);continue;}
     if(tg.far>(m.type==='villager'?400:60)){removeMob(i);continue;}
     if(m.fire>0){
       m.fire-=dt; m.hp-=4*dt; m.flash=Math.max(m.flash,.05);
@@ -3855,7 +3889,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
   if(viewMode===1&&!dead){
@@ -4046,6 +4080,14 @@ function runCommand(line){
       else say('Usage: /summon <'+MOB_TYPES.join('|')+'|tnt>');
       break;
     }
+    case 'dummy':{
+      if(!canCheat())break;
+      const hp=Math.max(1,Math.min(1000000,parseInt(a[0]||'20',10)||20));
+      camera.getWorldDirection(camDir);
+      const x=Math.floor(P.x+camDir.x*3), z=Math.floor(P.z+camDir.z*3); let y=Math.floor(P.y)+3; while(y>1&&!solid(getBlock(x,y-1,z)))y--;
+      spawnMob('dummy',x+.5,y+.02,z+.5,hp); const d=mobs[mobs.length-1]; d.yaw=Math.atan2(P.x-d.x,P.z-d.z)+Math.PI;
+      say('Placed a training dummy with '+hp+' HP. Hit it to see your damage.'); break;
+    }
     case 'locate':{
       if(!canCheat())break;
       const what=(a[0]||'chamber').toLowerCase();
@@ -4071,7 +4113,7 @@ chatIn.addEventListener('keyup',e=>e.stopPropagation());
 
 // command suggestions
 const suggEl=document.getElementById('sugg');
-const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','locate','spawnpoint','seed','list','items'];
+const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','dummy','locate','spawnpoint','seed','list','items'];
 const blockKeys=()=>['air',...Object.keys(ITEM_KEYS).filter(k=>{const d=DEF[ITEM_KEYS[k]];return !d.item||d.places;})];
 let suggList=[], suggSel=0;
 function suggFor(){
@@ -4087,6 +4129,7 @@ function suggFor(){
     case 'difficulty': opts=idx===1?['peaceful','easy','normal','hard']:[]; break;
     case 'summon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:[]; break;
     case 'locate': opts=idx===1?['chamber','nether','fortress']:[]; break;
+    case 'dummy': opts=idx===1?['20','100','1000','10000']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
     case 'kick': case 'ban': opts=idx===1?[...new Set([...[...MP.peers.values()].map(p=>p.n),...known.values()])]:[]; break;
     case 'unban': opts=idx===1?bans.map(b=>b.n):[]; break;
@@ -4398,7 +4441,7 @@ function mpTick(dt){
   if(!MP.connected)return;
   MP.sendT-=dt;
   if(MP.sendT<=0){MP.sendT=.1;mpSend({t:'p',x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),yaw:+yaw.toFixed(2),pi:+pitch.toFixed(2),n:MP.name,jt:MP.jt,pid:PID,cr:GM.mode==='creative'?1:0,c:myChar,h:inv[sel]?inv[sel].id:0,a:myArmorCodes()});}
-  if(MP.isHost){MP.mobT=(MP.mobT||0)-dt;if(MP.mobT<=0){MP.mobT=.12;mpSend({t:'mobs',l:mobs.map(m=>[m.nid,Math.max(0,MOB_TYPES.indexOf(m.type)),+m.x.toFixed(2),+m.y.toFixed(2),+m.z.toFixed(2),+m.yaw.toFixed(2),m.flash>0?1:0,m.prof|0,m.type==='dragon'?+(m.hp/m.maxhp).toFixed(3):0])});}}
+  if(MP.isHost){MP.mobT=(MP.mobT||0)-dt;if(MP.mobT<=0){MP.mobT=.12;mpSend({t:'mobs',l:mobs.map(m=>[m.nid,Math.max(0,MOB_TYPES.indexOf(m.type)),+m.x.toFixed(2),+m.y.toFixed(2),+m.z.toFixed(2),+m.yaw.toFixed(2),m.flash>0?1:0,m.prof|0,m.type==='dragon'?+(m.hp/m.maxhp).toFixed(3):m.type==='dummy'?Math.ceil(m.hp):0])});}}
   if(MP.isHost){MP.annT=(MP.annT||0)-dt;if(MP.annT<=0){MP.annT=10;mpAnnounce();}}
   if(MP.isHost){MP.timeT-=dt;if(MP.timeT<=0){MP.timeT=10;mpSend({t:'time',d:dayT,h:1});}}
   const now=performance.now(), k=Math.min(1,dt*10);
