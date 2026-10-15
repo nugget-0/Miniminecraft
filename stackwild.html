@@ -1537,7 +1537,7 @@ function physics(dt){
     }
     V.y=Math.max(V.y,-4);
   }else{
-    V.y-=30*dt;
+    V.y-=30*dt*(modActive('lowgrav')?.33:1);
     if(keys.Space&&onGround){V.y=fx.jump>0?11.6:9.2;food=Math.max(0,food-.05);}
     V.y=Math.max(V.y,-50);
   }
@@ -1557,7 +1557,7 @@ function physics(dt){
   if(immune>0){immune-=dt;airMaxY=P.y;}
   else if(inWater||onLadder||enderSet()||gliding||grap)airMaxY=P.y;
   else if(!onGround)airMaxY=Math.max(airMaxY,P.y);
-  else{ if(!wasGround&&maceSafe){maceSafe=false;airMaxY=P.y;} if(!wasGround){const f=airMaxY-P.y;if(getBlock(fx,Math.floor(P.y),fz)===DRIP_UP&&f>1)hurt(Math.ceil(f*1.5)+1);else if(f>3.4)hurt(Math.round(Math.floor(f-3)*(1-.2*enchLvl(armor[3],7))));} airMaxY=P.y; }
+  else{ if(!wasGround&&maceSafe){maceSafe=false;airMaxY=P.y;} if(!wasGround){const f=airMaxY-P.y;if(getBlock(fx,Math.floor(P.y),fz)===DRIP_UP&&f>1)hurt(Math.ceil(f*1.5)+1);else if(f>3.4&&!(modActive('lowgrav')&&f<7))hurt((modActive('lowgrav')?.5:1)*Math.round(Math.floor(f-3)*(1-.2*enchLvl(armor[3],7))));} airMaxY=P.y; }
   if(getBlock(fx,Math.floor(P.y+EYE),fz)===WATER){
     air=Math.max(0,air-dt/1.5);
     if(air<=0){drownT+=dt;if(drownT>=1){drownT=0;hurt(2);}}
@@ -2464,7 +2464,7 @@ function tryAttack(){
   const blade=bladeHeld(), rb=blade&&isAdmin();
   if(blade&&!rb)toast('Only admins can wield the Rainbow Fire Blade');
   const tool=blade&&!rb?null:heldTool(), dmw=!!tool&&isDm(inv[sel]), base=((tool?(tool.dmg||tool.tier+1):1)+(tool?1.25*enchLvl(inv[sel],1):0))*(tool?tierMul(inv[sel],2.2,1.6):1)*(fx.strength>0?1.5:1), cr=rollCrit();
-  let dmg=rb?base*(cr?1.5:1):cr===2?18:cr===1?base*1.5:base;
+  let dmg=(rb?base*(cr?1.5:1):cr===2?18:cr===1?base*1.5:base)*(modActive('glass')?2:1);
   const mace=!!(tool&&tool.kind==='mace'), rbm=mace&&!!DEF[inv[sel].id].rainbow;
   if(mace){const fall=airMaxY-P.y;if(fall>1.5&&!onGround){const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));dmg+=sm*(rbm?2:1);maceSmash(m,sm,rbm);}}
   critFx(cr,m.x,m.y+m.h-.9,m.z);
@@ -2696,7 +2696,7 @@ function updateMobs(dt){
   if(MP.connected&&!MP.isHost){updateMobMirrors(dt);return;}
   spawnT-=dt;
   if(GM.diff===0)for(let i=mobs.length-1;i>=0;i--)if(!mobs[i].passive)removeMob(i);
-  if(GM.diff>0&&spawnT<=0){spawnT=2.5;if(mobs.filter(m=>!m.passive).length<[0,6,10,14][GM.diff])trySpawn();}
+  if(GM.diff>0&&spawnT<=0){const mm=modActive('mayhem');spawnT=mm?1.1:2.5;if(mobs.filter(m=>!m.passive).length<[0,6,10,14][GM.diff]*(mm?2:1))trySpawn();}
   animalT-=dt; if(animalT<=0){animalT=3;trySpawnAnimal();spawnVillagers();}
   maybeSpawnDragon(dt);
   // escape: carrying a Demoniser through the Demon Realm wakes the whole place up
@@ -3072,7 +3072,16 @@ function paintArmor(i){paintSlot(armorEls[i],armor[i],90+i);}
 // ---------- mods: install from the Mods page, then turn on per hosted world (server) or for yourself (client) ----------
 const MODS=[
   {id:'corruption',name:'The Corruption',type:'server',desc:'A corrupted sword is stuck in the ground 5 blocks from spawn. Corruption spreads out from it, turning the land red and black, hurting players and spawning demons day and night, until it swallows the whole world. To stop it, hold an Ender item or a Totem of Revival and use the sword, then survive 30 seconds next to it while it fights back. Pull it free and the corruption recedes.'},
+  {id:'meteors',name:'Meteor Shower',type:'server',desc:'Every minute or so a flaming meteor streaks down somewhere near a player and explodes, leaving a crater with a chunk of meteorite full of iron, gold, obsidian and sometimes diamonds or netherite. Don’t stand under it.'},
+  {id:'border',name:'Shrinking Border',type:'server',desc:'Hunger Games style. A world border 400 blocks out from spawn slowly closes in until it is 24 blocks wide. Outside it you take damage every second. A red wall of sparks shows where it is.'},
+  {id:'mayhem',name:'Mob Mayhem',type:'server',desc:'Twice as many monsters, spawning twice as fast. Bring torches.'},
+  {id:'lowgrav',name:'Moon Gravity',type:'server',desc:'Everyone jumps about three times higher and falls slowly. Fall damage is halved.'},
+  {id:'glass',name:'Glass Cannon',type:'server',desc:'Everyone deals double damage and takes double damage. Fights end fast.'},
   {id:'nightowl',name:'Night Owl',type:'client',desc:'Nights and caves are brighter, only on your screen. Nobody else is affected.'},
+  {id:'fullbright',name:'Fullbright',type:'client',desc:'Everything is fully lit all the time, even deep caves. Only on your screen.'},
+  {id:'fps',name:'FPS Counter',type:'client',desc:'Shows frames per second, ping-free, in the top corner.'},
+  {id:'zoom',name:'Zoom',type:'client',desc:'Hold Z to zoom in like a spyglass.'},
+  {id:'rainbowsky',name:'Rainbow Sky',type:'client',desc:'The daytime sky slowly cycles through every colour. Just for you.'},
 ];
 const lsGet=(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k)||'null');return v===null?d:v;}catch(e){return d;}};
 let modsInstalled=lsGet('stackwild:mods',[]), clientModsOn=lsGet('stackwild:clientmods',[]);
@@ -3080,6 +3089,8 @@ const saveMods=()=>{try{localStorage.setItem('stackwild:mods',JSON.stringify(mod
 const modInstalled=id=>modsInstalled.includes(id);
 function serverModOn(id){return modInstalled(id)&&!!current&&current.type!=='joined'&&Array.isArray(current.mods)&&current.mods.includes(id);}
 function clientModOn(id){return modInstalled(id)&&clientModsOn.includes(id);}
+let remoteMods=[];
+function modActive(id){return current&&current.type==='joined'?remoteMods.includes(id):serverModOn(id);}
 const modsPanel=document.getElementById('modsPanel'), modsList=document.getElementById('modsList');
 function renderMods(){
   modsList.textContent='';
@@ -3259,7 +3270,48 @@ function plantCorruption(){
   chatSys('Something dark has taken root near spawn…');
   corBroadcast(); corDirty(0,3);
 }
+const meteors=[]; let meteorT=30, modBcT=0, fpsAcc=0, fpsN=0, fpsT=0;
+const fpsEl=(()=>{const d=document.createElement('div');d.style.cssText='position:fixed;top:10px;right:12px;font:700 13px monospace;color:#9dff4a;text-shadow:0 1px 2px #000;pointer-events:none;z-index:6';d.hidden=true;document.body.appendChild(d);return d;})();
+function meteorStart(x,y,z,auth){
+  const m=new THREE.Mesh(new THREE.BoxGeometry(1.4,1.4,1.4),new THREE.MeshBasicMaterial({color:0xff7a20,fog:false}));
+  const sx=x+40,sy=y+70,sz=z+25; m.position.set(sx,sy,sz); scene.add(m);
+  meteors.push({m,sx,sy,sz,x,y,z,t:0,auth});
+  if(Math.hypot(P.x-x,P.z-z)<120)toast('☄ A meteor is coming down!');
+}
+function updateMeteors(dt){
+  for(let i=meteors.length-1;i>=0;i--){
+    const o=meteors[i]; o.t+=dt/2.4; const k=Math.min(1,o.t);
+    o.m.position.set(o.sx+(o.x-o.sx)*k,o.sy+(o.y-o.sy)*k,o.sz+(o.z-o.sz)*k); o.m.rotation.x+=dt*5; o.m.rotation.y+=dt*4;
+    for(let j=0;j<3;j++)glowPart(Math.random()<.5?[255,200,60]:[255,80,20],o.m.position.x+(Math.random()-.5),o.m.position.y+(Math.random()-.5),o.m.position.z+(Math.random()-.5),(Math.random()-.5)*2,1,(Math.random()-.5)*2,.7,-1);
+    if(k>=1){
+      scene.remove(o.m);o.m.geometry.dispose();o.m.material.dispose();meteors.splice(i,1);
+      explode(o.x,o.y,o.z,3.6);
+      for(let j=0;j<40;j++)glowPart(Math.random()<.5?[255,180,60]:[120,120,120],o.x,o.y,o.z,(Math.random()-.5)*14,Math.random()*12,(Math.random()-.5)*14,1.2,9);
+      if(o.auth){const bx=Math.floor(o.x),by=Math.floor(o.y)-2,bz=Math.floor(o.z);
+        for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)for(let dy=0;dy<=1;dy++){if(dy&&(dx||dz))continue;const r=Math.random();setBlock(bx+dx,by+dy,bz+dz,r<.03?NETHERITE_ORE:r<.12?DIAMOND_ORE:r<.35?GOLD_ORE:r<.65?IRON_ORE:OBSIDIAN);}}
+    }
+  }
+}
+let borderCenter=null, borderHurtT=0;
+function updateBorder(dt,auth){
+  if(!modActive('border')){return;}
+  if(!borderCenter){const sp=findSpawn();borderCenter={x:sp.x,z:sp.z};}
+  if(auth){if(typeof meta['#bd']!=='number')meta['#bd']=400;meta['#bd']=Math.max(24,meta['#bd']-dt*.22);}
+  const r=meta['#bd']; if(typeof r!=='number'||P.x>=NETHER_MIN)return;
+  const dx=P.x-borderCenter.x, dz=P.z-borderCenter.z, d=Math.hypot(dx,dz);
+  if(d>r&&!dead&&GM.mode!=='creative'){borderHurtT+=dt;if(borderHurtT>=1){borderHurtT=0;hurt(2);toast('Outside the border! Get back in');}}else borderHurtT=0;
+  if(Math.abs(d-r)<14){const a0=Math.atan2(dz,dx);for(let k=0;k<4;k++){const a=a0+(Math.random()-.5)*.25*(30/Math.max(30,r));glowPart([255,40,40],borderCenter.x+Math.cos(a)*r,P.y-2+Math.random()*7,borderCenter.z+Math.sin(a)*r,0,.5,0,.8,0);}}
+}
 function modsTick(dt){
+  {const auth0=!MP.connected||MP.isHost;
+    updateMeteors(dt); updateBorder(dt,auth0);
+    if(auth0&&modActive('meteors')){meteorT-=dt;if(meteorT<=0){meteorT=45+Math.random()*40;
+      const cs=[{x:P.x,z:P.z}];if(MP.connected)for(const p of MP.peers.values())if(p.seen)cs.push({x:p.x,z:p.z});
+      const c=cs[Math.floor(Math.random()*cs.length)], x=Math.floor(c.x+(Math.random()-.5)*60), z=Math.floor(c.z+(Math.random()-.5)*60);
+      if(chunks.has(ck(Math.floor(x/CS),Math.floor(z/CS)))){let y=H-2;while(y>1&&!solid(getBlock(x,y,z)))y--;meteorStart(x+.5,y+1,z+.5,true);mpSend({t:'meteor',x:x+.5,y:y+1,z:z+.5});}}}
+    if(MP.connected&&MP.isHost){modBcT-=dt;if(modBcT<=0){modBcT=4;mpSend({t:'mods',l:MODS.filter(m=>m.type==='server'&&serverModOn(m.id)).map(m=>m.id),b:typeof meta['#bd']==='number'?+meta['#bd'].toFixed(1):null});}}
+    fpsEl.hidden=!clientModOn('fps'); if(!fpsEl.hidden){fpsAcc+=dt;fpsN++;fpsT-=dt;if(fpsT<=0){fpsT=.5;fpsEl.textContent=Math.round(fpsN/fpsAcc)+' FPS'+(modActive('border')&&typeof meta['#bd']==='number'?' · border '+Math.round(meta['#bd']):'');fpsAcc=0;fpsN=0;}}
+  }
   const c=meta['#cor'], auth=!MP.connected||MP.isHost;
   if(auth&&serverModOn('corruption')){
     if(!c){corT-=dt;if(corT<=0){corT=2;plantCorruption();}}
@@ -3498,6 +3550,7 @@ const hurtEl=document.getElementById('hurt'), deathEl=document.getElementById('d
 const vg=document.getElementById('vitals').getContext('2d');
 function hurt(n){
   if(dead||n<=0||GM.mode==='creative')return;
+  if(n<50&&modActive('glass'))n*=2;
   health=Math.max(0,health-n);
   hurtEl.classList.remove('hit'); void hurtEl.offsetWidth; hurtEl.classList.add('hit');
   if(health<=0){if(useTotem())return;die();}
@@ -3738,10 +3791,11 @@ function updateSky(dt){
   const endR=isEndX(camera.position.x);
   if(endR)skyCol.setRGB(.07,.03,.1); else if(demonR)skyCol.setRGB(.16,.01,.04); else if(nether)skyCol.setRGB(.22,.06,.05);
   else{skyCol.copy(skyNight).lerp(skyDay,light);skyCol.lerp(skyDusk,Math.max(0,1-Math.abs(sy)/0.28)*0.55);}
+  if(!nether&&clientModOn('rainbowsky')){const rc=new THREE.Color().setHSL((performance.now()/40000)%1,.65,.6);skyCol.lerp(rc,.7*light);}
   if(!nether&&corZone(camera.position.x,camera.position.z)){skyCol.lerp(CORSKY,.6);}
   renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
   sun.visible=moon.visible=clouds.visible=!nether;
-  const b=Math.max(fx.night>0?.85:0,(!nether&&clientModOn('nightowl'))?.55:0,endR?.5:demonR?.34:nether?.42:0.2+0.8*light); curBright=b;
+  const b=Math.max(clientModOn('fullbright')?1:0,fx.night>0?.85:0,(!nether&&clientModOn('nightowl'))?.55:0,endR?.5:demonR?.34:nether?.42:0.2+0.8*light); curBright=b;
   updateHandLights();
   if(matSolid.userData.u)matSolid.userData.u.value=b; if(matSolidC.userData.u)matSolidC.userData.u.value=Math.max(b,.45); if(matSolidE.userData.u)matSolidE.userData.u.value=Math.max(b,.45); if(matWater.userData.u)matWater.userData.u.value=b;
   matItem.color.setScalar(b); matItemC.color.setScalar(Math.max(b,.6)); matItemE.color.setScalar(Math.max(b,.6));
@@ -4014,7 +4068,7 @@ function frame(now){
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
   updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine();
-  {const want=gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
+  {const want=keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
   if(viewMode===1&&!dead){
@@ -4470,6 +4524,8 @@ function mpOnMsg(o){
     case 'dd': meta['#dd']=1; break;
     case 'cor': if(o.c&&typeof o.c.x==='number'){const old=meta['#cor'];meta['#cor']=o.c;corDirty(old?old.r:0,o.c.r);} break;
     case 'corpull': if(MP.isHost)corStartRitual(); break;
+    case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
+    case 'meteor': if([o.x,o.y,o.z].every(v=>typeof v==='number'))meteorStart(o.x,o.y,o.z,false); break;
     case 'rwave': if([o.x,o.y,o.z,o.dx,o.dy,o.dz].every(v=>typeof v==='number'))remoteWave(o); break;
     case 'totem': if(typeof o.x==='number'&&typeof o.y==='number'&&typeof o.z==='number'){totemPop(o.x,o.y,o.z,false);chatSys(peerName(o.s)+' was saved by a Totem of Revival');} break;
     case 'time': if(typeof o.d==='number'&&o.h&&!MP.isHost)dayT=o.d; break;
