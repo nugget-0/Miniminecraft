@@ -161,6 +161,42 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
   .card h1{font-size:36px}
 }
 @media (prefers-reduced-motion:reduce){ #hurt.hit{animation-duration:.2s} }
+
+/* ---------- admin panel (H) ---------- */
+#admPanel{position:fixed;top:12px;right:12px;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 140px);display:flex;flex-direction:column;z-index:60;background:linear-gradient(180deg,rgba(22,14,26,.94),rgba(12,10,16,.94));border:2px solid var(--accent);border-radius:6px;box-shadow:0 0 0 3px rgba(0,0,0,.4),0 18px 50px rgba(0,0,0,.6),0 0 30px rgba(242,193,78,.12);color:var(--text);font-family:var(--font-ui);animation:swpop .16s ease-out}
+#admPanel[hidden]{display:none}
+#admPanel .ap-bar{height:5px;background:repeating-linear-gradient(90deg,var(--accent) 0 12px,rgba(0,0,0,.3) 12px 16px)}
+#admPanel .ap-head{display:flex;align-items:center;gap:8px;padding:10px 12px 6px}
+#admPanel .ap-title{font-family:var(--font-display);font-size:20px;letter-spacing:.06em;color:var(--accent);text-shadow:0 2px 0 rgba(0,0,0,.6)}
+#admPanel .ap-badge{font-size:10px;font-weight:700;letter-spacing:.12em;padding:2px 6px;border-radius:3px;background:rgba(255,40,90,.18);color:#ff7aa2;border:1px solid rgba(255,90,140,.4)}
+#admPanel .ap-x{margin-left:auto;background:none;border:0;color:var(--muted);font-size:18px;cursor:pointer;padding:2px 6px}
+#admPanel .ap-tabs{display:flex;gap:4px;padding:0 10px 8px;flex-wrap:wrap}
+#admPanel .ap-tab{flex:1;min-width:58px;padding:6px 4px;font:600 12px var(--font-ui);letter-spacing:.04em;color:var(--muted);background:rgba(255,255,255,.04);border:1px solid var(--panel-edge);border-radius:4px;cursor:pointer}
+#admPanel .ap-tab.on{color:#1a1206;background:var(--accent);border-color:var(--accent)}
+#admPanel .ap-body{overflow:auto;padding:0 12px 12px;-webkit-overflow-scrolling:touch}
+#admPanel .ap-sec{font:700 10px var(--font-ui);letter-spacing:.14em;color:var(--muted);margin:10px 0 6px;text-transform:uppercase}
+#admPanel .ap-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;font:12px ui-monospace,Menlo,Consolas,monospace}
+#admPanel .ap-grid b{color:var(--muted);font-weight:500}
+#admPanel .ap-grid span{text-align:right;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#admPanel .ap-mod{display:flex;align-items:center;gap:10px;padding:7px 8px;margin-bottom:4px;border-radius:4px;background:rgba(255,255,255,.035);border:1px solid transparent;cursor:pointer}
+#admPanel .ap-mod.on{border-color:rgba(242,193,78,.45);background:rgba(242,193,78,.08)}
+#admPanel .ap-mod .nm{font-weight:600;font-size:13px}
+#admPanel .ap-mod .ds{font-size:11px;color:var(--muted)}
+#admPanel .ap-sw{margin-left:auto;width:34px;height:18px;border-radius:9px;background:rgba(255,255,255,.15);position:relative;flex:none;transition:background .15s}
+#admPanel .ap-sw::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#ddd;transition:left .15s}
+#admPanel .ap-mod.on .ap-sw{background:var(--accent)}
+#admPanel .ap-mod.on .ap-sw::after{left:18px;background:#1a1206}
+#admPanel .ap-btns{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+#admPanel .ap-btn{padding:8px 4px;font:600 12px var(--font-ui);color:var(--text);background:rgba(255,255,255,.06);border:1px solid var(--panel-edge);border-radius:4px;cursor:pointer}
+#admPanel .ap-btn:active,#admPanel .ap-tab:active{transform:translateY(1px)}
+#admPanel .ap-btn.danger{border-color:rgba(255,80,110,.5);color:#ff9ab3}
+#admPanel .ap-range{display:flex;align-items:center;gap:8px;font-size:12px;margin:6px 0}
+#admPanel .ap-range input{flex:1;accent-color:var(--accent)}
+#admPanel .ap-pl{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:4px;background:rgba(255,255,255,.035);margin-bottom:4px;font-size:12px}
+#admPanel .ap-pl .nm{font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#admPanel .ap-pl .ap-btn{padding:4px 8px}
+#admPanel .ap-empty{font-size:12px;color:var(--muted);padding:8px 0}
+#admPanel .ap-spark{width:100%;height:36px;display:block;margin-top:4px}
 </style>
 
 <div id="game"></div>
@@ -178,13 +214,19 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 <div id="xpbar"><div id="xpfill"></div><span id="xplvl"></span></div>
 <div id="hotbar"></div>
 <div id="bossbar" hidden><div id="bossName">Ender Dragon</div><div id="bossOut"><div id="bossFill"></div></div></div>
+<div id="admPanel" hidden>
+  <div class="ap-bar"></div>
+  <div class="ap-head"><span class="ap-title">ADMIN</span><span class="ap-badge">STACKWILD</span><button class="ap-x" data-ap="close" aria-label="Close">✕</button></div>
+  <div class="ap-tabs"><button class="ap-tab on" data-tab="info">Info</button><button class="ap-tab" data-tab="mods">Modules</button><button class="ap-tab" data-tab="act">Actions</button><button class="ap-tab" data-tab="pl">Players</button><button class="ap-tab" data-tab="dbg">Debug</button></div>
+  <div class="ap-body" id="apBody"></div>
+</div>
 <div id="touch" hidden>
   <div class="joy" id="joy" aria-label="Move joystick"><div class="knob" id="joyKnob"></div></div>
   <div class="acts">
     <button data-act="chat">Chat</button><button data-act="bag">Bag</button>
     <button data-act="break">Dig</button><button data-act="place">Build</button>
     <button data-key="KeyC">Crouch</button><button data-key="Space">Jump</button>
-    <button data-act="view">View</button><button data-act="mark">Mark</button><button data-act="stab" data-key="KeyR">Stab</button><button data-act="hb">Hitbox</button>
+    <button data-act="view">View</button><button data-act="mark">Mark</button><button data-act="stab" data-key="KeyR">Stab</button><button data-act="hb">Hitbox</button><button data-act="admp" id="admTouchBtn" hidden>Admin</button>
   </div>
 </div>
 
@@ -3796,7 +3838,8 @@ window.addEventListener('keydown',e=>{
     case 'Slash':e.preventDefault();openChat();chatIn.value='/';renderSugg();break;
     case 'Tab':openBag(0);break;
     case 'KeyI':waypointUI();break;
-    case 'KeyH':case 'Escape':openMenu();break;
+    case 'KeyH':if(isAdmin()){toggleAdmPanel();break;}openMenu();break;
+    case 'Escape':if(admOpen){toggleAdmPanel();break;}openMenu();break;
     default: if(/^Digit[1-9]$/.test(e.code))select(+e.code[5]-1);
   }
 });
@@ -3835,6 +3878,7 @@ touchEl.querySelectorAll('button').forEach(b=>{
     if(a==='view'){toggleView();return;}
     if(a==='mark'){waypointUI();return;}
     if(a==='hb'){toggleHitboxes();return;}
+    if(a==='admp'){toggleAdmPanel();return;}
     if(a==='bag'){bagOpen?closeBag():openBag(0);return;}
     if(bagOpen)return;
     if(k)keys[k]=true;
@@ -4169,6 +4213,86 @@ function updateLunge(dt){
     if(m.hp<=0)killMob(mobs.indexOf(m),true);
   }
 }
+// ---------- admin panel (H): live info, module toggles, quick actions, players, debug ----------
+let admOpen=false, admTab='info', admT=0, admFps=[], admFrames=0, admFpsT=0, admLastFps=0;
+const apEl=document.getElementById('admPanel'), apBody=document.getElementById('apBody');
+function toggleAdmPanel(){if(!isAdmin()){admOpen=false;apEl.hidden=true;return;}admOpen=!admOpen;apEl.hidden=!admOpen;if(admOpen)renderAdm(true);}
+function apCmd(c){runCommand(c);renderAdm(true);}
+function setClientMod(id,on){if(on&&!modsInstalled.includes(id))modsInstalled.push(id);const i=clientModsOn.indexOf(id);if(on&&i<0)clientModsOn.push(id);if(!on&&i>=0)clientModsOn.splice(i,1);saveMods();}
+const AP_MODS=[
+  ['Fly','Fly in survival (double-tap Space / V)',()=>admFly,v=>runCommand('/fly '+(v?'on':'off'))],
+  ['God mode','Take no damage at all',()=>admGod,v=>runCommand('/god '+(v?'on':'off'))],
+  ['Freeze mobs','Every mob stops in place (your worlds)',()=>admFreeze,v=>runCommand('/freeze '+(v?'on':'off'))],
+  ['Hitboxes','Boxes + where everyone is looking (G)',()=>showHB,v=>{if(v!==showHB)toggleHitboxes();}],
+  ['Perfect crits','Every crit is a perfect crit',()=>perfectAll,v=>runCommand('/perfectcrit '+(v?'on':'off'))],
+  ['Always day','Lock the sun at noon (your worlds)',()=>!!(current&&current.alwaysDay),v=>runCommand('/alwaysday '+(v?'on':'off'))],
+  ['Auto-jump','Hop up 1-block steps',()=>autoJump,v=>setAutoJump(v)],
+  ['Fullbright','Everything fully lit',()=>clientModOn('fullbright'),v=>setClientMod('fullbright',v)],
+  ['Night Owl','Brighter nights and caves',()=>clientModOn('nightowl'),v=>setClientMod('nightowl',v)],
+  ['Zoom','Hold Z to zoom',()=>clientModOn('zoom'),v=>setClientMod('zoom',v)],
+  ['Rainbow Sky','Cycling rainbow daytime sky',()=>clientModOn('rainbowsky'),v=>setClientMod('rainbowsky',v)],
+  ['FPS counter','Corner FPS readout',()=>clientModOn('fps'),v=>setClientMod('fps',v)],
+];
+const AP_ACTS=[['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
+const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function apRow(k,v){return '<b>'+esc(k)+'</b><span>'+esc(v)+'</span>';}
+const DIMN=['Overworld','Nether','Demon Realm','The End'];
+function renderAdm(full){
+  if(!admOpen)return;
+  apEl.querySelectorAll('.ap-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===admTab));
+  let h='';
+  if(admTab==='info'){
+    const bx=Math.floor(P.x),by=Math.floor(P.y),bz=Math.floor(P.z), deg=((-yaw*180/Math.PI)%360+360)%360, dirs=['N','NW','W','SW','S','SE','E','NE'];
+    const hs=Math.hypot(V.x,V.z), q=xpLevel();
+    h+='<div class="ap-sec">You</div><div class="ap-grid">'+apRow('Position',bx+' '+by+' '+bz)+apRow('Chunk',Math.floor(bx/CS)+', '+Math.floor(bz/CS))+apRow('Dimension',DIMN[dimOf(P.x)])+apRow('Facing',dirs[Math.round(deg/45)%8]+' '+deg.toFixed(0)+'° / '+(pitch*180/Math.PI).toFixed(0)+'°')
+      +apRow('Speed',hs.toFixed(1)+' m/s'+(V.y?' ('+(V.y>0?'↑':'↓')+Math.abs(V.y).toFixed(1)+')':''))+apRow('Health',(health/2).toFixed(1)+' ♥')+apRow('Food',(food/2).toFixed(1))+apRow('Level',q.l+' ('+Math.round(q.frac*100)+'%)')
+      +apRow('State',[onGround?'ground':'air',flying?'flying':'',gliding?'gliding':'',sneaking?'crouch':'',admGod?'god':''].filter(Boolean).join(' · '))
+      +apRow('Looking at',target?((DEF[target.id]&&DEF[target.id].name)||target.id)+' @ '+target.x+' '+target.y+' '+target.z:'—')+'</div>';
+    const hr=(dayT*24+6)%24;
+    h+='<div class="ap-sec">World</div><div class="ap-grid">'+apRow('Name',current?current.name:'—')+apRow('Seed',seed)+apRow('Mode',GM.mode)+apRow('Difficulty',['Peaceful','Easy','Normal','Hard'][GM.diff]||GM.diff)
+      +apRow('Time',String(Math.floor(hr)).padStart(2,'0')+':'+String(Math.floor(hr%1*60)).padStart(2,'0')+(current&&current.alwaysDay?' (locked)':''))+apRow('Mobs',mobs.length+' ('+mobs.filter(m=>!m.passive).length+' hostile)')
+      +apRow('Players',(MP.connected?MP.peers.size+1:1)+'')+apRow('Craters',(Array.isArray(meta['#cr'])?meta['#cr'].length:0)+'')+'</div>';
+  }else if(admTab==='mods'){
+    h+='<div class="ap-sec">Modules</div>';
+    AP_MODS.forEach((m,i)=>{const on=!!m[2]();h+='<div class="ap-mod'+(on?' on':'')+'" data-mod="'+i+'"><div><div class="nm">'+esc(m[0])+'</div><div class="ds">'+esc(m[1])+'</div></div><div class="ap-sw"></div></div>';});
+    h+='<div class="ap-sec">Speed</div><div class="ap-range"><input type="range" id="apSpeed" min="1" max="20" step="1" value="'+Math.round(admSpeed)+'"><span id="apSpeedV">×'+admSpeed+'</span></div>';
+  }else if(admTab==='act'){
+    h+='<div class="ap-sec">Quick actions</div><div class="ap-btns">'+AP_ACTS.map(a=>'<button class="ap-btn'+(a[2]?' danger':'')+'" data-cmd="'+esc(a[1])+'">'+esc(a[0])+'</button>').join('')+'</div>';
+    h+='<div class="ap-sec">Crater at your feet</div><div class="ap-btns">'+[['10','/crater 10'],['100','/crater 100'],['1,000','/crater 1000'],['10,000','/crater 10000'],['∞','/crater inf']].map(a=>'<button class="ap-btn danger" data-cmd="'+a[1]+'">'+a[0]+'</button>').join('')+'</div>';
+    h+='<div class="ap-sec">Summon</div><div class="ap-btns">'+['shambler','skitter','demon','overlord','voidling','dragon','dummy','tnt','megatnt'].map(t=>'<button class="ap-btn" data-cmd="/summon '+t+'">'+t+'</button>').join('')+'</div>';
+  }else if(admTab==='pl'){
+    h+='<div class="ap-sec">Players</div>';
+    const ps=[...MP.peers.values()].filter(p=>p.seen);
+    if(!MP.connected)h+='<div class="ap-empty">You’re playing solo. Host or join a server to see players.</div>';
+    else if(!ps.length)h+='<div class="ap-empty">Nobody else is here yet.</div>';
+    for(const p of ps){const d=Math.hypot(p.x-P.x,p.y-P.y,p.z-P.z);h+='<div class="ap-pl"><span class="nm">'+esc(p.n)+'</span><span style="color:var(--muted)">'+d.toFixed(0)+'m · '+DIMN[dimOf(p.x)]+'</span><button class="ap-btn" data-cmd="/tp '+esc(p.n)+'">TP</button><button class="ap-btn danger" data-cmd="/kick '+esc(p.n)+'">Kick</button></div>';}
+    h+='<div class="ap-sec">Server</div><div class="ap-grid">'+apRow('Status',MP.connected?(MP.isHost?'Hosting':'Joined'):'Offline')+apRow('Room',MP.room||'—')+apRow('PvP',typeof pvpOn==='function'&&pvpOn()?'on':'off')+apRow('Your ID',PID)+'</div>';
+  }else{
+    const ri=renderer.info, mem=performance.memory?(performance.memory.usedJSHeapSize/1048576).toFixed(0)+' MB':'n/a';
+    let ls=0;try{const v=current&&localStorage.getItem(current.key);ls=v?v.length:0;}catch(e){}
+    h+='<div class="ap-sec">Performance</div><canvas class="ap-spark" id="apSpark" width="340" height="36"></canvas><div class="ap-grid">'+apRow('FPS',admLastFps)+apRow('Frame',(admLastFps?(1000/admLastFps).toFixed(1):'—')+' ms')+apRow('Draw calls',ri.render.calls)+apRow('Triangles',ri.render.triangles.toLocaleString())+apRow('Geometries',ri.memory.geometries)+apRow('Textures',ri.memory.textures)+apRow('JS heap',mem)+apRow('Pixel ratio',renderer.getPixelRatio().toFixed(2))+'</div>';
+    h+='<div class="ap-sec">World data</div><div class="ap-grid">'+apRow('Chunks loaded',chunks.size)+apRow('Meshes',meshes.size)+apRow('Remesh queue',dirty.size)+apRow('Crater jobs',craterJobs.length)+apRow('Leaf decay',leafQ.size)+apRow('Lights',lights.size)+apRow('Edited chunks',Object.keys(edits).length)+apRow('Corrupted blocks',demonBlocks.size)+apRow('Spawners',spawners.size)+apRow('Save size',(ls/1024).toFixed(0)+' KB')+'</div>';
+    h+='<div class="ap-sec">Entities</div><div class="ap-grid">'+apRow('Mobs',mobs.length)+apRow('Particles',typeof parts!=='undefined'?parts.length:'—')+apRow('Wind charges',winds.length)+apRow('Meteors',meteors.length)+'</div>';
+  }
+  if(full||admTab!=='mods'&&admTab!=='act'){apBody.innerHTML=h;}
+  const sp=document.getElementById('apSpark'); if(sp){const g=sp.getContext('2d'),w=sp.width,hh=sp.height;g.clearRect(0,0,w,hh);g.strokeStyle='rgba(242,193,78,.9)';g.lineWidth=1.5;g.beginPath();admFps.forEach((f,i)=>{const x=i/(Math.max(1,admFps.length-1))*w,y=hh-Math.min(1,f/120)*(hh-2)-1;i?g.lineTo(x,y):g.moveTo(x,y);});g.stroke();g.fillStyle='rgba(255,255,255,.25)';g.fillRect(0,hh-(60/120)*(hh-2)-1,w,1);}
+}
+apEl.addEventListener('click',e=>{
+  const t=e.target.closest('[data-tab],[data-cmd],[data-mod],[data-ap]'); if(!t)return; e.stopPropagation();
+  if(t.dataset.ap==='close'){toggleAdmPanel();return;}
+  if(t.dataset.tab){admTab=t.dataset.tab;renderAdm(true);}
+  else if(t.dataset.cmd)apCmd(t.dataset.cmd);
+  else if(t.dataset.mod){const m=AP_MODS[+t.dataset.mod];m[3](!m[2]());renderAdm(true);}
+  if(t.blur)t.blur();
+});
+apEl.addEventListener('input',e=>{if(e.target.id==='apSpeed'){admSpeed=+e.target.value;const v=document.getElementById('apSpeedV');if(v)v.textContent='×'+admSpeed;}});
+['pointerdown','touchstart','wheel'].forEach(ev=>apEl.addEventListener(ev,e=>e.stopPropagation(),{passive:true}));
+function updateAdmPanel(dt){
+  admFrames++; admFpsT+=dt; if(admFpsT>=.5){admLastFps=Math.round(admFrames/admFpsT);admFrames=0;admFpsT=0;admFps.push(admLastFps);if(admFps.length>60)admFps.shift();}
+  const tb=document.getElementById('admTouchBtn'); if(tb){const a=isAdmin();if(tb.hidden===a)tb.hidden=!a;}
+  if(!admOpen)return; if(!isAdmin()){toggleAdmPanel();return;}
+  admT-=dt; if(admT<=0){admT=.25;renderAdm(false);}
+}
 // ---------- hitboxes (G): boxes around players & mobs, plus where everyone is looking ----------
 let showHB=false, hbLines=null;
 const HB_MAX=6000;
@@ -4393,7 +4517,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
   {const want=keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*4);camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
