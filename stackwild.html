@@ -257,7 +257,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       </div>
       <div class="row" style="margin-top:8px">
         <span class="srv-sub">Difficulty of the world you’re in</span>
-        <select id="curDiff" aria-label="Current world difficulty"><option value="0">Peaceful</option><option value="1">Easy</option><option value="2">Normal</option><option value="3">Hard</option></select>
+        <label class="srv-sub" style="display:inline-flex;gap:6px;align-items:center;margin-right:10px;cursor:pointer"><input type="checkbox" id="alwaysDay"> Always day</label><select id="curDiff" aria-label="Current world difficulty"><option value="0">Peaceful</option><option value="1">Easy</option><option value="2">Normal</option><option value="3">Hard</option></select>
       </div>
       <p class="label" style="margin-top:12px">Public servers</p>
       <div id="pubList" class="srv-list"></div>
@@ -2362,8 +2362,17 @@ function trySpawn(){
       spawnMob(w?(dr?'imp':'wisp'):(dr?'demon':'cinder'),x+.5,y+(w?1.5:0),z+.5); return;
     }
     const inCor=corZone(x,z);
-    if(curLight>=.35&&!inCor)continue;
-    let y=H-2; while(y>0&&getBlock(x,y,z)===AIR)y--;
+    let y, dark=false;
+    if(Math.random()<.55){
+      // caves, mines and roofed-over spots: dark any time of day
+      y=Math.max(2,Math.min(H-4,Math.floor((sc.y||32)+(Math.random()-.5)*24)));
+      if(getBlock(x,y,z)!==AIR)continue;
+      while(y>1&&getBlock(x,y-1,z)===AIR)y--;
+      y--;
+      for(let yy=y+3;yy<H;yy++)if(opaque(getBlock(x,yy,z))){dark=true;break;}
+      if(!dark)continue;
+    }else{y=H-2; while(y>0&&getBlock(x,y,z)===AIR)y--;}
+    if(curLight>=.35&&!inCor&&!dark)continue;
     const top=getBlock(x,y,z);
     if(!solid(top)||top===LEAVES)continue;
     if(getBlock(x,y+1,z)!==AIR||getBlock(x,y+2,z)!==AIR)continue;
@@ -3658,7 +3667,7 @@ const skyDay=new THREE.Color(0x8ec5ff), skyNight=new THREE.Color(0x0b1430), skyD
 const skyCol=new THREE.Color();
 let cloudDrift=0;
 function updateSky(dt){
-  if(!paused)dayT=(dayT+dt/DAY_LEN)%1;
+  if(current&&current.alwaysDay)dayT=.25; else if(!paused)dayT=(dayT+dt/DAY_LEN)%1;
   const ang=dayT*Math.PI*2, sy=Math.sin(ang);
   const demonR=isDemonX(camera.position.x), nether=camera.position.x>=NETHER_MIN;
   const light=nether?0:Math.max(0,Math.min(1,sy*2.5+0.5)); curLight=light;
@@ -4080,6 +4089,13 @@ function runCommand(line){
       else say('Usage: /summon <'+MOB_TYPES.join('|')+'|tnt>');
       break;
     }
+    case 'alwaysday':{
+      if(!canCheat())break;
+      if(current.type==='joined'){say('Only the host can change that.');break;}
+      const v=(a[0]||'').toLowerCase(); current.alwaysDay=v?(v==='on'||v==='true'):!current.alwaysDay; saveReg();
+      if(current.alwaysDay){dayT=.25;if(MP.isHost)mpSend({t:'time',d:dayT,h:1});}
+      say('Always day is '+(current.alwaysDay?'on':'off')+'.'); break;
+    }
     case 'dummy':{
       if(!canCheat())break;
       const hp=Math.max(1,Math.min(1000000,parseInt(a[0]||'20',10)||20));
@@ -4113,7 +4129,7 @@ chatIn.addEventListener('keyup',e=>e.stopPropagation());
 
 // command suggestions
 const suggEl=document.getElementById('sugg');
-const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','dummy','locate','spawnpoint','seed','list','items'];
+const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','dummy','alwaysday','locate','spawnpoint','seed','list','items'];
 const blockKeys=()=>['air',...Object.keys(ITEM_KEYS).filter(k=>{const d=DEF[ITEM_KEYS[k]];return !d.item||d.places;})];
 let suggList=[], suggSel=0;
 function suggFor(){
@@ -4130,6 +4146,7 @@ function suggFor(){
     case 'summon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:[]; break;
     case 'locate': opts=idx===1?['chamber','nether','fortress']:[]; break;
     case 'dummy': opts=idx===1?['20','100','1000','10000']:[]; break;
+    case 'alwaysday': opts=idx===1?['on','off']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
     case 'kick': case 'ban': opts=idx===1?[...new Set([...[...MP.peers.values()].map(p=>p.n),...known.values()])]:[]; break;
     case 'unban': opts=idx===1?bans.map(b=>b.n):[]; break;
@@ -4595,8 +4612,10 @@ function renderServers(){
     row.append(info,play,exp,del); srvList.appendChild(row);
   }
   curDiff.value=String(GM.diff); curDiff.disabled=GM.mode!=='survival'||current.type==='joined';
+  alwaysDayEl.checked=!!current.alwaysDay; alwaysDayEl.disabled=current.type==='joined';
 }
-const curDiff=document.getElementById('curDiff');
+const curDiff=document.getElementById('curDiff'), alwaysDayEl=document.getElementById('alwaysDay');
+alwaysDayEl.addEventListener('change',()=>{if(current.type==='joined')return;current.alwaysDay=alwaysDayEl.checked;saveReg();if(current.alwaysDay){dayT=.25;if(MP.isHost)mpSend({t:'time',d:dayT,h:1});}mpSetStatus(current.alwaysDay?'Always day is on for this world. Monsters still spawn in dark places.':'Day and night are back on.');});
 curDiff.addEventListener('change',()=>{
   if(GM.mode!=='survival'||current.type==='joined')return;
   current.diff=+curDiff.value; saveReg(); setGM(current); renderServers();
