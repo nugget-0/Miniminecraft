@@ -4273,6 +4273,10 @@ function runCommand(line){
       if(!canCheat())break;
       const i=DIFF_N.map(s=>s.toLowerCase()).indexOf((a[0]||'').toLowerCase()), n=i>=0?i:parseInt(a[0],10);
       if(!(n>=0&&n<=3)){say('Usage: /difficulty <peaceful|easy|normal|hard>');break;}
+      if(current.type==='joined'){
+        if(!isAdmin()){say('Only the host can change the difficulty.');break;}
+        mpSend({t:'admdiff',diff:n,by:MP.name||'Admin'}); say('Asked the host to set difficulty to '+DIFF_N[n]+' (admin).'); break;
+      }
       current.diff=n; saveReg(); setGM(current); renderServers();
       if(MP.isHost)mpSend({t:'gm',diff:GM.diff,mode:GM.mode});
       say('Difficulty set to '+DIFF_N[n]); break;
@@ -4635,6 +4639,7 @@ function mpOnMsg(o){
     case 'take': remoteTake(o); break;
     case 'died': chatSys(o.by===MP.id?'You defeated '+peerName(o.s):o.by?peerName(o.s)+' was slain by '+peerName(o.by):peerName(o.s)+' died'); break;
     case 'pvp': if(!MP.isHost&&current.type==='joined'){current.pvp=!!o.on;saveReg();chatSys('PvP turned '+(o.on?'on':'off'));} break;
+    case 'admdiff': if(MP.isHost&&typeof o.diff==='number'&&o.diff>=0&&o.diff<=3&&GM.mode!=='creative'){current.diff=o.diff|0;saveReg();setGM(current);renderServers();mpSend({t:'gm',diff:GM.diff,mode:GM.mode});chatSys('Admin '+String(o.by||'').slice(0,16)+' set the difficulty to '+DIFF_N[GM.diff]);} break;
     case 'gm': if(!MP.isHost&&current.type==='joined'&&typeof o.diff==='number'){if(o.mode==='survival'||o.mode==='creative')current.mode=o.mode;current.diff=o.diff;saveReg();setGM(current);renderServers();chatSys('Difficulty set to '+DIFF_N[GM.diff]);} break;
   }
 }
