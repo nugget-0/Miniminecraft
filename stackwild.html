@@ -239,6 +239,8 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .at-chip.on{background:var(--accent);color:#1a1206;border-color:var(--accent)}
 .at-desc{font-size:11px;color:var(--muted);margin-top:4px}
 .at-stat{display:flex;align-items:center;gap:8px;font-size:12px;margin:3px 0}.at-stat span{width:96px;color:var(--muted)}.at-stat i{flex:1;height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden}.at-stat b{display:block;height:100%;background:var(--accent)}
+
+.inf::after{content:'∞';position:absolute;top:1px;left:3px;font:700 13px var(--font-display);color:var(--accent);text-shadow:0 1px 0 #000;pointer-events:none}
 </style>
 
 <div id="game"></div>
@@ -2350,6 +2352,7 @@ function doPick(){
   toast('No '+DEF[target.id].name+' in your hotbar');
 }
 function dropOne(){
+  infDropT=performance.now();
   const t=takeSel(); if(!t)return; swing();
   camera.getWorldDirection(camDir);
   spawnDrop(t.id,camera.position.x+camDir.x*.6,camera.position.y-.3+camDir.y*.6,camera.position.z+camDir.z*.6,camDir.x*5,camDir.y*5+2,camDir.z*5,1.2,1,t.dur);
@@ -3439,6 +3442,7 @@ const SYS_INFO=[
   ['Bots','Minigame worlds can have bot players (pick when creating, or the host types /bots 0-8). Bots fight, capture flags, bridge to beds, dig in spleef and throw grenades.'],
   ['Gun attachments','Hold a gun and press U (or the Attach button) to customise it: sights (red dot, holo, 4×, 8× scope), muzzle (silencer, compensator, brake), magazine (extended, fast, drum) and underbarrel (grip, laser, bipod). Each gun remembers its setup on this device.'],
   ['Bullet impacts','Bullets spark off stone and metal, splinter wood, kick up dirt and splash water. Any bullet shatters glass, ice, leaves, torches and plants. Shotguns and snipers also smash through wood, and snipers punch through up to 2 wooden blocks. Minigame arenas are protected.'],
+  ['/inf','Select a hotbar slot and type /inf. Whatever is in that slot never runs out: blocks, food, arrows, grenades, tool durability, even gun ammo. Swap a different item into the slot and that one becomes infinite too. /inf 3 toggles slot 3, /inf list shows them, /inf off clears all. Needs cheats (creative/your own world) or admin.'],
   ['Hitboxes','Press G (or the Hitbox button) to show hitboxes. White boxes are players and monsters, green are animals, the red ring is eye height, and the blue line is where they’re looking. For other players the blue line goes all the way to the block they’re aiming at, outlined in yellow.'],
   ['Spears','Hold R (or the Stab button) to brace the spear forward. While held, anything the tip runs into takes damage based on how fast you’re moving at it — sprint, dive, fly with wings or ride a wind charge for massive stabs. Your arm tires after ~8s. Long reach (5.5 blocks). Hit while sprinting or flying for charge damage. Use (E) to lunge forward and spear everything in your path. Enchant with Lunge for a longer dash.'],
   ['Wind charges','Throw with E. They burst into a gust that flings mobs and launches you high if you’re close (no fall damage). Great for rocket-jumping. Maces can get the Wind Burst enchant for bigger launches.'],
@@ -4657,11 +4661,11 @@ function updateGuns(dt){
   const trig=!!(keys.KeyF||ptrMine||touchDig)&&!busy, edge=trig&&!gunTrigPrev; gunTrigPrev=trig;
   if(g.spin){gunSpin=Math.max(0,Math.min(1,gunSpin+(trig?dt/.6:-dt/1.2)));if(heldMesh&&heldMesh.userData.spin)heldMesh.userData.spin.rotation.z+=dt*gunSpin*40;}
   if(g.burst&&edge&&gunBurst<=0&&gunCd<=0&&gunReload<=0)gunBurst=g.burst;
-  if(g.burst&&gunBurst>0&&gunCd<=0&&gunReload<=0){if(ammoOf(id)<=0){gunBurst=0;sfxClick(3000,.5,.03);reloadGun();}else{if(!infAmmo)gunAmmo[id]--;gunBurst--;gunCd=gunBurst>0?60/g.rpm:.32;fireOnce(id);}}
+  if(g.burst&&gunBurst>0&&gunCd<=0&&gunReload<=0){if(ammoOf(id)<=0){gunBurst=0;sfxClick(3000,.5,.03);reloadGun();}else{if(!infAmmo&&!infSlots.has(sel))gunAmmo[id]--;gunBurst--;gunCd=gunBurst>0?60/g.rpm:.32;fireOnce(id);}}
   if(trig&&g.shell&&gunReload>0&&ammoOf(id)>0)gunReload=0;
   if(!g.burst&&trig&&(g.auto||edge)&&gunCd<=0&&gunReload<=0&&(!g.spin||gunSpin>=1)){
     if(ammoOf(id)<=0){if(edge){sfxClick(3000,.5,.03);reloadGun();}}
-    else{if(!infAmmo)gunAmmo[id]--;gunCd=60/g.rpm;fireOnce(id);if(gunAmmo[id]<=0)setTimeout(()=>{if(gunHeld()&&inv[sel].id===id)reloadGun();},250);}
+    else{if(!infAmmo&&!infSlots.has(sel))gunAmmo[id]--;gunCd=60/g.rpm;fireOnce(id);if(gunAmmo[id]<=0)setTimeout(()=>{if(gunHeld()&&inv[sel].id===id)reloadGun();},250);}
   }
   // HUD
   if(hud.hidden)hud.hidden=false; const am=ammoOf(id);
@@ -5201,6 +5205,26 @@ function mgTint(){
 }
 document.getElementById('attPanel').addEventListener('click',e=>{const t=e.target.closest('[data-slot]');if(t){setAtt(t.dataset.slot,t.dataset.v);t.blur();}if(e.target.id==='attX')toggleAttMenu();e.stopPropagation();});
 ['pointerdown','touchstart','wheel'].forEach(ev=>document.getElementById('attPanel').addEventListener(ev,e=>e.stopPropagation(),{passive:true}));
+// ---------- /inf: a hotbar slot whose contents never run out ----------
+const infSlots=new Set((()=>{try{return JSON.parse(localStorage.getItem('stackwild:infslots')||'[]');}catch(e){return [];}})().filter(i=>i>=0&&i<9));
+const infSnap={}; let infDropT=0;
+function infSave(){try{localStorage.setItem('stackwild:infslots',JSON.stringify([...infSlots]));}catch(e){}slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));}
+slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));
+function updateInf(){
+  if(!infSlots.size)return; const moving=bagOpen||performance.now()-infDropT<300; let changed=false;
+  for(const i of infSlots){const s2=inv[i], sn=infSnap[i];
+    if(s2){
+      if(sn&&sn.id===s2.id&&!moving){
+        if(s2.n<sn.n){s2.n=sn.n;changed=true;}
+        if(typeof s2.dur==='number'&&typeof sn.dur==='number'&&realDur(s2)<realDur(sn)&&Math.floor(s2.dur/EN)===Math.floor(sn.dur/EN)){s2.dur=sn.dur;changed=true;}}
+      infSnap[i]={id:s2.id,n:s2.n,dur:s2.dur};
+      if(GUNS[s2.id]&&gunAmmo[s2.id]!==undefined&&gunAmmo[s2.id]<gunStat(s2.id).mag)gunAmmo[s2.id]=gunStat(s2.id).mag;
+    }else if(sn&&!moving){inv[i]={id:sn.id,n:sn.n};if(sn.dur!==undefined)inv[i].dur=sn.dur;changed=true;}
+    else delete infSnap[i];
+    if(changed)drawSlot(i);
+  }
+  if(changed)saveSoon();
+}
 // ---------- hitboxes (G): boxes around players & mobs, plus where everyone is looking ----------
 let showHB=false, hbLines=null;
 const HB_MAX=6000;
@@ -5425,7 +5449,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); updateGuns(dt); updateBow(dt); updateArrows(dt); updateBP(); updateMG(dt); updateNades(dt); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); updateGuns(dt); updateBow(dt); updateArrows(dt); updateBP(); updateMG(dt); updateNades(dt); updateInf(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
   {const gf=gunWantFov(), want=gf?gf:keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*(gf?14:4));camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
@@ -5538,6 +5562,16 @@ function runCommand(line){
       if(current.type==='joined'){say('Only the host can change bots.');break;}
       const v=(a[0]||'').toLowerCase(), n=v==='off'?0:Math.max(0,Math.min(8,parseInt(v||'4',10)||0));
       current.bots=n; saveReg(); say(n?n+' bots will join the game.':'Bots are off.'); break;
+    }
+    case 'inf':{
+      if(!canCheat())break;
+      const v=(a[0]||'').toLowerCase();
+      if(v==='off'||v==='clear'){infSlots.clear();for(const k in infSnap)delete infSnap[k];infSave();say('No slots are infinite now.');break;}
+      if(v==='list'){say(infSlots.size?'Infinite slots: '+[...infSlots].map(i=>i+1).sort().join(', '):'No infinite slots.');break;}
+      const i=v?Math.max(1,Math.min(9,parseInt(v,10)||sel+1))-1:sel;
+      if(infSlots.has(i)){infSlots.delete(i);delete infSnap[i];say('Slot '+(i+1)+' is back to normal.');}
+      else{infSlots.add(i);const s2=inv[i];if(s2)infSnap[i]={id:s2.id,n:s2.n,dur:s2.dur};say('Slot '+(i+1)+' is now infinite ∞ — whatever you put in it never runs out.');}
+      infSave(); break;
     }
     case 'infammo':{
       if(!isAdmin()){say('Unknown command. Type /help.');break;}
@@ -5741,7 +5775,7 @@ chatIn.addEventListener('keyup',e=>e.stopPropagation());
 
 // command suggestions
 const suggEl=document.getElementById('sugg');
-const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','repeatsummon','dummy','alwaysday','autojump','fly','god','speed','feed','xp','repair','corrupt','enderise','enchant','top','back','butcher','smite','launch','nuke','meteor','crater','clearcraters','freeze','party','boom','adm','guns','infammo','bots','locate','spawnpoint','seed','list','items'];
+const CMDS=['help','admin','kick','ban','unban','banlist','broadcast','perfectcrit','pvp','give','tp','time','gamemode','difficulty','heal','kill','clear','setblock','fill','summon','repeatsummon','dummy','alwaysday','autojump','fly','god','speed','feed','xp','repair','corrupt','enderise','enchant','top','back','butcher','smite','launch','nuke','meteor','crater','clearcraters','freeze','party','boom','adm','guns','infammo','bots','inf','locate','spawnpoint','seed','list','items'];
 const blockKeys=()=>['air',...Object.keys(ITEM_KEYS).filter(k=>{const d=DEF[ITEM_KEYS[k]];return !d.item||d.places;})];
 let suggList=[], suggSel=0;
 function suggFor(){
@@ -5762,6 +5796,7 @@ function suggFor(){
     case 'alwaysday':case 'autojump':case 'fly':case 'god':case 'freeze':case 'infammo': opts=idx===1?['on','off']:[]; break;
     case 'crater': opts=idx===1?['10','100','1000','inf']:[]; break;
     case 'bots': opts=idx===1?['off','2','4','6','8']:[]; break;
+    case 'inf': opts=idx===1?['1','2','3','4','5','6','7','8','9','list','off']:[]; break;
     case 'speed': opts=idx===1?['1','2','5','10']:[]; break;
     case 'enchant': opts=idx===1?ENCH_N.slice(1).map(n=>n.toLowerCase().replace(/ /g,'_')):idx===2?['1','3','5','9']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
