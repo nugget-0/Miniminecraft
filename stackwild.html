@@ -4525,14 +4525,14 @@ function buildGunModel(g){
   return G;
 }
 // ---------- gun animations: pump, bolt, slide kick, revolver cylinder, mag swaps ----------
-let gunActT=0, gunActDur=0, gunActKind='', gunActDelay=0, cylSpin=0, reloadPrevP=0;
+let gunActEj=false, gunActT=0, gunActDur=0, gunActKind='', gunActDelay=0, cylSpin=0, reloadPrevP=0;
 function gunActStart(g){
   if(g.k==='shotgun'){gunActKind='pump';gunActDur=.42;gunActDelay=.1;}
   else if(g.bolt){gunActKind='bolt';gunActDur=.75;gunActDelay=.22;}
   else if(['pistol','mpistol','revolver'].includes(g.k)){gunActKind=g.k==='revolver'?'cyl':'slide';gunActDur=g.k==='revolver'?.18:.09;gunActDelay=0;if(g.k==='revolver')cylSpin+=Math.PI/3;}
   else if(['rifle','smg','burst','dmr','ashotgun','lmg'].includes(g.k)){gunActKind='bolt2';gunActDur=.06;gunActDelay=0;}
   else{gunActKind='';return;}
-  gunActT=-gunActDelay;
+  gunActT=-gunActDelay; gunActEj=false;
 }
 const ease=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
 function animGun(dt){
@@ -4545,6 +4545,7 @@ function animGun(dt){
   // action after a shot
   if(gunActKind){gunActT+=dt;const q=gunActT/gunActDur;
     if(q>=0&&q<=1){
+      if((gunActKind==='pump'&&q>=.45||gunActKind==='bolt'&&q>=.42)&&!gunActEj){gunActEj=true;ejectShell(gunActKind==='pump'?1:0);}
       if(gunActKind==='pump'){const a=Math.sin(q*Math.PI);P0(U.pump,0,0,a*.13);tilt+=a*.12;roll+=a*.08;}
       else if(gunActKind==='bolt'){const up=ease(q/.2)-ease((q-.8)/.2), back=ease((q-.25)/.22)-ease((q-.55)/.22);if(U.bolt){P0(U.bolt,0,0,back*.11);Rz(U.bolt,0,0,up*1.3);}roll-=up*.18+back*.1;tilt+=back*.05;}
       else if(gunActKind==='slide'){P0(U.slide,0,0,(1-q)*.055);}
@@ -4570,7 +4571,7 @@ function animGun(dt){
     // sounds + a dropped mag at the right moments
     const S=(a)=>reloadPrevP<a&&p>=a;
     if(!g.shell&&g.k!=='revolver'){if(S(.2)){sfxClick(1500,.5,.05);const mw=muzzleWorld();glowPart([35,35,38],mw.x,mw.y-.25,mw.z,(Math.random()-.5),-1,(Math.random()-.5),1.1,16);}if(S(.62))sfxClick(2100,.6,.05);if(S(.76))sfxClick(900,.6,.07);if(S(.82))sfxClick(1700,.6,.05);}
-    if(g.k==='revolver'){if(S(.22))for(let i=0;i<6;i++)glowPart([215,170,70],P.x,P.y+1.2,P.z,(Math.random()-.5)*1.5,-1,(Math.random()-.5)*1.5,.9,16);if(S(.6))sfxClick(2000,.5,.05);if(S(.86))sfxClick(1000,.6,.07);}
+    if(g.k==='revolver'){if(S(.22))for(let i=0;i<6;i++)ejectShell(0,true);if(S(.6))sfxClick(2000,.5,.05);if(S(.86))sfxClick(1000,.6,.07);}
     reloadPrevP=p;
   }else reloadPrevP=0;
   // revolver cylinder turns one chamber per shot
@@ -4580,6 +4581,50 @@ function animGun(dt){
   gunAnimPose={tilt,roll,lift};
 }
 let gunAnimPose={tilt:0,roll:0,lift:0};
+// ---------- shell casings that stay on the floor (instanced, unlimited) ----------
+const casings=[]; const shellLayers=[];
+function shellLayer(k){
+  if(shellLayers[k])return shellLayers[k];
+  const geo=k?new THREE.CylinderGeometry(.022,.022,.085,7):new THREE.CylinderGeometry(.012,.012,.055,6);
+  const mat=new THREE.MeshBasicMaterial({color:k?0xa82626:0xc9a040});
+  const L={k,geo,mat,cap:256,n:0,mats:[],mesh:null};L.mesh=new THREE.InstancedMesh(geo,mat,L.cap);L.mesh.count=0;L.mesh.frustumCulled=false;scene.add(L.mesh);
+  return shellLayers[k]=L;
+}
+function shellAdd(k,mat4){
+  const L=shellLayer(k);
+  if(L.n>=L.cap){const cap=L.cap*2,m=new THREE.InstancedMesh(L.geo,L.mat,cap);m.frustumCulled=false;const t=new THREE.Matrix4();for(let i=0;i<L.n;i++){L.mesh.getMatrixAt(i,t);m.setMatrixAt(i,t);}scene.remove(L.mesh);L.mesh.dispose&&L.mesh.dispose();L.mesh=m;L.cap=cap;scene.add(m);}
+  L.mesh.setMatrixAt(L.n++,mat4); L.mesh.count=L.n; L.mesh.instanceMatrix.needsUpdate=true;
+}
+function clearShells(){for(const L of shellLayers){if(!L)continue;L.n=0;L.mesh.count=0;}for(const c of casings)scene.remove(c.m);casings.length=0;}
+function spawnShell(k,x,y,z,vx,vy,vz){
+  const L=shellLayer(k), m=new THREE.Mesh(L.geo,L.mat); m.position.set(x,y,z); scene.add(m);
+  casings.push({m,k,x,y,z,vx:vx+(Math.random()-.5),vy:vy+Math.random(),vz:vz+(Math.random()-.5),sx:(Math.random()-.5)*30,sy:(Math.random()-.5)*20,b:0});
+}
+function ejectShell(k,drop){
+  camera.getWorldDirection(camDir); const rt=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion), o=camera.position, a=1-gunAds;
+  if(drop){spawnShell(0,o.x+camDir.x*.4,o.y-.25,o.z+camDir.z*.4,(Math.random()-.5)*.8,-.5,(Math.random()-.5)*.8);return;}
+  spawnShell(k,o.x+camDir.x*.45+rt.x*.12*a,o.y-.12,o.z+camDir.z*.45+rt.z*.12*a,rt.x*3+camDir.x*.3,2.4,rt.z*3+camDir.z*.3);
+  sfxClick(4200,.08,.03);
+}
+const _sm=new THREE.Matrix4(), _sq=new THREE.Quaternion(), _se=new THREE.Euler(), _sv=new THREE.Vector3(), _ss=new THREE.Vector3(1,1,1);
+function updateCasings(dt){
+  for(let i=casings.length-1;i>=0;i--){const c=casings[i];c.vy-=20*dt;
+    let nx=c.x+c.vx*dt, ny=c.y+c.vy*dt, nz=c.z+c.vz*dt;
+    if(solid(getBlock(Math.floor(nx),Math.floor(c.y),Math.floor(c.z)))){c.vx*=-.3;nx=c.x;}
+    if(solid(getBlock(Math.floor(nx),Math.floor(c.y),Math.floor(nz)))){c.vz*=-.3;nz=c.z;}
+    const fb=getBlock(Math.floor(nx),Math.floor(ny),Math.floor(nz));
+    if(solid(fb)||fb===WATER&&c.vy<0){
+      const top=Math.floor(ny)+1;
+      if(c.b<2&&Math.abs(c.vy)>2.2&&fb!==WATER){c.b++;c.vy=-c.vy*.32;c.vx*=.5;c.vz*=.5;ny=top+.01;if(Math.hypot(c.x-P.x,c.z-P.z)<12)sfxClick(5200+Math.random()*1500,.06,.03);}
+      else{ // settle: lie flat on the floor forever
+        const h=getBlock(Math.floor(nx),top,Math.floor(nz))===AIR?top:ny;
+        _se.set(Math.PI/2,Math.random()*Math.PI*2,0,'YXZ');_sq.setFromEuler(_se);_sv.set(nx,(fb===WATER?ny:h)+(c.k?.022:.012),nz);_sm.compose(_sv,_sq,_ss);
+        shellAdd(c.k,_sm);scene.remove(c.m);casings.splice(i,1);continue;}
+    }
+    c.x=nx;c.y=ny;c.z=nz; c.m.position.set(nx,ny,nz); c.m.rotation.x+=c.sx*dt; c.m.rotation.z+=c.sy*dt;
+    if(c.y<-20){scene.remove(c.m);casings.splice(i,1);}
+  }
+}
 function reloadGun(){if(!gunHeld()||gunReload>0)return;const id=inv[sel].id,g=gunStat(id);if(ammoOf(id)>=g.mag)return;gunReloadMax=gunReload=g.reload;sfxClick(1800,.6,.06);}
 function muzzleWorld(){camera.getWorldDirection(camDir);const r=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion),u=new THREE.Vector3(0,1,0).applyQuaternion(camera.quaternion),a=1-gunAds;
   return new THREE.Vector3().copy(camera.position).addScaledVector(camDir,.7).addScaledVector(r,.2*a).addScaledVector(u,-.16*a-.04);}
@@ -4671,7 +4716,7 @@ function fireOnce(id){
     if(p===0&&MP.connected)mpSend({t:'gs',q:g.quiet?1:0,x:+mz.x.toFixed(2),y:+mz.y.toFixed(2),z:+mz.z.toFixed(2),ex:+end.x.toFixed(2),ey:+end.y.toFixed(2),ez:+end.z.toFixed(2),g:id});
   }
   // brass, flash, sound, recoil
-  if(!g.rocket&&!g.k.startsWith('shot'))glowPart([215,170,70],mz.x-camDir.x*.4+rt.x*.1,mz.y+.05,mz.z-camDir.z*.4+rt.z*.1,rt.x*2.5+(Math.random()-.5),2+Math.random(),rt.z*2.5+(Math.random()-.5),.7,14);
+  if(!g.rocket&&!g.pierce&&!g.bolt&&g.k!=='shotgun'&&g.k!=='revolver')ejectShell(g.k==='ashotgun'?1:0);
   for(let i=0;i<3;i++)glowPart([255,220,150],mz.x,mz.y,mz.z,camDir.x*3+(Math.random()-.5),camDir.y*3+(Math.random()-.5),camDir.z*3+(Math.random()-.5),.06,0);
   gunFlashT=g.quiet?0:.045; gunActStart(g); gunKick=Math.min(1.4,gunKick+g.recoil*.18); gunBloom=Math.min(g.spread*2.5,gunBloom+g.spread*.35);
   const rk=g.recoil*.0105*(sneaking?(g.bipod?.4:.75):1)*(gunAds>.8?.8:1); recoilP+=rk; swayY+=(Math.random()-.5)*g.recoil*.006;
@@ -4681,6 +4726,7 @@ function remoteShot(o){const g=GUNS[o.g];if(!g)return;const a=new THREE.Vector3(
   const dir=b.clone().sub(a).normalize();
   if(g.rocket)spawnRocket(a,dir.clone().multiplyScalar(48),false);else{if(!o.q)addTracer(a,b,g.pierce?0x4fd8ff:undefined);const hb=getBlock(Math.floor(b.x+dir.x*.08),Math.floor(b.y+dir.y*.08),Math.floor(b.z+dir.z*.08));if(hb&&hb!==AIR)impactFx(hb,b.x,b.y,b.z,-dir.x,-dir.y,-dir.z,false);}
   for(let i=0;i<3;i++)glowPart([255,220,150],o.x,o.y,o.z,(Math.random()-.5)*2,(Math.random()-.5)*2,(Math.random()-.5)*2,.06,0);
+  if(!g.rocket&&!g.pierce&&g.k!=='revolver'){const L=Math.hypot(o.ex-o.x,o.ez-o.z)||1;spawnShell(g.k==='shotgun'||g.k==='ashotgun'?1:0,o.x-(o.ex-o.x)/L*.4,o.y,o.z-(o.ez-o.z)/L*.4,(o.ez-o.z)/L*2.5,2,-(o.ex-o.x)/L*2.5);}
   const d=Math.hypot(o.x-P.x,o.y-P.y,o.z-P.z);sfxShot(o.q?Object.assign({},g,{lp:g.lp*.3,dec:g.dec*.45,th:0}):g,Math.min(1,18/(d+6))*(o.q?.4:1));}
 function spawnRocket(pos,vel,mine){const m=new THREE.Mesh(new THREE.BoxGeometry(.14,.14,.5),new THREE.MeshBasicMaterial({color:0x5c5f52}));m.position.copy(pos);m.lookAt(pos.x+vel.x,pos.y+vel.y,pos.z+vel.z);scene.add(m);rockets.push({m,v:vel.clone(),t:0,mine});}
 function updateGuns(dt){
@@ -5247,6 +5293,7 @@ function botAI(m,dt){
     const hitP=Math.max(.12,Math.min(.85,.82-td*.012)), a=new THREE.Vector3(m.x+Math.sin(m.yaw)*.5,ey,m.z+Math.cos(m.yaw)*.5);
     if(g.rocket){const d=new THREE.Vector3(tg.x-a.x,ty-a.y,tg.z-a.z).normalize().multiplyScalar(48);spawnRocket(a,d,true);if(MP.connected)mpSend({t:'gs',x:+a.x.toFixed(2),y:+a.y.toFixed(2),z:+a.z.toFixed(2),ex:+(a.x+d.x).toFixed(2),ey:+(a.y+d.y).toFixed(2),ez:+(a.z+d.z).toFixed(2),g:w});sfxShot(g,Math.min(1,18/(td+6)));return;}
     const hit=Math.random()<hitP, e=new THREE.Vector3(tg.x+(hit?0:(Math.random()-.5)*2.5),ty+(hit?0:(Math.random()-.5)*1.5),tg.z+(hit?0:(Math.random()-.5)*2.5));
+    if(!g.pierce)spawnShell(g.k==='shotgun'||g.k==='ashotgun'?1:0,a.x,a.y-.1,a.z,Math.cos(m.yaw)*2.5,2,-Math.sin(m.yaw)*2.5);
     addTracer(a,e,g.pierce?0x4fd8ff:undefined); sfxShot(g,Math.min(1,18/(Math.hypot(m.x-P.x,m.y-P.y,m.z-P.z)+6)));
     if(MP.connected)mpSend({t:'gs',x:+a.x.toFixed(2),y:+a.y.toFixed(2),z:+a.z.toFixed(2),ex:+e.x.toFixed(2),ey:+e.y.toFixed(2),ez:+e.z.toFixed(2),g:w});
     if(hit)botHit(m,tg,g.dmg*(g.pellets>1?g.pellets*.55:1));
@@ -5508,7 +5555,7 @@ function frame(now){
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
-  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); updateGuns(dt); updateBow(dt); updateArrows(dt); updateBP(); updateMG(dt); updateNades(dt); updateInf(); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
+  updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); updateGuns(dt); updateBow(dt); updateArrows(dt); updateBP(); updateMG(dt); updateNades(dt); updateInf(); updateCasings(dt); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
   {const gf=gunWantFov(), want=gf?gf:keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72;if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*(gf?14:4));camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
   mpTick(dt);
   let eyeSave=null;
@@ -6364,6 +6411,7 @@ curDiff.addEventListener('change',()=>{
   mpSetStatus('Difficulty set to '+DIFF_N[GM.diff]+'.');
 });
 function setGM(s){
+  if(typeof clearShells==='function')clearShells();
   worldMG=MG_LIST.includes(s.mg)?s.mg:''; mg=null; mgInit=false; mgLastR=-1; mgLastLv=-1;
   GM.mode=['survival','hardcore','creative'].includes(s.mode)?s.mode:'survival';
   GM.diff=GM.mode==='hardcore'?3:(typeof s.diff==='number'?s.diff:2);
