@@ -5316,11 +5316,15 @@ function mgTint(){
 document.getElementById('attPanel').addEventListener('click',e=>{const t=e.target.closest('[data-slot]');if(t){setAtt(t.dataset.slot,t.dataset.v);t.blur();}if(e.target.id==='attX')toggleAttMenu();e.stopPropagation();});
 ['pointerdown','touchstart','wheel'].forEach(ev=>document.getElementById('attPanel').addEventListener(ev,e=>e.stopPropagation(),{passive:true}));
 // ---------- /inf: a hotbar slot whose contents never run out ----------
-var infSlots=new Set((()=>{try{return JSON.parse(localStorage.getItem('stackwild:infslots')||'[]');}catch(e){return [];}})().filter(i=>i>=0&&i<9));
+var infSlots=new Set(), infWorld=null;
 const infSnap={}; let infDropT=0;
-function infSave(){try{localStorage.setItem('stackwild:infslots',JSON.stringify([...infSlots]));}catch(e){}slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));}
+function infKey(){return 'stackwild:infslots:'+(current&&current.id||'main');}
+function infLoad(){infSlots.clear();for(const k in infSnap)delete infSnap[k];try{for(const i of JSON.parse(localStorage.getItem(infKey())||'[]'))if(i>=0&&i<9)infSlots.add(i);}catch(e){}
+  for(const i of infSlots){const s2=inv[i];if(s2)infSnap[i]={id:s2.id,n:s2.n,dur:s2.dur};}slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));}
+function infSave(){try{localStorage.setItem(infKey(),JSON.stringify([...infSlots]));}catch(e){}slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));}
 slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));
 function updateInf(){
+  if(infWorld!==current){infWorld=current;infLoad();}   // each world has its own infinite slots; never carry items between worlds
   if(!infSlots.size)return; const moving=bagOpen||performance.now()-infDropT<300; let changed=false;
   for(const i of infSlots){const s2=inv[i], sn=infSnap[i];
     if(s2){
@@ -6416,6 +6420,7 @@ curDiff.addEventListener('change',()=>{
 });
 function setGM(s){
   if(typeof clearShells==='function')clearShells();
+  infWorld=null;
   worldMG=MG_LIST.includes(s.mg)?s.mg:''; mg=null; mgInit=false; mgLastR=-1; mgLastLv=-1;
   GM.mode=['survival','hardcore','creative'].includes(s.mode)?s.mode:'survival';
   GM.diff=GM.mode==='hardcore'?3:(typeof s.diff==='number'?s.diff:2);
