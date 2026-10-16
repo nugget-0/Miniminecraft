@@ -3843,11 +3843,13 @@ const totemEl=document.getElementById('totemFx'), totemFlash=document.getElement
 {const c=totemEl.querySelector('canvas'), g=c.getContext('2d'); g.imageSmoothingEnabled=false; const tt=DEF[TOTEM].t[0]; g.drawImage(atlas,(tt%AW)*16,(tt/AW|0)*16,16,16,0,0,c.width,c.height);}
 function useTotem(){
   let slot=-1;
-  if(inv[sel]&&inv[sel].id===TOTEM)slot=sel;
-  else for(let i=0;i<9;i++)if(inv[i]&&inv[i].id===TOTEM){slot=i;break;}
+  if(infSlots)for(const i of infSlots)if(inv[i]&&inv[i].id===TOTEM){slot=i;break;}   // infinite slots first: they're never used up
+  if(slot<0){if(inv[sel]&&inv[sel].id===TOTEM)slot=sel;
+  else for(let i=0;i<9;i++)if(inv[i]&&inv[i].id===TOTEM){slot=i;break;}}
+  if(slot<0&&infSlots)for(const i of infSlots){const sn=infSnap[i];if(!inv[i]&&sn&&sn.id===TOTEM){inv[i]={id:sn.id,n:sn.n};if(sn.dur!==undefined)inv[i].dur=sn.dur;slot=i;break;}}
   if(slot<0)return false;
   const dmt=tierOf(inv[slot]);
-  if(--inv[slot].n<=0)inv[slot]=null; drawSlot(slot); saveSoon();
+  if(!(infSlots&&infSlots.has(slot))){if(--inv[slot].n<=0)inv[slot]=null;} drawSlot(slot); saveSoon();
   health=dmt===1?20:dmt===2?12:2; immune=Math.max(immune,1); regenBuffT=10; fireResT=40; buffHealT=0; air=10;
   V.y=Math.max(V.y,4); airMaxY=P.y;
   totemPop(P.x,P.y,P.z,true);
@@ -6420,6 +6422,7 @@ function setGM(s){
   flying=false; vitSig=''; recipesEl.textContent='';
 }
 function playServer(s){
+  if(s.over&&isAdmin()){s.over=false;saveReg();chatSys('Admin revive: “'+s.name+'” is playable again.');}
   if(s.over){mpSetStatus('“'+s.name+'” was a hardcore world that ended. You can delete it.');return;}
   if(s.type==='joined'){mpJoinCode(s.code);return;}
   if(MP.connected)mpDisconnect();
