@@ -3705,13 +3705,15 @@ function clickArr(arr,i,accept){
 }
 function afterClick(){renderHold();renderRecipes();const ap=armorPts();armorPtsEl.textContent=ap?'· '+ap+' points':'';saveSoon();}
 filterBtn.addEventListener('click',()=>{onlyCraftable=!onlyCraftable;filterBtn.textContent=onlyCraftable?'Craftable only':'Showing all';renderRecipes();});
-function countItem(id){let n=0;for(const s of inv)if(s&&s.id===id)n+=s.n;return n;}
+function infHas(id){if(!infSlots)return false;for(const i of infSlots)if(inv[i]&&inv[i].id===id)return true;return false;}
+function countItem(id){if(infHas(id))return Infinity;let n=0;for(const s of inv)if(s&&s.id===id)n+=s.n;return n;}
 function nearBlock(id){
   const bx=Math.floor(P.x),by=Math.floor(P.y+1),bz=Math.floor(P.z);
   for(let y=-3;y<=3;y++)for(let z=-4;z<=4;z++)for(let x=-4;x<=4;x++)if(getBlock(bx+x,by+y,bz+z)===id)return true;
   return false;
 }
 function removeItems(id,n){
+  if(infHas(id))return;
   for(let i=INV-1;i>=0&&n>0;i--){const s=inv[i];if(!s||s.id!==id)continue;const t=Math.min(n,s.n);s.n-=t;n-=t;if(s.n<=0)inv[i]=null;drawSlot(i);}
 }
 const CREATIVE_IDS=DEF.map((d,i)=>d?i:0).filter(i=>i&&!DEF[i].admin&&i!==WATER&&![LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O,CORRUPT_SWORD].includes(i));
@@ -5312,7 +5314,7 @@ function mgTint(){
 document.getElementById('attPanel').addEventListener('click',e=>{const t=e.target.closest('[data-slot]');if(t){setAtt(t.dataset.slot,t.dataset.v);t.blur();}if(e.target.id==='attX')toggleAttMenu();e.stopPropagation();});
 ['pointerdown','touchstart','wheel'].forEach(ev=>document.getElementById('attPanel').addEventListener(ev,e=>e.stopPropagation(),{passive:true}));
 // ---------- /inf: a hotbar slot whose contents never run out ----------
-const infSlots=new Set((()=>{try{return JSON.parse(localStorage.getItem('stackwild:infslots')||'[]');}catch(e){return [];}})().filter(i=>i>=0&&i<9));
+var infSlots=new Set((()=>{try{return JSON.parse(localStorage.getItem('stackwild:infslots')||'[]');}catch(e){return [];}})().filter(i=>i>=0&&i<9));
 const infSnap={}; let infDropT=0;
 function infSave(){try{localStorage.setItem('stackwild:infslots',JSON.stringify([...infSlots]));}catch(e){}slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));}
 slotEls.forEach((e,j)=>e.s.classList.toggle('inf',infSlots.has(j)));
