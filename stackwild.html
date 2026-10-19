@@ -450,10 +450,10 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       row = document.createElement('div'); row.id = 'ncAcct';
       menuCard.insertBefore(row, menuCard.firstChild);
     }
-    if (!window.NC_ID) { row.hidden = true; return; }
+    if (!window.NC_ID && window.NC_ROLE !== 'admin') { row.hidden = true; return; }
     row.hidden = false; row.textContent = '';
     row.appendChild(document.createTextNode('NuggetCode '));
-    var b = document.createElement('b'); b.textContent = window.NC_ID; row.appendChild(b);
+    var b = document.createElement('b'); b.textContent = window.NC_ID || 'no ID (admin on this device)'; row.appendChild(b);
     if (window.NC_ROLE === 'admin') { var bd = document.createElement('span'); bd.className = 'nc-badge'; bd.textContent = 'ADMIN'; row.appendChild(bd); }
     var out = document.createElement('button'); out.type = 'button'; out.className = 'nc-out'; out.textContent = 'LOG OUT';
     out.addEventListener('click', logOut); row.appendChild(out);
@@ -484,6 +484,10 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     if (qid !== null) { url.searchParams.delete('id'); history.replaceState(null, '', url.pathname + url.search + url.hash); }
   } catch (e) {}
   var saved = lsGet();
+  // the game script runs after this one; it says when it can tell us about thing.admin / nugget67 admins
+  var gameReady = new Promise(function (res) {
+    if (window.swLegacyAdmin) res(); else window.addEventListener('stackwild:ready', res, { once: true });
+  });
   var decided = (qid ? check(norm(qid)).then(function (role) {
       if (role) { lsSet(norm(qid)); return { id: norm(qid), role: role, fromLink: true }; }
       return { id: norm(qid), role: null, bad: true };
@@ -493,7 +497,13 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       if (!saved) return { id: '', role: null };
       return check(saved).then(function (role) { return { id: norm(saved), role: role }; });
     })
-    .catch(function () { return { id: norm(qid || saved || ''), role: null, offline: true }; });
+    .catch(function () { return { id: norm(qid || saved || ''), role: null, offline: true }; })
+    .then(function (r) {
+      if (r.role === 'admin') return r;
+      return gameReady.then(function () {
+        return window.swLegacyAdmin && window.swLegacyAdmin() ? { id: null, role: 'admin', legacy: true } : r;
+      });
+    });
 
   decided.then(function (r) {
     if (r.role === 'admin') {
@@ -537,7 +547,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       decided.then(function (r) {
         loader.classList.add('done');
         // Admins with a saved (or linked) admin ID go straight in; everyone else logs in.
-        if (r.role === 'admin') enter(r.id, 'admin');
+        if (r.role === 'admin') enter(r.id, 'admin');  // r.id is null for thing.admin / nugget67 admins
         else showLogin(r.id, r.bad ? 'Not a valid NuggetCode ID.' : r.offline ? 'Couldn’t reach NuggetCode to check your ID. Check your connection and try again.' : '');
       });
     }, 350);
@@ -3072,6 +3082,9 @@ function isAdmin(){
   if(adminCache===null)adminCache=recentNames().some(adminName);
   return adminCache;
 }
+// the NuggetCode gate skips its login screen for admins by the thing.admin flag or the nugget67 name pattern
+window.swLegacyAdmin=()=>{try{if(localStorage.getItem('thing.admin')==='true')return true;}catch(e){}return recentNames().some(adminName);};
+window.dispatchEvent(new Event('stackwild:ready'));
 function rollCrit(){if(!(!onGround&&V.y<-.5))return 0;return (isAdmin()&&perfectAll)||Math.random()<.01?2:1;}
 function critFx(cr,x,y,z){
   if(cr===2){burstC([255,215,60],x-.5,y,z-.5,26);burstC([255,255,255],x-.5,y,z-.5,10);toast('PERFECT CRIT!');}
