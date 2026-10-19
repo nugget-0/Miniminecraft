@@ -3916,7 +3916,7 @@ const SYS_INFO=[
   ['Bed Wars','Minigame. Red vs Blue on floating islands. Iron and gold spawn at your base, diamonds in the middle. Press E on your bookshelf to shop (wool, swords, bows, grenades, armor). Bridge across with wool and break the enemy bed. Without a bed you can’t respawn. Last team standing wins.'],
   ['Bots','Minigame worlds can have bot players (pick when creating, or the host types /bots 0-8). Bots fight, capture flags, bridge to beds, dig in spleef and throw grenades.'],
   ['Vehicles (admin)','Admins can /give cars (sedan, sports car, jeep, monster truck, police car), planes (prop plane, biplane, fighter jet) and helicopters (helicopter, attack helicopter, twin-rotor chopper), or type /vehicles for all of them. Look at the ground and press E to put one down, E on it to get in, E again to get out. Crouch and hit a vehicle to pick it back up. Cars: W/S drive, A/D steer, Space handbrake, Shift boost, R horn (siren in the police car). Planes: W/S throttle, A/D bank, Space pull up, C nose down; build up speed on a runway to take off and land gently or you crash. Helicopters: Space up, C down, W/S tilt forward/back, A/D turn. The fighter jet and attack helicopter fire rockets with F. P switches between the chase camera and the cockpit.'],
-  ['Security (legacy admins)','Type /security for Auto Turrets and Guards. Place them with E. Hold a gun and press E on a turret to mount a copy of it (you keep your gun): the turret then shoots hostile mobs on its own. Press Q on a turret (or E with no gun in hand) to man it yourself: it turns with your aim and F fires; Q leaves. Guards patrol around where you placed them and attack hostile mobs. Press E on a guard to open its bag: it uses the first gun inside, otherwise its best sword, axe or tool. Press T on a turret for its settings: choose whether it shoots hostile mobs, other players (needs PvP), animals, villagers or training dummies, and set its range. Crouch and hit a turret or guard to pick it back up. Everyone on the server sees your turrets and guards move, aim and shoot.'],
+  ['Security (legacy admins)','Type /security for Auto Turrets and Guards. Place them with E. Hold a gun and press E on a turret to mount a copy of it (you keep your gun): the turret then shoots hostile mobs on its own. Press Q on a turret (or E with no gun in hand) to man it yourself: it turns with your aim and F fires; Q leaves. Guards patrol around where you placed them and attack hostile mobs. Press E on a guard to open its bag: it uses the first gun inside, otherwise its best sword, axe or tool. Press T on a turret for its settings (and “Make these my defaults” so every new turret starts with that gun and those targets): choose whether it shoots hostile mobs, other players (needs PvP), animals, villagers or training dummies, and set its range. Crouch and hit a turret or guard to pick it back up. Everyone on the server sees your turrets and guards move, aim and shoot.'],
   ['Shulker boxes','Craft a Shulker Box from a chest and 2 ender pearls at a crafting table. It works like a chest, but when you break it the box drops with everything still inside, so you can carry it and place it somewhere else.'],
   ['Admin Gun Box','Admins get it with /guns. Hold it and press E (or right-click) to open it anywhere: it has every gun across pages, and taking one never empties it. Anything you put in disappears.'],
   ['Void guns (legacy admins)','If you are an admin by the thing.admin setting or a nugget + 67 name, every gun becomes a Void gun: 3× damage, faster, double ammo, and every bullet bores through any block, even the bottom of the world, opening holes into the void. You also get four exclusive weapons in the gun box: the Black Hole Gun (an orb that erases a huge sphere), the Annihilator (a full-auto beam that bores a tunnel), the Orbital Strike (paint a spot and a sky beam drills it down to the void) and the God Rifle (a one-shot beam that tunnels 400 blocks).'],
@@ -6764,7 +6764,13 @@ function vehAnim(v,dt){
 // ---------- security (legacy admins): turrets & guards ----------
 const secOn=()=>legacyAdmin()&&clientModOn('security');
 // what a turret shoots: hostile mobs, players, animals, villagers, training dummies; and how far it looks
-const secCfg=t=>t.cfg||(t.cfg={mob:1,ply:0,ani:0,vil:0,dum:0,rng:40});
+// defaults for new turrets (targets, range and a gun to mount), saved in this browser
+const TUR_DEF_KEY='stackwild:turretdefaults', TUR_CFG0={mob:1,ply:0,ani:0,vil:0,dum:0,rng:40};
+function turDefaults(){let d=null;try{d=JSON.parse(localStorage.getItem(TUR_DEF_KEY)||'null');}catch(e){}d=d&&typeof d==='object'?d:{};
+  const c=d.cfg&&typeof d.cfg==='object'?d.cfg:{};
+  return{cfg:{mob:c.mob===0?0:1,ply:c.ply?1:0,ani:c.ani?1:0,vil:c.vil?1:0,dum:c.dum?1:0,rng:Math.max(8,Math.min(80,+c.rng||40))},gun:GUNS[d.gun]&&(!GUNS[d.gun].legacy||legacyAdmin())?d.gun:0};}
+function turSaveDefaults(cfg,gun){try{localStorage.setItem(TUR_DEF_KEY,JSON.stringify({cfg,gun:gun|0}));}catch(e){}}
+const secCfg=t=>t.cfg||(t.cfg=Object.assign({},TUR_CFG0));
 function secTargetT(head,R2,c){
   let best=null,bd=R2;
   const los=(x,y,z,d)=>{const dir=new THREE.Vector3((x-head.x)/d,(y-head.y)/d,(z-head.z)/d);return rayStop(head,dir,d)>=d-.6;};
@@ -6790,10 +6796,19 @@ function turPanelOpen(t){
     +'<p class="sub" style="margin:6px 0 10px">'+(t.gun?'Mounted: '+esc(GUNS[t.gun].name):'No gun mounted yet: hold a gun and press E on the turret.')+' It never shoots you.</p>'
     +row('mob','Hostile mobs','Zombies, skitters, voidlings, bots…')+row('ply','Other players','Needs PvP on in this world; players in creative are safe')+row('ani','Animals','Pigs, cows, sheep and other passive animals')+row('vil','Villagers','')+row('dum','Training dummies','Handy for testing your turret')
     +'<label style="display:block;padding:10px 0 4px"><b>Range: <span id="tpRv">'+c.rng+'</span> blocks</b></label><input type="range" id="tpR" min="8" max="80" step="1" value="'+c.rng+'" style="width:100%;accent-color:var(--accent)">'
+    +'<div class="ap-sec" style="margin-top:14px"><b>Defaults for new turrets</b></div>'
+    +'<p class="srv-sub" style="margin:4px 0 8px" id="tpDefNow"></p>'
+    +'<div class="row" style="flex-wrap:wrap;gap:8px"><button class="btn small" id="tpDefSave">Make these my defaults</button><button class="btn ghost small" id="tpDefAll">Apply defaults to all my turrets</button><button class="btn ghost small" id="tpDefReset">Reset defaults</button></div>'
     +'<p class="srv-sub" style="margin:10px 0 0">T or Esc closes this. Q on the turret mans it.</p></div>';
   el.querySelectorAll('input[type=checkbox]').forEach(b=>b.addEventListener('change',()=>{c[b.dataset.k]=b.checked?1:0;t.tg=null;t.st=0;saveSoon();sfxClick(1600,.4,.04);}));
   const r=el.querySelector('#tpR'); r.addEventListener('input',()=>{c.rng=+r.value;el.querySelector('#tpRv').textContent=c.rng;t.tg=null;t.st=0;saveSoon();});
   el.querySelector('#tpX').addEventListener('click',turPanelClose);
+  const defNow=()=>{const d=turDefaults(),on=[['mob','hostile mobs'],['ply','players'],['ani','animals'],['vil','villagers'],['dum','dummies']].filter(x=>d.cfg[x[0]]).map(x=>x[1]);
+    el.querySelector('#tpDefNow').textContent='New turrets get: '+(d.gun?GUNS[d.gun].name:'no gun')+' · shoots '+(on.length?on.join(', '):'nothing')+' · range '+d.cfg.rng;};
+  defNow();
+  el.querySelector('#tpDefSave').addEventListener('click',()=>{turSaveDefaults(Object.assign({},c),t.gun);defNow();sfxClick(1800,.5,.05);toast('Saved as your turret defaults');});
+  el.querySelector('#tpDefAll').addEventListener('click',()=>{const d=turDefaults();for(const q of turrets){q.cfg=Object.assign({},d.cfg);q.tg=null;q.st=0;if(d.gun&&q.gun!==d.gun){q.gun=d.gun;secTurretModel(q);}}saveSoon();sfxClick(1800,.5,.05);toast('Defaults applied to '+turrets.length+' turret'+(turrets.length===1?'':'s'));turPanelOpen(t);});
+  el.querySelector('#tpDefReset').addEventListener('click',()=>{try{localStorage.removeItem(TUR_DEF_KEY);}catch(e){}defNow();toast('Turret defaults reset');});
   for(const k in keys)keys[k]=false; el.hidden=false;
 }
 function turPanelClose(){const el=document.getElementById('turPanel');if(el)el.hidden=true;turPanelT=null;}
@@ -6877,7 +6892,7 @@ function secPlace(kind){
   const x=target.x+.5+target.nx, z=target.z+.5+target.nz; let y=target.y+target.ny;
   while(y>1&&!solid(getBlock(Math.floor(x),y-1,Math.floor(z))))y--;
   if(solid(getBlock(Math.floor(x),y,Math.floor(z)))||solid(getBlock(Math.floor(x),y+1,Math.floor(z)))){toast('Not enough room here');return;}
-  if(kind==='t'){const t={id:secNextId++,x,y,z,gun:0,yaw,pitch:0,cd:0};turrets.push(t);secTurretModel(t);toast('Turret placed. Hold a gun and press E on it to mount it');}
+  if(kind==='t'){const df=turDefaults(),t={id:secNextId++,x,y,z,gun:df.gun,yaw,pitch:0,cd:0,cfg:df.cfg};turrets.push(t);secTurretModel(t);toast(df.gun?'Turret placed with your default '+GUNS[df.gun].name+' (T for settings)':'Turret placed. Hold a gun and press E on it to mount it');}
   else{const gd={id:secNextId++,x,y,z,hx:x,hy:y,hz:z,vx:0,vy:0,vz:0,hw:.3,h:1.8,yaw,cd:0};guards.push(gd);secGuardAvatar(gd);chests['guard'+gd.id]=new Array(27).fill(null);toast('Guard placed. Press E on it to give it a weapon');}
   if(GM.mode!=='creative')takeSel(); swing(); saveSoon();
 }
