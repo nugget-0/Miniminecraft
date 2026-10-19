@@ -3904,7 +3904,7 @@ const SYS_INFO=[
   ['Bed Wars','Minigame. Red vs Blue on floating islands. Iron and gold spawn at your base, diamonds in the middle. Press E on your bookshelf to shop (wool, swords, bows, grenades, armor). Bridge across with wool and break the enemy bed. Without a bed you can’t respawn. Last team standing wins.'],
   ['Bots','Minigame worlds can have bot players (pick when creating, or the host types /bots 0-8). Bots fight, capture flags, bridge to beds, dig in spleef and throw grenades.'],
   ['Vehicles (admin)','Admins can /give cars (sedan, sports car, jeep, monster truck, police car), planes (prop plane, biplane, fighter jet) and helicopters (helicopter, attack helicopter, twin-rotor chopper), or type /vehicles for all of them. Look at the ground and press E to put one down, E on it to get in, E again to get out. Crouch and hit a vehicle to pick it back up. Cars: W/S drive, A/D steer, Space handbrake, Shift boost, R horn (siren in the police car). Planes: W/S throttle, A/D bank, Space pull up, C nose down; build up speed on a runway to take off and land gently or you crash. Helicopters: Space up, C down, W/S tilt forward/back, A/D turn. The fighter jet and attack helicopter fire rockets with F. P switches between the chase camera and the cockpit.'],
-  ['Security (legacy admins)','Type /security for Auto Turrets and Guards. Place them with E. Hold a gun and press E on a turret to mount a copy of it (you keep your gun): the turret then shoots hostile mobs on its own. Press Q on a turret (or E with no gun in hand) to man it yourself: it turns with your aim and F fires; Q leaves. Guards patrol around where you placed them and attack hostile mobs. Press E on a guard to open its bag: it uses the first gun inside, otherwise its best sword, axe or tool. Crouch and hit a turret or guard to pick it back up.'],
+  ['Security (legacy admins)','Type /security for Auto Turrets and Guards. Place them with E. Hold a gun and press E on a turret to mount a copy of it (you keep your gun): the turret then shoots hostile mobs on its own. Press Q on a turret (or E with no gun in hand) to man it yourself: it turns with your aim and F fires; Q leaves. Guards patrol around where you placed them and attack hostile mobs. Press E on a guard to open its bag: it uses the first gun inside, otherwise its best sword, axe or tool. Crouch and hit a turret or guard to pick it back up. Everyone on the server sees your turrets and guards move, aim and shoot.'],
   ['Shulker boxes','Craft a Shulker Box from a chest and 2 ender pearls at a crafting table. It works like a chest, but when you break it the box drops with everything still inside, so you can carry it and place it somewhere else.'],
   ['Admin Gun Box','Admins get it with /guns. Hold it and press E (or right-click) to open it anywhere: it has every gun across pages, and taking one never empties it. Anything you put in disappears.'],
   ['Void guns (legacy admins)','If you are an admin by the thing.admin setting or a nugget + 67 name, every gun becomes a Void gun: 3× damage, faster, double ammo, and every bullet bores through any block, even the bottom of the world, opening holes into the void. You also get four exclusive weapons in the gun box: the Black Hole Gun (an orb that erases a huge sphere), the Annihilator (a full-auto beam that bores a tunnel), the Orbital Strike (paint a spot and a sky beam drills it down to the void) and the God Rifle (a one-shot beam that tunnels 400 blocks).'],
@@ -6756,14 +6756,20 @@ function secTarget(x,y,z,R2){
   return best;
 }
 // one shot of any gun from a point in a direction (turrets, guards). returns the time until the next shot
+let secGsT=0;
+function secNetShot(gid,mz,end){const now=performance.now();if(!MP.connected||now-secGsT<60)return;secGsT=now;
+  mpSend({t:'gs',x:+mz.x.toFixed(2),y:+mz.y.toFixed(2),z:+mz.z.toFixed(2),ex:+end.x.toFixed(2),ey:+end.y.toFixed(2),ez:+end.z.toFixed(2),g:gid});}
 function secFire(o,d,gid,mz){
   const g=gunStat(gid); if(!g)return 1;
   const vol=Math.min(1,14/(Math.hypot(mz.x-P.x,mz.y-P.y,mz.z-P.z)+4));
-  if(g.arrow){spawnArrow(mz.x,mz.y,mz.z,d.x*g.vel,d.y*g.vel,d.z*g.vel,1,true,true);sfxTwang(1);}
-  else if(g.gl||g.bh){const v=g.vel;spawnNade(g.bh||g.void?'v':'l',mz.x,mz.y,mz.z,d.x*v,d.y*v+(g.gl?2.5:0),d.z*v,MP.id);}
-  else if(g.rocket)spawnRocket(mz.clone(),d.clone().multiplyScalar(48),true,g.void);
+  if(g.arrow){const v=g.vel;spawnArrow(mz.x,mz.y,mz.z,d.x*v,d.y*v,d.z*v,1,true,true);sfxTwang(1);
+    if(MP.connected)mpSend({t:'arw',x:+mz.x.toFixed(2),y:+mz.y.toFixed(2),z:+mz.z.toFixed(2),vx:+(d.x*v).toFixed(2),vy:+(d.y*v).toFixed(2),vz:+(d.z*v).toFixed(2)});}
+  else if(g.gl||g.bh){const v=g.vel,k=g.bh||g.void?'v':'l',vx=d.x*v,vy=d.y*v+(g.gl?2.5:0),vz=d.z*v;spawnNade(k,mz.x,mz.y,mz.z,vx,vy,vz,MP.id);
+    if(MP.connected)mpSend({t:'nade',k,x:+mz.x.toFixed(2),y:+mz.y.toFixed(2),z:+mz.z.toFixed(2),vx:+vx.toFixed(2),vy:+vy.toFixed(2),vz:+vz.toFixed(2),by:MP.id});}
+  else if(g.rocket){spawnRocket(mz.clone(),d.clone().multiplyScalar(48),true,g.void);secNetShot(gid,mz,mz.clone().add(d));}
   else if(g.flame){for(let k=0;k<4;k++){const sp=8+Math.random()*6;glowPart(Math.random()<.4?[255,220,90]:[255,120,30],mz.x,mz.y,mz.z,(d.x+(Math.random()-.5)*.2)*sp,(d.y+(Math.random()-.5)*.2)*sp+.6,(d.z+(Math.random()-.5)*.2)*sp,.4,-3);}
-    for(const m of [...mobs]){const dx=m.x-o.x,dy=m.y+m.h*.5-o.y,dz=m.z-o.z,dd=Math.hypot(dx,dy,dz);if(dd<g.range&&(dx*d.x+dy*d.y+dz*d.z)/(dd||1)>.92)hurtMob(m,g.dmg,d.x*.5,d.z*.5);}}
+    for(const m of [...mobs]){const dx=m.x-o.x,dy=m.y+m.h*.5-o.y,dz=m.z-o.z,dd=Math.hypot(dx,dy,dz);if(dd<g.range&&(dx*d.x+dy*d.y+dz*d.z)/(dd||1)>.92)hurtMob(m,g.dmg,d.x*.5,d.z*.5);}
+    secNetShot(gid,mz,mz.clone().add(d));}
   else{
     const up0=Math.abs(d.y)>.95?new THREE.Vector3(1,0,0):new THREE.Vector3(0,1,0), rt=new THREE.Vector3().crossVectors(d,up0).normalize(), up=new THREE.Vector3().crossVectors(rt,d);
     const spr=(g.pellets>1?g.spread:Math.min(g.spread,1.2))*Math.PI/180, piercing=g.pierce||g.annih||g.god;
@@ -6777,6 +6783,7 @@ function secFire(o,d,gid,mz){
       let end=o.clone().addScaledVector(dd,stop);
       for(const m of hits){hurtMob(m,g.dmg,dd.x*Math.min(6,g.dmg/5),dd.z*Math.min(6,g.dmg/5),0);burstC([170,20,20],m.x-.5,m.y+m.h*.5-.5,m.z-.5,4);if(!piercing)end=new THREE.Vector3(m.x,m.y+m.h*.6,m.z);}
       if(p===0||Math.random()<.4)addTracer(mz,end,g.tc||(g.void?0xb050ff:undefined));
+      if(p===0)secNetShot(gid,mz,end);
       if(!hits.length&&stop<g.range&&!g.void){const b=getBlock(Math.floor(end.x+dd.x*.05),Math.floor(end.y+dd.y*.05),Math.floor(end.z+dd.z*.05));if(b!==AIR)impactFx(b,end.x,end.y,end.z,-dd.x,-dd.y,-dd.z,vol>.25);}
     }}
   for(let k=0;k<3;k++)glowPart([255,220,150],mz.x,mz.y,mz.z,d.x*3+(Math.random()-.5),d.y*3+(Math.random()-.5),d.z*3+(Math.random()-.5),.06,0);
@@ -6818,7 +6825,7 @@ function secPlace(kind){
   const x=target.x+.5+target.nx, z=target.z+.5+target.nz; let y=target.y+target.ny;
   while(y>1&&!solid(getBlock(Math.floor(x),y-1,Math.floor(z))))y--;
   if(solid(getBlock(Math.floor(x),y,Math.floor(z)))||solid(getBlock(Math.floor(x),y+1,Math.floor(z)))){toast('Not enough room here');return;}
-  if(kind==='t'){const t={x,y,z,gun:0,yaw,pitch:0,cd:0};turrets.push(t);secTurretModel(t);toast('Turret placed. Hold a gun and press E on it to mount it');}
+  if(kind==='t'){const t={id:secNextId++,x,y,z,gun:0,yaw,pitch:0,cd:0};turrets.push(t);secTurretModel(t);toast('Turret placed. Hold a gun and press E on it to mount it');}
   else{const gd={id:secNextId++,x,y,z,hx:x,hy:y,hz:z,vx:0,vy:0,vz:0,hw:.3,h:1.8,yaw,cd:0};guards.push(gd);secGuardAvatar(gd);chests['guard'+gd.id]=new Array(27).fill(null);toast('Guard placed. Press E on it to give it a weapon');}
   if(GM.mode!=='creative')takeSel(); swing(); saveSoon();
 }
@@ -6891,8 +6898,48 @@ function updateSecurity(dt){
     t.m.yw.rotation.y=t.yaw; t.m.pt.rotation.x=t.pitch; if(t.flash)t.flash.visible=t.ft>0;
   }
   for(const gd of guards)updateGuard(gd,dt,on);
+  secNetSend(dt); secRemoteTick(dt);
 }
-function secSave(){return{t:turrets.map(t=>[+t.x.toFixed(2),t.y,+t.z.toFixed(2),t.gun|0,+t.yaw.toFixed(2)]),g:guards.map(g=>[g.id,+g.x.toFixed(2),+g.y.toFixed(2),+g.z.toFixed(2),+g.hx.toFixed(2),+g.hy.toFixed(2),+g.hz.toFixed(2)])};}
+// ---- multiplayer: you own your turrets & guards and send their state ~8 times a second; other players draw copies ----
+let secNetT=0, secSentAny=false; const secR=new Map();
+function secNetSend(dt){
+  if(!MP.connected)return; secNetT-=dt; if(secNetT>0)return; secNetT=.12;
+  if(!turrets.length&&!guards.length&&!secSentAny)return; secSentAny=turrets.length+guards.length>0;
+  const f=n=>+n.toFixed(2);
+  mpSend({t:'sec',tu:turrets.map(t=>[t.id,f(t.x),f(t.y),f(t.z),t.gun|0,f(t.yaw),f(t.pitch),t.ft>0?1:0]),
+    gd:guards.map(g=>{const w=g.av?g.av.heldId|0:0;return[g.id,f(g.x),f(g.y),f(g.z),f(g.yaw),w,f(Math.hypot(g.vx,g.vz)),g.tg&&g.av&&w&&DEF[w]&&DEF[w].gun?1:0,f(g.atk||0)];})});
+}
+function secRemote(owner,o){
+  let e=secR.get(owner); if(!e){e={tu:new Map(),gd:new Map(),last:0};secR.set(owner,e);} e.last=performance.now();
+  const seenT=new Set(), seenG=new Set();
+  if(Array.isArray(o.tu))for(const r of o.tu.slice(0,64)){if(!Array.isArray(r)||r.length<8||!r.every(n=>typeof n==='number'))continue;
+    const id=r[0]|0; seenT.add(id); let t=e.tu.get(id);
+    if(!t){t={id,x:r[1],y:r[2],z:r[3],gun:GUNS[r[4]]?r[4]:0,yaw:r[5],pitch:r[6],ty:r[5],tp:r[6],ft:0};secTurretModel(t);e.tu.set(id,t);}
+    if((GUNS[r[4]]?r[4]:0)!==t.gun){t.gun=GUNS[r[4]]?r[4]:0;secTurretModel(t);}
+    if(t.x!==r[1]||t.y!==r[2]||t.z!==r[3]){t.x=r[1];t.y=r[2];t.z=r[3];t.m.g.position.set(t.x,t.y,t.z);}
+    t.ty=r[5]; t.tp=r[6]; if(r[7])t.ft=.06;}
+  for(const [id,t] of e.tu)if(!seenT.has(id)){secDropTurretModel(t);e.tu.delete(id);}
+  if(Array.isArray(o.gd))for(const r of o.gd.slice(0,64)){if(!Array.isArray(r)||r.length<9||!r.every(n=>typeof n==='number'))continue;
+    const id=r[0]|0; seenG.add(id); let g=e.gd.get(id);
+    if(!g){g={id:owner+':'+id,x:r[1],y:r[2],z:r[3],yaw:r[4],ph:0};secGuardAvatar(g);e.gd.set(id,g);}
+    g.tx=r[1]; g.ty=r[2]; g.tz=r[3]; g.tyaw=r[4]; g.sp=r[6]; g.aim=r[7]; g.atk=r[8];
+    const w=DEF[r[5]]?r[5]:0; if(w!==g.av.heldId)setPeerHeld(g.av,w);}
+  for(const [id,g] of e.gd)if(!seenG.has(id)){secDisposeAv(g.av);e.gd.delete(id);}
+}
+function secDropTurretModel(t){if(t.m){scene.remove(t.m.g);t.m.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});t.m=null;}}
+function secRemoteDrop(owner){const e=secR.get(owner);if(!e)return;for(const t of e.tu.values())secDropTurretModel(t);for(const g of e.gd.values())secDisposeAv(g.av);secR.delete(owner);}
+function secRemoteTick(dt){
+  const now=performance.now(), k=Math.min(1,dt*10);
+  for(const [owner,e] of secR){
+    if(now-e.last>6000||!MP.connected){secRemoteDrop(owner);continue;}
+    for(const t of e.tu.values()){t.yaw+=vAng(t.ty,t.yaw)*k;t.pitch+=(t.tp-t.pitch)*k;t.ft=Math.max(0,t.ft-dt);if(t.m){t.m.yw.rotation.y=t.yaw;t.m.pt.rotation.x=t.pitch;if(t.flash)t.flash.visible=t.ft>0;}}
+    for(const g of e.gd.values()){g.x+=(g.tx-g.x)*k;g.y+=(g.ty-g.y)*k;g.z+=(g.tz-g.z)*k;g.yaw+=vAng(g.tyaw,g.yaw)*k;g.ph+=dt*g.sp*3;
+      const sw=Math.sin(g.ph)*Math.min(.7,g.sp*.25), av=g.av;
+      av.g.position.set(g.x,g.y,g.z); av.g.rotation.y=g.yaw; av.legs[0].rotation.x=sw; av.legs[1].rotation.x=-sw; av.arms[0].rotation.x=-sw;
+      av.arms[1].rotation.x=g.aim?1.45:sw+g.atk*1.3; av.head.rotation.x=0;}
+  }
+}
+function secSave(){return{t:turrets.map(t=>[+t.x.toFixed(2),t.y,+t.z.toFixed(2),t.gun|0,+t.yaw.toFixed(2),t.id]),g:guards.map(g=>[g.id,+g.x.toFixed(2),+g.y.toFixed(2),+g.z.toFixed(2),+g.hx.toFixed(2),+g.hy.toFixed(2),+g.hz.toFixed(2)])};}
 function secClear(){
   manning=null;
   for(const t of turrets)if(t.m){scene.remove(t.m.g);t.m.g.traverse(o=>{if(o.geometry)o.geometry.dispose();});}
@@ -6901,8 +6948,8 @@ function secClear(){
 }
 function secLoad(o){
   secClear(); if(!o)return;
-  if(Array.isArray(o.t))for(const r of o.t)if(Array.isArray(r))turrets.push({x:+r[0],y:+r[1],z:+r[2],gun:GUNS[r[3]]?r[3]:0,yaw:+r[4]||0,pitch:0,cd:0});
   if(Array.isArray(o.g))for(const r of o.g)if(Array.isArray(r)){const id=r[0]|0;guards.push({id,x:+r[1],y:+r[2],z:+r[3],hx:+r[4],hy:+r[5],hz:+r[6],vx:0,vy:0,vz:0,hw:.3,h:1.8,yaw:0,cd:0});secNextId=Math.max(secNextId,id+1);}
+  if(Array.isArray(o.t))for(const r of o.t)if(Array.isArray(r)){const id=r[5]?r[5]|0:secNextId++;turrets.push({id,x:+r[0],y:+r[1],z:+r[2],gun:GUNS[r[3]]?r[3]:0,yaw:+r[4]||0,pitch:0,cd:0});secNextId=Math.max(secNextId,id+1);}
 }
 function updateVehicles(dt){
   if(riding&&!vehicles.includes(riding))vehExit(true,true);
@@ -7602,6 +7649,7 @@ function mpOnMsg(o){
     case 'mgs': if(!MP.isHost&&o.s2&&typeof o.s2==='object')mgApply(o.s2); break;
     case 'mgk': case 'mgmk': case 'mgout': case 'mgf': if(MP.isHost)mgHostEvent(o,o.s); break;
     case 'gs': if([o.x,o.y,o.z,o.ex,o.ey,o.ez].every(v=>typeof v==='number'))remoteShot(o); break;
+    case 'sec': if(typeof o.s==='string')secRemote(o.s,o); break;
     case 'vb': if(Array.isArray(o.l))for(const q of o.l.slice(0,400))if(Array.isArray(q)&&q.length===3&&q.every(n=>typeof n==='number'))voidBreak(q[0]|0,q[1]|0,q[2]|0); break;
     case 'vc': if(Array.isArray(o.l))for(const q of o.l.slice(0,200))if(Array.isArray(q)&&q.length===4&&q.every(n=>typeof n==='number'))voidCarve(q[0],q[1],q[2],Math.min(6,q[3]),true); break;
     case 'vcol': if([o.x,o.z,o.r].every(n=>typeof n==='number'))carveColumn(o.x|0,o.z|0,Math.min(5,o.r|0),true); break;
@@ -7737,7 +7785,7 @@ function peerUpdate(id,o){
 }
 function removePeer(id){
   const p=MP.peers.get(id); if(!p)return;
-  scene.remove(p.av.g); if(p.veh){vehDispose(p.veh.m);p.veh=null;}
+  scene.remove(p.av.g); if(p.veh){vehDispose(p.veh.m);p.veh=null;} secRemoteDrop(id);
   if(p.av.held)p.av.arms[1].remove(p.av.held);
   p.av.g.traverse(o=>{if(o.userData&&o.userData.shared)return;if(o.geometry)o.geometry.dispose();if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose();}});
   MP.peers.delete(id);
