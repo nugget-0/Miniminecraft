@@ -2,6 +2,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@500;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<script src="https://nuggetcode.vercel.app/verify.js"></script>
 <style>
 /* Layout: full-bleed 3D canvas, HUD pinned to corners, vitals + hotbar bottom-centre, menus as centred lantern-lit panels */
 :root{
@@ -245,6 +247,304 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 
 .inf::after{content:'∞';position:absolute;top:1px;left:3px;font:700 13px var(--font-display);color:var(--accent);text-shadow:0 1px 0 #000;pointer-events:none}
 </style>
+
+<!-- NuggetCode login gate: the NuggetCode loading screen, then log in with a NuggetCode ID. Styles are scoped to #nc so they don't touch the game. -->
+<style>
+#nc{--bg:#0E0E0C;--ink:#F5F2E8;--muted:#9C9786;--soft:#B5B09F;--gold:#FFD21F;--gold-hi:#FFE680;--gold-lo:#A87F00;--err:#FF8A6B;--field:#17170F;--line:#3A372C;
+  position:fixed;inset:0;z-index:1000;background:var(--bg);color:var(--ink);font-family:'JetBrains Mono',ui-monospace,monospace;
+  overflow-x:hidden;overflow-y:auto;user-select:text;-webkit-user-select:text;transition:opacity .6s ease,visibility .6s}
+#nc.nc-gone{opacity:0;visibility:hidden}
+#nc *{box-sizing:border-box}
+#nc .nc-stripes{position:fixed;inset:0;pointer-events:none;background-image:repeating-linear-gradient(135deg,rgba(255,210,31,.06) 0 2px,transparent 2px 28px)}
+#nc a{color:var(--gold)} #nc a:hover{color:var(--gold-hi)}
+
+/* ---------- Loading screen (from nuggetcode.vercel.app) ---------- */
+#nc-loader{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:space-between;
+  padding:clamp(24px,5vw,56px) clamp(16px,6vw,72px);z-index:10;background:var(--bg);
+  transition:opacity .6s ease, visibility .6s}
+#nc-loader.done{opacity:0;visibility:hidden}
+#nc .nc-top{position:relative;display:flex;justify-content:space-between;align-items:center}
+#nc .nc-brand{display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;letter-spacing:.18em;color:var(--gold)}
+#nc .nc-ver{font-size:13px;color:var(--muted);letter-spacing:.1em}
+#nc .nc-center{position:relative;display:flex;flex-direction:column;align-items:center;gap:28px}
+#nc .nc-kicker{font-size:14px;letter-spacing:.3em;color:var(--muted);text-align:center}
+#nc .nc-title{margin:0;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;
+  font-size:clamp(56px,10vw,104px);line-height:.95;letter-spacing:-.02em;text-align:center}
+#nc .nc-bottom{position:relative;display:flex;flex-direction:column;gap:16px}
+#nc .nc-row{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+#nc .nc-bar{position:relative;height:18px;border:2px solid var(--gold);overflow:hidden}
+#nc .nc-fill{position:relative;height:100%;width:0;background:var(--gold);overflow:hidden}
+#nc .nc-shine{position:absolute;top:0;bottom:0;width:25%;background:rgba(255,255,255,.45);animation:nc-shine 1.4s linear infinite}
+#nc .nc-tip{font-size:14px;color:var(--soft)}
+#nc .nc-blink{color:var(--gold);animation:nc-blink 1.2s steps(2) infinite}
+#nc-pct{font-weight:600;color:var(--gold)}
+
+#nc .nc-scene{width:180px;height:180px;perspective:700px;animation:nc-float 1.6s ease-in-out infinite}
+#nc .nc-spin{position:relative;width:100%;height:100%;transform-style:preserve-3d}
+#nc .nc-tilt{position:relative;width:100%;height:100%;transform-style:preserve-3d;transform:rotateX(35.264deg) rotateZ(45deg)}
+#nc .nc-face{position:absolute;left:42px;top:42px;width:96px;height:96px;border:2px solid var(--gold);
+  background:rgba(255,210,31,.22);box-shadow:inset 0 0 22px rgba(255,230,128,.45)}
+#nc .nc-f1{transform:translateZ(48px)} #nc .nc-f2{transform:rotateY(180deg) translateZ(48px)}
+#nc .nc-f3{transform:rotateY(90deg) translateZ(48px)} #nc .nc-f4{transform:rotateY(-90deg) translateZ(48px)}
+#nc .nc-f5{transform:rotateX(90deg) translateZ(48px);background:rgba(255,230,128,.32)}
+#nc .nc-f6{transform:rotateX(-90deg) translateZ(48px);background:rgba(168,127,0,.3)}
+
+@keyframes nc-shine{from{transform:translateX(-100%)}to{transform:translateX(400%)}}
+@keyframes nc-blink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes nc-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+
+/* ---------- Login card ---------- */
+#nc .nc-main{position:relative;min-height:100%;display:grid;place-items:center;padding:48px 16px}
+#nc .nc-card{width:100%;max-width:440px;opacity:0;transform:translateY(16px);transition:opacity .6s ease .1s, transform .6s ease .1s}
+#nc.nc-ready .nc-card{opacity:1;transform:none}
+#nc .nc-card > .nc-brand{margin-bottom:28px}
+#nc .nc-h2{margin:0 0 8px;font-family:'Bricolage Grotesque',sans-serif;font-weight:800;font-size:clamp(34px,8vw,44px);line-height:1;letter-spacing:-.02em;color:var(--ink)}
+#nc .nc-sub{margin:0 0 28px;color:var(--soft);font-size:14px;line-height:1.6}
+#nc .nc-form{display:flex;flex-direction:column;gap:18px;margin:0}
+#nc .nc-label{display:block;font-size:12px;letter-spacing:.14em;color:var(--muted);margin-bottom:8px}
+#nc .nc-input{width:100%;min-height:48px;padding:12px 14px;font:inherit;font-size:15px;letter-spacing:.06em;color:var(--ink);
+  background:var(--field);border:2px solid var(--line);border-radius:0;outline:none;text-transform:uppercase}
+#nc .nc-input::placeholder{color:#5f5b4c;text-transform:none}
+#nc .nc-input:focus{border-color:var(--gold)}
+#nc .nc-input[aria-invalid=true]{border-color:var(--err)}
+#nc .nc-err{min-height:18px;margin-top:6px;font-size:12px;color:var(--err);line-height:1.5}
+#nc .nc-btn{min-height:52px;padding:0 18px;font:inherit;font-weight:600;font-size:15px;letter-spacing:.14em;cursor:pointer;
+  background:var(--gold);color:#14130C;border:2px solid var(--gold);border-radius:0;
+  box-shadow:4px 4px 0 var(--gold-lo);transition:transform .1s, box-shadow .1s}
+#nc .nc-btn:hover{background:var(--gold-hi)}
+#nc .nc-btn:active{transform:translate(4px,4px);box-shadow:none}
+#nc .nc-btn:disabled{opacity:.5;cursor:wait}
+#nc .nc-btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+#nc .nc-foot{margin:24px 0 0;font-size:13px;color:var(--muted);text-align:center;line-height:1.6}
+
+@media (prefers-reduced-motion:reduce){#nc .nc-scene,#nc .nc-shine,#nc .nc-blink{animation:none}}
+
+/* in-game: ADMIN badge, and the account row in the pause menu */
+.nc-badge{display:inline-block;padding:4px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.18em;line-height:1.2;background:#FFD21F;color:#14130C;vertical-align:middle}
+#ncHudBadge{position:fixed;top:calc(16px + env(safe-area-inset-top,0px));right:76px;z-index:31;pointer-events:none;box-shadow:3px 3px 0 #A87F00}
+#ncAcct{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 14px;padding:10px 12px;border:2px solid #3A372C;background:rgba(14,14,12,.6);font-family:'JetBrains Mono',monospace;font-size:13px;color:#B5B09F}
+#ncAcct b{color:#FFD21F;font-weight:600;letter-spacing:.08em;word-break:break-all}
+#ncAcct .nc-out{margin-left:auto;min-height:36px;padding:0 12px;font:inherit;font-size:12px;font-weight:600;letter-spacing:.14em;cursor:pointer;background:transparent;color:#FFD21F;border:2px solid #FFD21F;border-radius:0}
+#ncAcct .nc-out:hover{background:rgba(255,210,31,.12)}
+</style>
+
+<div id="nc" role="dialog" aria-modal="true" aria-label="NuggetCode login">
+  <div class="nc-stripes" aria-hidden="true"></div>
+
+  <div id="nc-loader" role="status" aria-live="polite">
+    <div class="nc-top">
+      <div class="nc-brand">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24"><path d="M5 9c1-4 6-6 10-5s6 5 5 9-4 7-9 7-8-4-7-7c0-1 0-3 1-4z" fill="#FFD21F"/></svg>
+        <span>NUGGETCODE</span>
+      </div>
+      <div class="nc-ver">v0.2.0</div>
+    </div>
+    <div class="nc-center">
+      <div class="nc-scene" aria-hidden="true">
+        <div class="nc-spin" id="nc-spin"><div class="nc-tilt">
+          <div class="nc-face nc-f1"></div><div class="nc-face nc-f2"></div><div class="nc-face nc-f3"></div>
+          <div class="nc-face nc-f4"></div><div class="nc-face nc-f5"></div><div class="nc-face nc-f6"></div>
+        </div></div>
+      </div>
+      <div class="nc-kicker" id="nc-kicker">WELCOME TO</div>
+      <h1 class="nc-title">NuggetCode</h1>
+    </div>
+    <div class="nc-bottom">
+      <div class="nc-row">
+        <div><span id="nc-load-label">Loading login</span> <span class="nc-blink">_</span></div>
+        <div id="nc-pct">0%</div>
+      </div>
+      <div class="nc-bar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="nc-bar">
+        <div class="nc-fill" id="nc-fill"><div class="nc-shine"></div></div>
+      </div>
+      <div class="nc-tip">TIP: Same email, same ID. Every time.</div>
+    </div>
+  </div>
+
+  <main class="nc-main">
+    <div class="nc-card" id="nc-card" hidden>
+      <div class="nc-brand">
+        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24"><path d="M5 9c1-4 6-6 10-5s6 5 5 9-4 7-9 7-8-4-7-7c0-1 0-3 1-4z" fill="#FFD21F"/></svg>
+        <span>NUGGETCODE</span>
+      </div>
+      <h2 class="nc-h2">Log in with NuggetCode</h2>
+      <p class="nc-sub">Enter your NuggetCode ID to play Stackwild.</p>
+      <form class="nc-form" id="nc-form" novalidate>
+        <div>
+          <label class="nc-label" for="nc-id">NUGGETCODE ID</label>
+          <input class="nc-input" id="nc-id" name="id" type="text" placeholder="NC-XXXX-XXXX-XXXX" autocomplete="username" autocapitalize="characters" spellcheck="false" aria-describedby="nc-err">
+          <div class="nc-err" id="nc-err" role="alert"></div>
+        </div>
+        <button class="nc-btn" type="submit" id="nc-go">LOG IN</button>
+      </form>
+      <p class="nc-foot">Don't have an ID? Get one at <a href="https://nuggetcode.vercel.app" target="_blank" rel="noopener">nuggetcode.vercel.app</a></p>
+    </div>
+  </main>
+</div>
+<span id="ncHudBadge" class="nc-badge" hidden>ADMIN</span>
+
+<script>
+(function () {
+  // ---- Local storage (wrapped: it can be blocked) ----
+  var LS_ID = 'stackwild:nuggetcode-id';
+  function lsGet() { try { return localStorage.getItem(LS_ID); } catch (e) { return null; } }
+  function lsSet(v) { try { localStorage.setItem(LS_ID, v); } catch (e) {} }
+  function lsDel() { try { localStorage.removeItem(LS_ID); } catch (e) {} }
+  function norm(id) { return String(id || '').trim().toUpperCase(); }
+
+  var gate = document.getElementById('nc');
+  var card = document.getElementById('nc-card');
+  var form = document.getElementById('nc-form');
+  var input = document.getElementById('nc-id');
+  var err = document.getElementById('nc-err');
+  var go = document.getElementById('nc-go');
+  var hudBadge = document.getElementById('ncHudBadge');
+
+  // The checker comes from nuggetcode.vercel.app/verify.js so the rules stay in one place.
+  function check(id) {
+    if (!window.NuggetCode || !window.NuggetCode.check) return Promise.reject(new Error('offline'));
+    return window.NuggetCode.check(id);
+  }
+
+  // Keep keys away from the game while the gate is up (typing in the ID box still works).
+  window.addEventListener('keydown', function (e) { if (!gate.classList.contains('nc-gone')) e.stopImmediatePropagation(); }, true);
+
+  // ---- Who's logged in (read by the game's isAdmin) ----
+  window.NC_ROLE = null; window.NC_ID = null;
+  function enter(id, role) {
+    window.NC_ID = id; window.NC_ROLE = role;
+    gate.classList.add('nc-gone');
+    hudBadge.hidden = role !== 'admin';
+    renderAccount();
+    window.dispatchEvent(new CustomEvent('nuggetcode:login', { detail: { id: id, role: role } }));
+  }
+  function showLogin(prefill, msg) {
+    card.hidden = false;
+    gate.classList.remove('nc-gone');
+    requestAnimationFrame(function () { gate.classList.add('nc-ready'); });
+    input.value = prefill || '';
+    setError(msg || '');
+    go.disabled = false; go.textContent = 'LOG IN';
+    input.focus({ preventScroll: true });
+  }
+  function setError(msg) {
+    err.textContent = msg;
+    if (msg) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid');
+  }
+  function logOut() {
+    lsDel();
+    window.NC_ID = null; window.NC_ROLE = null;
+    hudBadge.hidden = true;
+    renderAccount();
+    window.dispatchEvent(new CustomEvent('nuggetcode:logout'));
+    showLogin('');
+  }
+  window.ncLogOut = logOut;
+
+  // Account row at the top of the game's pause menu: your ID, the ADMIN badge, Log out.
+  function renderAccount() {
+    var menuCard = document.querySelector('#menu .card');
+    if (!menuCard) return;
+    var row = document.getElementById('ncAcct');
+    if (!row) {
+      row = document.createElement('div'); row.id = 'ncAcct';
+      menuCard.insertBefore(row, menuCard.firstChild);
+    }
+    if (!window.NC_ID) { row.hidden = true; return; }
+    row.hidden = false; row.textContent = '';
+    row.appendChild(document.createTextNode('NuggetCode '));
+    var b = document.createElement('b'); b.textContent = window.NC_ID; row.appendChild(b);
+    if (window.NC_ROLE === 'admin') { var bd = document.createElement('span'); bd.className = 'nc-badge'; bd.textContent = 'ADMIN'; row.appendChild(bd); }
+    var out = document.createElement('button'); out.type = 'button'; out.className = 'nc-out'; out.textContent = 'LOG OUT';
+    out.addEventListener('click', logOut); row.appendChild(out);
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var id = norm(input.value);
+    if (!id) { setError('Not a valid NuggetCode ID.'); input.focus(); return; }
+    go.disabled = true; go.textContent = 'CHECKING…'; setError('');
+    check(id).then(function (role) {
+      go.disabled = false; go.textContent = 'LOG IN';
+      if (role !== 'admin' && role !== 'user') { setError('Not a valid NuggetCode ID.'); input.focus(); return; }
+      lsSet(id);
+      enter(id, role);
+    }, function () {
+      go.disabled = false; go.textContent = 'LOG IN';
+      setError('Couldn’t reach NuggetCode to check your ID. Check your connection and try again.');
+    });
+  });
+  input.addEventListener('input', function () { if (err.textContent) setError(''); });
+
+  // ---- Work out where to go: ?id= link, a saved admin ID, or the login screen ----
+  var qid = null;
+  try {
+    var url = new URL(location.href);
+    qid = url.searchParams.get('id');
+    if (qid !== null) { url.searchParams.delete('id'); history.replaceState(null, '', url.pathname + url.search + url.hash); }
+  } catch (e) {}
+  var saved = lsGet();
+  var decided = (qid ? check(norm(qid)).then(function (role) {
+      if (role) { lsSet(norm(qid)); return { id: norm(qid), role: role, fromLink: true }; }
+      return { id: norm(qid), role: null, bad: true };
+    }) : Promise.resolve(null))
+    .then(function (r) {
+      if (r) return r;
+      if (!saved) return { id: '', role: null };
+      return check(saved).then(function (role) { return { id: norm(saved), role: role }; });
+    })
+    .catch(function () { return { id: norm(qid || saved || ''), role: null, offline: true }; });
+
+  decided.then(function (r) {
+    if (r.role === 'admin') {
+      document.getElementById('nc-kicker').textContent = 'WELCOME BACK TO';
+      document.getElementById('nc-load-label').textContent = 'Loading Stackwild';
+    }
+  });
+
+  // ---- Loading screen (same timing and stepped progress as nuggetcode.vercel.app) ----
+  var loader = document.getElementById('nc-loader');
+  var fill = document.getElementById('nc-fill');
+  var pct = document.getElementById('nc-pct');
+  var bar = document.getElementById('nc-bar');
+  var spin = document.getElementById('nc-spin');
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var DURATION = reduce ? 600 : 3200;
+  // Stepped progress so it feels like real loading.
+  var steps = [[0,0],[.12,9],[.24,22],[.33,38],[.45,44],[.58,63],[.66,71],[.82,92],[1,100]];
+  var start = null;
+
+  function valueAt(t) {
+    for (var i = 1; i < steps.length; i++) {
+      if (t <= steps[i][0]) {
+        var a = steps[i - 1], b = steps[i];
+        return a[1] + (b[1] - a[1]) * ((t - a[0]) / (b[0] - a[0]));
+      }
+    }
+    return 100;
+  }
+
+  function frame(now) {
+    if (start === null) start = now;
+    var t = Math.min((now - start) / DURATION, 1);
+    var p = Math.round(valueAt(t));
+    fill.style.width = p + '%';
+    pct.textContent = p + '%';
+    bar.setAttribute('aria-valuenow', p);
+    spin.style.transform = 'rotateY(' + (p * 7.2) + 'deg)';
+    if (t < 1) requestAnimationFrame(frame);
+    else setTimeout(function () {
+      decided.then(function (r) {
+        loader.classList.add('done');
+        // Admins with a saved (or linked) admin ID go straight in; everyone else logs in.
+        if (r.role === 'admin') enter(r.id, 'admin');
+        else showLogin(r.id, r.bad ? 'Not a valid NuggetCode ID.' : r.offline ? 'Couldn’t reach NuggetCode to check your ID. Check your connection and try again.' : '');
+      });
+    }, 350);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
 
 <div id="game"></div>
 <button id="menuBtn" aria-label="Menu" title="Menu" hidden><i></i></button><div id="cross"></div><div id="mgHud" hidden></div><div id="flashOv"></div><div id="mgBanner" hidden></div><div id="hitmk"></div><div id="scopeOv" hidden><div class="sc-h"></div><div class="sc-v"></div></div><div id="gunHud" hidden><div class="gh-n"></div><div class="gh-a"></div><div class="gh-r"><i></i></div></div><div id="vehHud" hidden></div>
@@ -2767,6 +3067,7 @@ function rememberName(n){n=String(n||'').trim();if(!n)return;try{const a=recentN
 const adminName=n=>{const t=String(n).toLowerCase();return /nugget/.test(t)&&/67/.test(t);};
 let adminCache=null;
 function isAdmin(){
+  if(window.NC_ROLE==='admin')return true; // logged in with a NuggetCode admin ID
   try{if(localStorage.getItem('thing.admin')==='true')return true;}catch(e){}
   if(adminCache===null)adminCache=recentNames().some(adminName);
   return adminCache;
