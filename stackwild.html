@@ -878,6 +878,36 @@ B(DOOR_HI,'Door Top',[194,194,194],{transparent:true,boxFn:f=>[PANEL(f,.1875)],d
 B(DOOR_LO_O,'Open Door Bottom',[193,193,193],{transparent:true,boxFn:f=>[PANEL(DOOR_ROT[f]===undefined?5:DOOR_ROT[f],.1875)],door:1,open:true,drop:DOOR_ITEM});
 B(DOOR_HI_O,'Open Door Top',[194,194,194],{transparent:true,boxFn:f=>[PANEL(DOOR_ROT[f]===undefined?5:DOOR_ROT[f],.1875)],door:2,open:true,drop:[]});
 B(LADDER,'Ladder',[196,196,196],{transparent:true,nosolid:true,boxFn:f=>[PANEL(f^1,.0625)],ladder:true});
+[DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O].forEach(i=>DEF[i].rs=true);   // doors open while powered
+// ---- more redstone ----
+const RS_TORCH_OFF=39, REPEATER=108, REPEATER_ON=109, COMPARATOR=118, COMPARATOR_ON=119, OBSERVER=156, DAYLIGHT=157, NOTEBLOCK=158, DISPENSER=159,
+      HOPPER=218, STICKY=219, STICKY_ON=220, SLIME=221, TARGET=222, RS_CLOCK=223, TRANSMITTER=224, RECEIVER=225, SCULK=226, FAN=227, LAUNCHPAD=228,
+      BREAKER=229, PLACER=255, REMOTE=340;
+const RS_BOX=new Set([DISPENSER,HOPPER,PLACER]);
+const RSF={...FLAT,rs:true,hfacing:true,rot:true};
+B(RS_TORCH_OFF,'Redstone Torch',[330,330,330],{...SPR,rs:true,drop:RS_TORCH});
+B(REPEATER,'Redstone Repeater',[331,331,331],{...RSF,desc:'Passes a signal forward (the arrow) at full strength after a delay. Use it to change the delay (1–4 ticks). Only takes power from behind.'});
+B(REPEATER_ON,'Redstone Repeater',[332,332,332],{...RSF,drop:REPEATER});
+B(COMPARATOR,'Redstone Comparator',[333,333,333],{...RSF,desc:'Outputs the signal from behind unless a side signal is stronger. Use it to switch to subtract mode. Reads how full a chest, hopper or dispenser behind it is.'});
+B(COMPARATOR_ON,'Redstone Comparator',[334,334,334],{...RSF,drop:COMPARATOR});
+B(OBSERVER,'Observer',[336,336,336],{rs:true,facing:true,front:335,side:336,back:337,desc:'Watches the block its face points at and sends a quick pulse out of its back whenever that block changes.'});
+B(DAYLIGHT,'Daylight Sensor',[338,339,339],{rs:true,transparent:true,boxFn:()=>[[0,0,0,1,.375,1]],desc:'Powered during the day. Use it to invert it so it powers at night instead.'});
+B(NOTEBLOCK,'Note Block',[340,340,340],{rs:true,desc:'Plays a note when powered or used. Use it to raise the pitch (crouch to lower). The block under it picks the instrument: wood bass, stone drum, sand snare, glass click, gold bell, wool flute, iron xylophone.'});
+B(DISPENSER,'Dispenser',[11,11,341],{rs:true,facing:true,front:341,side:11,back:11,desc:'Use it to fill it. Each pulse it fires an arrow, throws a grenade, lights TNT in front, or spits out one item.'});
+B(HOPPER,'Hopper',[342,343,343],{rs:true,facing:true,front:344,side:343,back:342,desc:'Pulls items from the chest above it (or items lying on top) and pushes them into the container it points at. Power stops it.'});
+B(STICKY,'Sticky Piston',[345,109,109],{rs:true,facing:true,front:345,side:109,back:110,desc:'A piston that pulls the block back when it retracts.'});
+B(STICKY_ON,'Sticky Piston',[345,109,109],{rs:true,facing:true,front:345,side:109,back:110,drop:STICKY});
+B(SLIME,'Slime Block',[346,346,346],{desc:'Bouncy! Land on it and you bounce back up with no fall damage. Crouch to stop bouncing.'});
+B(TARGET,'Target',[347,347,347],{rs:true,desc:'Gives a 1 second pulse when an arrow or bullet hits it.'});
+B(RS_CLOCK,'Redstone Clock',[348,348,348],{rs:true,desc:'Turns on and off by itself. Use it to change the speed (0.2–4 s). A lever, button or repeater on it pauses it.'});
+B(TRANSMITTER,'Redstone Transmitter',[349,349,349],{rs:true,desc:'Wireless: while powered, every Receiver on the same channel turns on, any distance away. Use it to change the channel (0–15).'});
+B(RECEIVER,'Redstone Receiver',[350,350,350],{rs:true,desc:'Gives power while a Transmitter or Redstone Remote on its channel is on. Use it to change the channel.'});
+B(SCULK,'Sculk Sensor',[351,352,352],{rs:true,desc:'Pulses when a player or mob moves within 8 blocks. Crouching players sneak past it.'});
+B(FAN,'Redstone Fan',[354,354,353],{rs:true,facing:true,front:353,side:354,back:354,desc:'While powered, blows players, mobs and items away from its face, up to 10 blocks. Point it up for an elevator.'});
+B(LAUNCHPAD,'Launch Pad',[355,355,355],{...FLAT,rs:true,desc:'While powered, flings anyone who steps on it high into the air. No fall damage on landing.'});
+B(BREAKER,'Block Breaker',[357,357,356],{rs:true,facing:true,front:356,side:357,back:357,desc:'Each pulse it breaks the block in front of it and drops it.'});
+B(PLACER,'Block Placer',[357,357,358],{rs:true,facing:true,front:358,side:357,back:357,desc:'Use it to fill it with blocks. Each pulse it places one in front of it.'});
+I(REMOTE,'Redstone Remote',359,{desc:'Press E to pulse every Receiver on its channel. Crouch + E changes the channel.'});
 SLAB_MATS.forEach((m,i)=>{B(SLABS[i],SLAB_N[i]+' Slab',DEF[m].t.slice(),{transparent:true,boxFn:()=>[[0,0,0,1,.5,1]],slabOf:m});B(STAIRS[i],SLAB_N[i]+' Stairs',DEF[m].t.slice(),{transparent:true,boxFn:stairBoxes,hfacing:true});});
 B(ENCHANT_TABLE,'Enchanting Table',[197,134,198]); B(BREWING_STAND,'Brewing Stand',[209,209,209],{transparent:true,plant:true});
 B(END_STONE,'End Stone',[210,210,210]); B(END_PORTAL,'End Portal',[211,211,211],{glow:true,transparent:true,nosolid:true,drop:[]});
@@ -1425,6 +1455,44 @@ const atlas=document.createElement('canvas'); atlas.width=AW*16; atlas.height=AH
   });
   tile(140,(x,y)=>{const row=y>>2;if(y%4===3||((x+(row%2)*4)%8===7))return[30,14,18];return sh([70,30,38],.8+rnd()*.3);});
   [[90,[212,212,218]],[94,[92,224,218]]].forEach(([base,c])=>shapes.forEach((f,k)=>tile(base+k,(x,y)=>{if(!f(x,y))return T;const e2=!f(x-1,y)||!f(x+1,y)||!f(x,y-1)||!f(x,y+1);return sh(c,e2?.68:(.92+rnd()*.12)*(1.08-y*.02));})));
+  // ---- more redstone ----
+  {
+    const slabC=[164,164,168], ironC=[150,150,158], darkC=[70,70,76];
+    const board=(x,y)=>(x===0||y===0||x===15||y===15)?sh(slabC,.7):sh(slabC,.92+rnd()*.1);
+    const arrow=(x,y,y0)=>(y>=1&&y<=4&&Math.abs(x-7.5)<=y-.5)||(Math.abs(x-7.5)<1&&y>4&&y<=y0);
+    const rsCol=on=>on?[240,50,40]:[110,30,28];
+    tile(330,(x,y)=>{if(x>=7&&x<=8&&y>=6&&y<=15)return sh(woodC,.9+rnd()*.1);if(x>=6&&x<=9&&y>=2&&y<=5)return y<=3?[120,44,40]:[80,22,22];return T;});
+    const rep=on=>(x,y)=>{if(Math.hypot(x-4,y-11)<1.6||Math.hypot(x-11,y-11)<1.6)return on?[255,120,90]:[100,30,30];if(arrow(x,y,13))return rsCol(on);return board(x,y);};
+    tile(331,rep(false)); tile(332,rep(true));
+    const cmp=on=>(x,y)=>{if(Math.hypot(x-4,y-12)<1.6||Math.hypot(x-11,y-12)<1.6)return on?[255,120,90]:[100,30,30];if(Math.abs(x-7.5)<3&&Math.abs(y-9)<1.6)return sh([210,210,215],.95);if(arrow(x,y,11))return rsCol(on);return board(x,y);};
+    tile(333,cmp(false)); tile(334,cmp(true));
+    tile(335,(x,y)=>{if(y>=5&&y<=7&&((x>=3&&x<=6)||(x>=9&&x<=12)))return[24,24,26];if(y>=10&&y<=11&&x>=4&&x<=11)return[40,40,44];return sh(darkC,.9+rnd()*.15);});
+    tile(336,(x,y)=>arrow(x,y,13)?[96,96,102]:stonePx());
+    tile(337,(x,y)=>Math.hypot(x-7.5,y-7.5)<2.2?[210,40,40]:sh(darkC,.9+rnd()*.15));
+    tile(338,(x,y)=>(x%5===0||y%5===0)?sh(woodC,.9):sh([70,110,175],.85+rnd()*.15+(x+y<10?.15:0)));
+    tile(339,(x,y)=>y<=1?sh(woodC,1.1):sh(woodC,.8+rnd()*.2));
+    tile(340,(x,y)=>{if(Math.hypot(x-6,y-11)<2.3||(x>=8&&x<=8.9&&y>=3&&y<=11)||seg(x,y,8.5,3,11.5,6)<.8)return[40,24,14];return(x===0||y===0||x===15||y===15)?sh(woodC,.7):sh(woodC,.85+rnd()*.2);});
+    tile(341,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);if(d<3)return[22,22,22];if(d<4)return[90,90,96];return stonePx();});
+    tile(342,(x,y)=>{if(x<=1||x>=14||y<=1||y>=14)return sh(darkC,.95);if(x<=3||x>=12||y<=3||y>=12)return sh(ironC,.8);return[30,30,34];});
+    tile(343,(x,y)=>{if(y===4||y===5)return sh(darkC,.9);if(x<y-9||x>24-y)return sh(darkC,.75);return sh(ironC,.85+rnd()*.15);});
+    tile(344,(x,y)=>{if(x>=6&&x<=9&&y>=6&&y<=9)return[30,30,34];if(y===4||y===5)return sh(darkC,.9);return sh(ironC,.85+rnd()*.15);});
+    tile(345,(x,y)=>(x<=1||x>=14||y<=1||y>=14)?sh(woodC,.9):sh([110,190,90],.85+rnd()*.2));
+    tile(346,(x,y)=>{if(x===0||y===0||x===15||y===15)return[80,165,70];if(x>=4&&x<=11&&y>=4&&y<=11)return sh([100,190,90],.95+rnd()*.08);return sh([135,215,115],.92+rnd()*.1);});
+    tile(347,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);return Math.floor(d/2)%2===0?sh([210,40,40],.9+rnd()*.1):sh([236,230,220],.92+rnd()*.08);});
+    tile(348,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5);if(d<5.2&&(seg(x,y,7.5,7.5,7.5,3.5)<.7||seg(x,y,7.5,7.5,10.5,7.5)<.7))return[40,40,40];if(d<5.2)return[240,238,230];if(d<6)return[120,10,10];return sh([200,30,30],.85+rnd()*.25);});
+    tile(349,(x,y)=>{const d=Math.hypot(x-7.5,y-4);if(Math.hypot(x-7.5,y-3)<1.3)return[230,40,40];if(x>=7&&x<=8&&y>=3&&y<=12)return[60,60,64];if(y<8&&((d>4&&d<4.8)||(d>6.2&&d<7)))return[220,50,40];return(x===0||y===0||x===15||y===15)?sh(ironC,.7):sh([196,196,202],.92+rnd()*.08);});
+    tile(350,(x,y)=>{const d=Math.hypot(x-7.5,y-4);if(Math.hypot(x-7.5,y-5)<1.4)return[60,150,235];if(x>=7&&x<=8&&y>=5&&y<=12)return[60,60,64];if(y>4&&d>4.6&&d<5.6)return[90,90,100];return(x===0||y===0||x===15||y===15)?sh(ironC,.7):sh([196,196,202],.92+rnd()*.08);});
+    const spots=[]; for(let i=0;i<7;i++)spots.push([1.5+rnd()*13,1.5+rnd()*13]);
+    tile(351,(x,y)=>{for(const q of spots)if(Math.hypot(x-q[0],y-q[1])<1.3)return[50,215,220];return sh([14,58,68],.8+rnd()*.3);});
+    tile(352,(x,y)=>(y<=2?(rnd()<.5?[40,190,200]:[14,58,68]):((x*3+y*5)%11===0?[30,150,160]:sh([20,40,48],.8+rnd()*.3))));
+    tile(353,(x,y)=>{const d=Math.hypot(x-7.5,y-7.5),a=Math.atan2(y-7.5,x-7.5);if(d>7)return sh(ironC,.9);if(d<1.5)return[90,90,96];return Math.sin(a*3+d*.45)>.25?sh([205,205,215],.95):[36,36,40];});
+    tile(354,(x,y)=>{if((x===2||x===13)&&(y===2||y===13))return[60,60,66];return(x===0||y===0||x===15||y===15)?sh(ironC,.7):sh(ironC,.9+rnd()*.1);});
+    tile(355,(x,y)=>{if(x===0||y===0||x===15||y===15)return[200,200,206];return((y+Math.abs(x-7.5))%6<3)?[255,170,40]:[58,58,62];});
+    tile(356,(x,y)=>{if(seg(x,y,3,3,12,12)<1.2||seg(x,y,12,3,3,12)<1.2)return sh([170,225,235],.95+rnd()*.1);if(Math.hypot(x-7.5,y-7.5)<5.5)return[30,30,32];return stonePx();});
+    tile(357,(x,y)=>(x===0||y===0||x===15||y===15)?sh(stoneC,.5):sh(stoneC,.62+rnd()*.15));
+    tile(358,(x,y)=>{if(x>=5&&x<=10&&y>=5&&y<=10)return[26,26,28];if(x>=4&&x<=11&&y>=4&&y<=11)return[80,200,90];return stonePx();});
+    tile(359,(x,y)=>{if(x===10&&y<=3)return[120,120,128];if(x<5||x>11||y<3||y>14)return T;if(Math.hypot(x-8,y-6)<1.7)return[230,40,40];if((Math.hypot(x-6.5,y-10.5)<1)||(Math.hypot(x-9.5,y-10.5)<1))return[170,170,180];return(x===5||x===11||y===3||y===14)?[30,30,34]:[56,56,62];});
+  }
   g.putImageData(img,0,0);
 })();
 const tileAvg=[];
@@ -1522,7 +1590,7 @@ hl.visible=false; scene.add(hl);
 
 // ---------- world data ----------
 const chunks=new Map(), meshes=new Map(), dirty=new Set(), lights=new Set();
-const rsSet=new Set(), rsTimers=[]; let wirePow=new Map(), rsDirty=true;
+const rsSet=new Set(), rsTimers=[]; let wirePow=new Map(), rsDirty=true, rsObsN=0;
 const ck=(cx,cz)=>cx+','+cz;
 const spawners=new Set(), chamberCache=new Map(), crops=new Set();
 let genLoot=[];
@@ -1927,8 +1995,9 @@ function setBlock(x,y,z,id,opt){
   if(LOGSET.has(old)&&!LOGSET.has(id)&&(!MP.connected||MP.isHost))queueLeafDecay(x,y,z);
   if(DEF[id].glow||DEF[old].glow){const rr=(opt&&opt.dm)||meta['d'+lk]?2:1;for(let a=-rr;a<=rr;a++)for(let b=-rr;b<=rr;b++){const kk=ck(cx+a,cz+b);if(meshes.has(kk))dirty.add(kk);}}
   if(DEF[id].rs||DEF[old].rs||rsNear(x,y,z))rsDirty=true;
+  if(rsObsN&&old!==id)rsObserve(x,y,z);
   if(id===BUTTON_ON)rsTimers.push({x,y,z,t:1,from:BUTTON_ON,to:BUTTON});
-  if(opt&&opt.remote&&old===CHEST&&id!==CHEST)delete chests[lk];
+  if(opt&&opt.remote&&(old===CHEST||RS_BOX.has(old))&&id!==old)delete chests[lk];
   for(let dz=-1;dz<=1;dz++)for(let dx=-1;dx<=1;dx++){
     const kk=ck(Math.floor((x+dx)/CS),Math.floor((z+dz)/CS));
     if(meshes.has(kk))dirty.add(kk);
@@ -1978,14 +2047,17 @@ function buildMesh(cx,cz){
     const def=DEF[id];
     if(def.flat){
       const pw=id===WIRE?(wirePow.get((ox+x)+','+y+','+(oz+z))||0):0;
-      const M=pw>0?G:S, tile=def.t[0], tc=tile%AW, tr=tile/AW|0, yy=y+(id===WIRE?.03:.07);
+      const M=(pw>0||id===REPEATER_ON||id===COMPARATOR_ON)?G:S, tile=def.t[0], tc=tile%AW, tr=tile/AW|0, yy=y+(id===WIRE?.03:.07);
+      const rd=def.rot?FACES[meta[(ox+x)+','+y+','+(oz+z)]&7].dir:null;
       let cr=1,cg=1,cb=1;
       if(id===WIRE){if(pw>0){const f=.55+.45*pw/15;cr=f;cg=.12*f;cb=.08*f;}else{cr=.4;cg=.06;cb=.05;}}
       else if(id===PLATE_ON){cr=cg=cb=.75;}
       const C=FACES[3].c, fl2=lightAt(ox+x+.5,y+.5,oz+z+.5);
       for(const order of [[0,1,2,3],[1,0,3,2]]){
         const base=M.p.length/3;
-        for(const oi of order){const c=C[oi];M.p.push(x+c[0],yy,z+c[2]);M.t.push(tu(tc,c[3]),tv(tr,c[4]));M.c.push(cr,cg,cb);M.b.push(fl2);}
+        for(const oi of order){const c=C[oi];M.p.push(x+c[0],yy,z+c[2]);
+          if(rd)M.t.push(tu(tc,.5-((c[0]-.5)*rd[2]-(c[2]-.5)*rd[0])),tv(tr,.5+(c[0]-.5)*rd[0]+(c[2]-.5)*rd[2]));else M.t.push(tu(tc,c[3]),tv(tr,c[4]));
+          M.c.push(cr,cg,cb);M.b.push(fl2);}
         M.i.push(base,base+1,base+2,base+2,base+1,base+3);
       }
       continue;
@@ -2199,7 +2271,8 @@ function physics(dt){
   if(immune>0){immune-=dt;airMaxY=P.y;}
   else if(inWater||onLadder||enderSet()||gliding||grap)airMaxY=P.y;
   else if(!onGround)airMaxY=Math.max(airMaxY,P.y);
-  else{ if(!wasGround&&slamArmed)groundSlam(airMaxY-P.y); if(!wasGround&&maceSafe){maceSafe=false;airMaxY=P.y;} if(!wasGround){const f=airMaxY-P.y;if(getBlock(fx,Math.floor(P.y),fz)===DRIP_UP&&f>1)hurt(Math.ceil(f*1.5)+1);else if(f>3.4&&!(modActive('lowgrav')&&f<7))hurt((modActive('lowgrav')?.5:1)*Math.round(Math.floor(f-3)*(1-.2*enchLvl(armor[3],7))));} airMaxY=P.y; }
+  else{ if(!wasGround&&!sneak&&airMaxY-P.y>.7&&getBlock(fx,Math.floor(P.y-.05),fz)===SLIME){V.y=Math.min(26,Math.sqrt(60*(airMaxY-P.y))*.8);onGround=false;airMaxY=P.y;sfxClick(180,.3,.12);}
+    if(!wasGround&&slamArmed)groundSlam(airMaxY-P.y); if(!wasGround&&maceSafe){maceSafe=false;airMaxY=P.y;} if(!wasGround){const f=airMaxY-P.y;if(getBlock(fx,Math.floor(P.y),fz)===DRIP_UP&&f>1)hurt(Math.ceil(f*1.5)+1);else if(f>3.4&&!(modActive('lowgrav')&&f<7))hurt((modActive('lowgrav')?.5:1)*Math.round(Math.floor(f-3)*(1-.2*enchLvl(armor[3],7))));} airMaxY=P.y; }
   if(getBlock(fx,Math.floor(P.y+EYE),fz)===WATER){
     air=Math.max(0,air-dt/1.5);
     if(air<=0){drownT+=dt;if(drownT>=1){drownT=0;hurt(2);}}
@@ -2425,6 +2498,9 @@ hset(.05,[WIRE,LEVER,LEVER_ON,BUTTON,BUTTON_ON,RS_TORCH,TNT,MEGA_TNT]); hset(.3,
 hset(1,[PISTON,PISTON_ON,PISTON_HEAD]); hset(1.2,[RS_BLOCK,DRIPSTONE]); hset(2,[REDSTONE_ORE]);
 Object.assign(NEEDPICK,{[RS_BLOCK]:1,[DRIPSTONE]:1,[REDSTONE_ORE]:2});
 [RS_BLOCK,DRIPSTONE,REDSTONE_ORE].forEach(i=>TOOLFOR[i]='pick');
+hset(.05,[RS_TORCH_OFF,REPEATER,REPEATER_ON,COMPARATOR,COMPARATOR_ON,LAUNCHPAD]); hset(.8,[NOTEBLOCK,DAYLIGHT,TARGET,SCULK]); hset(.3,[SLIME]); hset(1,[STICKY,STICKY_ON]);
+hset(1.4,[OBSERVER,DISPENSER,BREAKER,PLACER,RS_CLOCK,TRANSMITTER,RECEIVER,HOPPER,FAN]);
+[OBSERVER,DISPENSER,BREAKER,PLACER,RS_CLOCK,TRANSMITTER,RECEIVER,HOPPER,FAN].forEach(i=>{NEEDPICK[i]=1;TOOLFOR[i]='pick';});
 hset(1.5,[TUFF_BRICKS]); hset(1.8,[COPPER_TILE]); hset(.8,[COPPER_BULB]); hset(25,[SPAWNER]); hset(9,[OBSIDIAN]); hset(.05,[PORTAL]);
 hset(.5,[EMBERROCK]); hset(.4,[GLEAMSTONE]); hset(1.5,[EMBER_ORE]); hset(2,[CINDER_BRICKS]);
 Object.assign(NEEDPICK,{[TUFF_BRICKS]:1,[COPPER_TILE]:2,[SPAWNER]:4,[OBSIDIAN]:4,[EMBERROCK]:1,[EMBER_ORE]:1,[CINDER_BRICKS]:1});
@@ -2484,15 +2560,15 @@ function breakAt(t){
   if(!setBlock(t.x,t.y,t.z,id===ICE?WATER:AIR))return;
   swStat.broken++; burst(id,t.x,t.y,t.z);
   if(heldTool()&&!DEF[id].plant)useTool();
-  if(id===CHEST)spillChest(t.x,t.y,t.z);
+  if(id===CHEST||RS_BOX.has(id))spillChest(t.x,t.y,t.z);
   if(id===SHULKER)shulkerBreak(t.x,t.y,t.z);
   if(id===OBSIDIAN||id===PORTAL||id===CINDER_BRICKS||id===DEMON_PORTAL)breakPortalNear(t.x,t.y,t.z);
   if(DEF[id].door===1&&DEF[getBlock(t.x,t.y+1,t.z)].door===2)setBlock(t.x,t.y+1,t.z,AIR);
   if(DEF[id].door===2&&DEF[getBlock(t.x,t.y-1,t.z)].door===1){setBlock(t.x,t.y-1,t.z,AIR);if(GM.mode!=='creative')spawnDrop(DOOR_ITEM,t.x+.5,t.y-.5,t.z+.5);}
   if(id===CORRUPT_SWORD&&meta['#cor']&&t.x===meta['#cor'].x&&t.y===meta['#cor'].y&&t.z===meta['#cor'].z&&(!MP.connected||MP.isHost)){meta['#cor'].pulled=1;corBroadcast();}
   if(id===END_CRYSTAL){explode(t.x+.5,t.y+.5,t.z+.5,2.5);toast('End Crystal destroyed!');}
-  if(id===PISTON_ON){const d=FACES[meta[t.x+','+t.y+','+t.z]|0].dir;if(getBlock(t.x+d[0],t.y+d[1],t.z+d[2])===PISTON_HEAD)setBlock(t.x+d[0],t.y+d[1],t.z+d[2],AIR);}
-  if(id===PISTON_HEAD)for(let f=0;f<6;f++){const d=FACES[f].dir,bx=t.x-d[0],by=t.y-d[1],bz=t.z-d[2];if(getBlock(bx,by,bz)===PISTON_ON&&(meta[bx+','+by+','+bz]|0)===f)setBlock(bx,by,bz,PISTON);}
+  if(id===PISTON_ON||id===STICKY_ON){const d=FACES[meta[t.x+','+t.y+','+t.z]|0].dir;if(getBlock(t.x+d[0],t.y+d[1],t.z+d[2])===PISTON_HEAD)setBlock(t.x+d[0],t.y+d[1],t.z+d[2],AIR);}
+  if(id===PISTON_HEAD)for(let f=0;f<6;f++){const d=FACES[f].dir,bx=t.x-d[0],by=t.y-d[1],bz=t.z-d[2],pb=getBlock(bx,by,bz);if((pb===PISTON_ON||pb===STICKY_ON)&&(meta[bx+','+by+','+bz]|0)===f)setBlock(bx,by,bz,pb===STICKY_ON?STICKY:PISTON);}
   if(id===BED&&spawnPt&&spawnPt[0]===t.x&&spawnPt[1]===t.y&&spawnPt[2]===t.z){spawnPt=null;toast('Spawn point cleared');}
   if(GM.mode==='creative'){}
   else if(ok){for(const dd of (wasDm?[id]:dropsOf(id)))spawnDrop(dd,t.x+.5,t.y+.5,t.z+.5,undefined,undefined,undefined,undefined,1,wasDm?wasDm*DM:undefined);
@@ -2542,6 +2618,7 @@ function doUse(){
   const mv=mobRay(target?Math.min(4,target.t):4);
   if(mv&&mv.type==='villager'){swing();openBag('trade',mv);return;}
   {const hh=inv[sel]?inv[sel].id:0;if(worldMG==='bedwars'&&target&&target.id===BOOKSHELF){bwShop();return;}if(hh===GRENADE||hh===FLASHBANG){throwNade(hh===GRENADE?'g':'f');return;}if(hh===GUNBOX){openGunBox();return;}if(gunHeld())return;if(bpOn()&&bpUse(hh))return;if(hh===BOW){startBow();return;}if(hh===WIND_CHARGE){throwWind();return;}if(DEF[hh]&&DEF[hh].tool&&DEF[hh].tool.kind==='spear'&&!(target&&[TABLE,FURNACE,CHEST,DEMONISER,ENDERISER,ENCHANT_TABLE,BREWING_STAND].includes(target.id))){spearLunge();return;}if(!target&&hh===ROCKET){useRocket();return;}if(!target&&hh===GRAPPLE){useGrapple();return;}}
+  if(inv[sel]&&inv[sel].id===REMOTE){if(!(target&&rsUse(target,true)))useRemote();return;}
   if(bladeHeld()){if(isAdmin())rainbowWave();else toast('Only admins can wield the Rainbow Fire Blade');return;}
   if(target&&inv[sel]&&inv[sel].id===IGNITER&&![TABLE,FURNACE,CHEST,END_FRAME].includes(target.id)&&!DEF[target.id].door){useIgniter(target);return;}
   if(target){
@@ -2556,6 +2633,7 @@ function doUse(){
     if(hit===HOE&&[GRASS,DIRT,DRY_GRASS,SNOW_GRASS].includes(id)&&getBlock(target.x,target.y+1,target.z)===AIR){swing();setBlock(target.x,target.y,target.z,FARMLAND);useTool();if(id!==DIRT&&Math.random()<.12)spawnDrop(SEEDS,target.x+.5,target.y+1.2,target.z+.5);return;}
     if(id===END_FRAME&&(hit===ENDER_EYE||hit===IGNITER)){activateEndPortal(target);return;}
     if(id===BED){useBed(target);return;}
+    if(rsUse(target))return;
     if(id===LEVER||id===LEVER_ON){setBlock(target.x,target.y,target.z,id===LEVER?LEVER_ON:LEVER);return;}
     if(id===BUTTON){setBlock(target.x,target.y,target.z,BUTTON_ON);return;}
     if(id===TNT||id===MEGA_TNT){igniteTNT(target.x,target.y,target.z,3);mpSend({t:'ign',x:target.x,y:target.y,z:target.z});return;}
@@ -2630,8 +2708,9 @@ function doPlace(){
     const ax=Math.abs(camDir.x),ay=Math.abs(camDir.y),az=Math.abs(camDir.z);
     meta[x+','+y+','+z]=ay>=ax&&ay>=az?(camDir.y<0?2:3):ax>=az?(camDir.x<0?0:1):(camDir.z<0?4:5);
   }
+  if(pid===HOPPER&&meta[x+','+y+','+z]===3)meta[x+','+y+','+z]=2;   // hoppers can't point up
   if(LEAFSET.has(pid))meta[x+','+y+','+z]=99; // player-placed leaves never decay
-  if(setBlock(x,y,z,pid,isDm(it)?{dm:tierOf(it)}:undefined)){swStat.placed++;swing();if(GM.mode!=='creative')takeSel();if(pid===CHEST)chests[x+','+y+','+z]=new Array(27).fill(null);
+  if(setBlock(x,y,z,pid,isDm(it)?{dm:tierOf(it)}:undefined)){swStat.placed++;swing();if(GM.mode!=='creative')takeSel();if(pid===CHEST||RS_BOX.has(pid))chests[x+','+y+','+z]=new Array(27).fill(null);
     if(pid===SHULKER){const sk=it.dur&&meta['shk'+it.dur], ck2=x+','+y+','+z;chests[ck2]=sk?sk.map(deser).concat(new Array(27).fill(null)).slice(0,27):new Array(27).fill(null);if(sk)delete meta['shk'+it.dur];mpSend({t:'c',k:ck2,d:chests[ck2].map(ser)});}}
 }
 // ---------- status effects, XP, farming, doors, potions ----------
@@ -3655,22 +3734,91 @@ function updateTrials(dt){
 }
 
 // ---------- redstone ----------
+// The circuit runs in 0.1 s ticks. Every tick: power sources -> blocks they power -> wire -> machines react.
+// Torches, repeaters and comparators switch on the following tick; that delay is what makes clocks and logic gates work.
 const SOURCES=new Set([LEVER_ON,BUTTON_ON,PLATE_ON,RS_TORCH,RS_BLOCK]);
+const RS_D=FACES.map(f=>f.dir), RS_SIDES=[[4,5],[4,5],[0,1],[0,1],[0,1],[0,1]];
+const RS_HALF=[1,2,5,10,20], RS_NOTE=['F#','G','G#','A','A#','B','C','C#','D','D#','E','F'];
+const RS_IMMOVABLE=new Set([OBSIDIAN,PISTON_HEAD,PISTON_ON,STICKY_ON,SPAWNER,DEMON_SPAWNER,PORTAL,DEMON_PORTAL,END_PORTAL,END_FRAME,CORRUPT_SWORD,DEMONISER,ENDERISER]);
+const RS_NOBREAK=new Set([SPAWNER,DEMON_SPAWNER,PORTAL,DEMON_PORTAL,END_PORTAL,END_FRAME,CORRUPT_SWORD,PISTON_HEAD,END_CRYSTAL,DEMONISER,ENDERISER]);
+const rsLvl=new Map(), rsPulse=new Map(), rsPend=new Map(), rsEdge=new Map(), rsCool=new Map(), rsChanPulse=new Map(), rsStop=new Set();
+let rsTick=0, rsAcc=0, rsChanOn=new Set(), rsFans=[], rsPads=[], rsMe=null;
 function rsNear(x,y,z){for(const f of FACES){const d=f.dir;if(rsSet.has((x+d[0])+','+(y+d[1])+','+(z+d[2])))return true;}return false;}
-function recomputeRS(){
-  const comps=[];
+const rsCond=id=>id!==AIR&&opaque(id)&&!DEF[id].rs&&!DEF[id].boxFn;
+const rsIsBox=id=>id===CHEST||id===SHULKER||RS_BOX.has(id);
+function rsDay(k){const d=curLight>.55;return (meta[k]|0)?!d:d;}
+// power a part at key k sends out through its face f
+function rsEmit(id,k,f){
+  switch(id){
+    case LEVER_ON: case BUTTON_ON: case PLATE_ON: case RS_BLOCK: return 15;
+    case RS_TORCH: return f===2?0:15;
+    case REPEATER_ON: return f===(meta[k]&7)?15:0;
+    case COMPARATOR_ON: return f===(meta[k]&7)?(rsLvl.get(k)||0):0;
+    case OBSERVER: return rsPulse.get(k)>0&&f===((meta[k]|0)^1)?15:0;
+    case DAYLIGHT: return rsDay(k)?15:0;
+    case RS_CLOCK: return !rsStop.has(k)&&Math.floor(rsTick/RS_HALF[(meta[k]|0)%RS_HALF.length])%2===0?15:0;
+    case RECEIVER: return rsChanOn.has(meta[k]|0)?15:0;
+    case SCULK: case TARGET: return rsPulse.get(k)>0?15:0;
+  }
+  return 0;
+}
+// machines that move items run on the player standing closest, so they don't fire twice in multiplayer
+function rsAuth(x,z){if(!MP.connected)return true;const md=Math.hypot(P.x-x,P.z-z);for(const p of MP.peers.values())if(p.seen&&Math.hypot(p.x-x,p.z-z)<md-.01)return false;return true;}
+function rsBoxAdd(c,id,dur){
+  const m=maxStack(id);
+  for(let i=0;i<c.length;i++){const s=c[i];if(s&&s.id===id&&s.n<m&&(s.dur||0)===(dur||0)){s.n++;return true;}}
+  for(let i=0;i<c.length;i++)if(!c[i]){c[i]=dur!==undefined?{id,n:1,dur}:{id,n:1};return true;}
+  return false;
+}
+function rsBoxSync(k){
+  const c=chests[k]; if(!c)return;
+  if(MP.connected)mpSend({t:'c',k,d:c.map(ser)});
+  if(bagOpen&&bagMode===CHEST&&openChestKey===k)for(let i=0;i<27;i++)paintSlot(chestEls[i],c[i]);
+  saveSoon();
+}
+function rsFill(k){const c=chests[k];if(!c)return 0;let f=0;for(const s of c)if(s)f+=s.n/maxStack(s.id);return f>0?Math.min(15,1+Math.floor(f/c.length*14)):0;}
+function rsObserve(x,y,z){
+  for(let f=0;f<6;f++){const d=RS_D[f],ox=x-d[0],oy=y-d[1],oz=z-d[2];
+    if(getBlock(ox,oy,oz)===OBSERVER&&(meta[ox+','+oy+','+oz]|0)===f){const k=ox+','+oy+','+oz;if(!(rsPulse.get(k)>0))rsPulse.set(k,-1);}}
+}
+function rsTargetHit(x,y,z,net){
+  if(getBlock(x,y,z)!==TARGET)return;
+  rsPulse.set(x+','+y+','+z,10); burstC([230,60,50],x,y,z,8);
+  if(net&&MP.connected)mpSend({t:'rst',x,y,z});
+}
+function rsStep(){
+  rsTick++;
+  for(const [k,v] of rsPulse){if(v<0)rsPulse.set(k,2);else if(v<=1)rsPulse.delete(k);else rsPulse.set(k,v-1);}
+  for(const [c,v] of rsChanPulse){if(v<=1)rsChanPulse.delete(c);else rsChanPulse.set(c,v-1);}
+  const comps=[], cmap=new Map(); let obs=0, sculk=0;
   for(const k of rsSet){
-    const [x,y,z]=k.split(',').map(Number);
+    const p=k.split(','), x=+p[0], y=+p[1], z=+p[2];
     if(!chunks.has(ck(Math.floor(x/CS),Math.floor(z/CS))))continue;
     const id=getBlock(x,y,z); if(!DEF[id].rs){rsSet.delete(k);continue;}
-    comps.push([x,y,z,id,k]);
+    const c=[x,y,z,id,k]; comps.push(c); cmap.set(k,c); if(id===OBSERVER)obs++; else if(id===SCULK)sculk++;
   }
+  rsObsN=obs;
+  // blocks get strong power from a torch under them, a lever/button/plate on them, or a repeater/comparator/observer pointing in
+  const strong=new Map(), weak=new Map();
+  const bump=(m,x,y,z,v)=>{if(v<=0||!rsCond(getBlock(x,y,z)))return;const kk=x+','+y+','+z;if((m.get(kk)||0)<v)m.set(kk,v);};
+  for(const [x,y,z,id,k] of comps){
+    if(id===RS_TORCH)bump(strong,x,y+1,z,15);
+    else if(id===LEVER_ON||id===BUTTON_ON||id===PLATE_ON)bump(strong,x,y-1,z,15);
+    else if(id===REPEATER_ON||id===COMPARATOR_ON||id===OBSERVER){const f=id===OBSERVER?(meta[k]|0)^1:meta[k]&7,d=RS_D[f];bump(strong,x+d[0],y+d[1],z+d[2],rsEmit(id,k,f));}
+  }
+  // wire: starts at full strength next to a source and loses 1 per block
   const np=new Map(), q=[];
   for(const [x,y,z,id,k] of comps)if(id===WIRE){
-    for(const f of FACES){const d=f.dir;if(SOURCES.has(getBlock(x+d[0],y+d[1],z+d[2]))){np.set(k,15);q.push([x,y,z,15]);break;}}
+    let best=0;
+    for(let f=0;f<6;f++){
+      const d=RS_D[f],nx=x+d[0],ny=y+d[1],nz=z+d[2],nk=nx+','+ny+','+nz,c=cmap.get(nk);
+      const v=c?(c[3]===WIRE?0:rsEmit(c[3],nk,f^1)):(strong.get(nk)||0);
+      if(v>best)best=v;
+    }
+    if(best>0){np.set(k,best);q.push([x,y,z,best]);}
   }
-  while(q.length){
-    const [x,y,z,l]=q.shift(); if(l<=1)continue;
+  for(let qi=0;qi<q.length;qi++){
+    const [x,y,z,l]=q[qi]; if(l<=1)continue;
     for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1]])for(const dy of [0,1,-1]){
       const nx=x+dx,ny=y+dy,nz=z+dz; if(getBlock(nx,ny,nz)!==WIRE)continue;
       const nk=nx+','+ny+','+nz; if((np.get(nk)||0)>=l-1)continue;
@@ -3682,47 +3830,226 @@ function recomputeRS(){
   for(const k of wirePow.keys())if(!np.has(k))changed.add(k);
   wirePow=np;
   for(const k of changed){const p=k.split(',').map(Number);const kk=ck(Math.floor(p[0]/CS),Math.floor(p[2]/CS));if(meshes.has(kk))dirty.add(kk);}
-  const powered=(x,y,z,skip)=>{
-    for(let i=0;i<6;i++){
-      if(i===skip)continue;
-      const d=FACES[i].dir, b=getBlock(x+d[0],y+d[1],z+d[2]);
-      if(SOURCES.has(b))return true;
-      if(b===WIRE&&(wirePow.get((x+d[0])+','+(y+d[1])+','+(z+d[2]))||0)>0)return true;
-    }
-    return false;
+  // powered wire weakly powers the block under it and the block it points into (a line or a lone dot points everywhere along itself)
+  for(const [k,v] of np){
+    const p=k.split(','),x=+p[0],y=+p[1],z=+p[2];
+    bump(weak,x,y-1,z,v);
+    const con=[];
+    for(const f of [0,1,4,5]){const d=RS_D[f];for(const dy of [0,1,-1]){const c=cmap.get((x+d[0])+','+(y+dy)+','+(z+d[2]));if(c&&(dy===0||c[3]===WIRE)){con.push(f);break;}}}
+    for(const f of [0,1,4,5]){if(con.length&&!con.every(g=>g===f||g===(f^1)))continue;const d=RS_D[f];bump(weak,x+d[0],y,z+d[2],v);}
+  }
+  // power reaching (x,y,z) from its neighbour in direction f
+  const lvlFrom=(x,y,z,f,noWire)=>{
+    const d=RS_D[f],nk=(x+d[0])+','+(y+d[1])+','+(z+d[2]),c=cmap.get(nk);
+    if(c){if(c[3]===WIRE)return noWire?0:(np.get(nk)||0);return rsEmit(c[3],nk,f^1);}
+    return Math.max(strong.get(nk)||0,noWire?0:(weak.get(nk)||0));
   };
+  const pw=(x,y,z,skip,noWire)=>{let m=0;for(let f=0;f<6;f++){if(f===skip)continue;const v=lvlFrom(x,y,z,f,noWire);if(v>m)m=v;}return m;};
+  let movers=null;
+  if(sculk){
+    movers=[];
+    if(rsMe&&!dead&&!sneaking&&Math.hypot(P.x-rsMe[0],P.y-rsMe[1],P.z-rsMe[2])>.08)movers.push([P.x,P.y,P.z]);
+    for(const p of MP.peers.values()){if(p.seen&&p._rs&&!p.cr&&Math.hypot(p.x-p._rs[0],p.y-p._rs[1],p.z-p._rs[2])>.08)movers.push([p.x,p.y,p.z]);p._rs=[p.x,p.y,p.z];}
+    for(const m of mobs){if(m._rs&&Math.hypot(m.x-m._rs[0],m.y-m._rs[1],m.z-m._rs[2])>.05)movers.push([m.x,m.y,m.z]);m._rs=[m.x,m.y,m.z];}
+  }
+  rsMe=[P.x,P.y,P.z];
+  const chanNext=new Set(), next=[], fans=[], pads=[];
   for(const [x,y,z,id,k] of comps){
-    if(id===LAMP||id===LAMP_ON){const p=powered(x,y,z,-1);if(p&&id===LAMP)setBlock(x,y,z,LAMP_ON,{noSync:true});else if(!p&&id===LAMP_ON)setBlock(x,y,z,LAMP,{noSync:true});}
-    else if(id===TNT||id===MEGA_TNT){if(powered(x,y,z,-1))igniteTNT(x,y,z,3);}
-    else if(id===PISTON||id===PISTON_ON){
-      const f=meta[k]|0, p=powered(x,y,z,f);
-      if(p&&id===PISTON)extendPiston(x,y,z,f); else if(!p&&id===PISTON_ON)retractPiston(x,y,z,f);
+    switch(id){
+      case LAMP: case LAMP_ON:{const p=pw(x,y,z,-1)>0;if(p!==(id===LAMP_ON))setBlock(x,y,z,p?LAMP_ON:LAMP,{noSync:true});break;}
+      case TNT: case MEGA_TNT: if(pw(x,y,z,-1)>0)igniteTNT(x,y,z,3); break;
+      case PISTON: case PISTON_ON: case STICKY: case STICKY_ON:{
+        const f=meta[k]|0, p=pw(x,y,z,f)>0, on=id===PISTON_ON||id===STICKY_ON, st=id===STICKY||id===STICKY_ON;
+        if(p&&!on)extendPiston(x,y,z,f,st); else if(!p&&on)retractPiston(x,y,z,f,st); break;}
+      case DOOR_LO: case DOOR_LO_O:{
+        const p=pw(x,y,z,-1)>0||pw(x,y+1,z,-1)>0, seen=rsEdge.has(k);
+        if(rsEdge.get(k)!==p){rsEdge.set(k,p);if((seen||p)&&p!==(id===DOOR_LO_O)){setBlock(x,y,z,p?DOOR_LO_O:DOOR_LO,{noSync:true});if(DEF[getBlock(x,y+1,z)].door===2)setBlock(x,y+1,z,p?DOOR_HI_O:DOOR_HI,{noSync:true});sfxClick(300,.25,.08);}}
+        break;}
+      case NOTEBLOCK: case DISPENSER: case PLACER: case BREAKER: case LAUNCHPAD:{
+        const p=pw(x,y,z,-1)>0, seen=rsEdge.has(k), was=!!rsEdge.get(k); rsEdge.set(k,p);
+        if(id===LAUNCHPAD&&p)pads.push([x,y,z]);
+        if(!p||was||!seen)break;
+        if(id===NOTEBLOCK)rsNote(x,y,z,meta[k]|0);
+        else if(id===LAUNCHPAD)rsPadFire(x,y,z);
+        else if(rsAuth(x+.5,z+.5)){if(id===DISPENSER)rsDispense(x,y,z,k);else if(id===PLACER)rsPlace(x,y,z,k);else rsBreak(x,y,z,k);}
+        break;}
+      case HOPPER: if(pw(x,y,z,-1)===0&&rsTick%4===0&&rsAuth(x+.5,z+.5))rsHopper(x,y,z,k); break;
+      case FAN: if(pw(x,y,z,-1)>0)fans.push([x,y,z,meta[k]|0]); break;
+      case TRANSMITTER: if(pw(x,y,z,-1)>0)chanNext.add(meta[k]|0); break;
+      case RS_CLOCK: if(pw(x,y,z,-1,true)>0)rsStop.add(k);else rsStop.delete(k); break;
+      case SCULK:{
+        if(rsPulse.get(k)>0||(rsCool.get(k)||0)>rsTick)break;
+        if(movers.some(m=>Math.hypot(m[0]-x-.5,m[1]-y,m[2]-z-.5)<8)){rsPulse.set(k,10);rsCool.set(k,rsTick+25);
+          for(let i=0;i<8;i++)glowPart([60,220,230],x+.5,y+1,z+.5,(Math.random()-.5)*2,1+Math.random()*2,(Math.random()-.5)*2,.6,0);sfxClick(2400,.15,.05);}
+        break;}
+      // the parts below switch next tick
+      case RS_TORCH: case RS_TORCH_OFF:{const want=lvlFrom(x,y,z,2)>0?RS_TORCH_OFF:RS_TORCH;if(want!==id)next.push([x,y,z,want]);break;}
+      case REPEATER: case REPEATER_ON:{
+        const m=meta[k]|0, f=m&7, want=lvlFrom(x,y,z,f^1)>0?REPEATER_ON:REPEATER, pd=rsPend.get(k);
+        if(want===id)rsPend.delete(k); else if(!pd||pd.to!==want)rsPend.set(k,{t:(m>>3)+1,to:want}); break;}
+      case COMPARATOR: case COMPARATOR_ON:{
+        const m=meta[k]|0, f=m&7, sd=RS_SIDES[f], bd=RS_D[f^1], bx=x+bd[0], by=y+bd[1], bz=z+bd[2];
+        let back=lvlFrom(x,y,z,f^1); if(rsIsBox(getBlock(bx,by,bz)))back=Math.max(back,rsFill(bx+','+by+','+bz));
+        const side=Math.max(lvlFrom(x,y,z,sd[0]),lvlFrom(x,y,z,sd[1])), out=(m>>3)&1?Math.max(0,back-side):(back>=side?back:0);
+        next.push([x,y,z,out>0?COMPARATOR_ON:COMPARATOR,k,out]); break;}
     }
   }
+  for(const [x,y,z,id,k,out] of next){
+    if(out!==undefined){if(out>0)rsLvl.set(k,out);else rsLvl.delete(k);}
+    if(getBlock(x,y,z)!==id)setBlock(x,y,z,id,{noSync:true});
+  }
+  for(const [k,pd] of rsPend){
+    if(--pd.t>0)continue; rsPend.delete(k);
+    const p=k.split(',').map(Number), b=getBlock(p[0],p[1],p[2]);
+    if((b===REPEATER||b===REPEATER_ON)&&b!==pd.to)setBlock(p[0],p[1],p[2],pd.to,{noSync:true});
+  }
+  for(const c of rsChanPulse.keys())chanNext.add(c);
+  rsChanOn=chanNext; rsFans=fans; rsPads=pads;
 }
-function extendPiston(x,y,z,f){
+// ---- what the machines do ----
+function rsNote(x,y,z,p){
+  const hue=p/24*6.28; glowPart([128+127*Math.sin(hue),128+127*Math.sin(hue+2.1),128+127*Math.sin(hue+4.2)],x+.5,y+1.2,z+.5,0,1.6,0,.9,0);
+  const a=audio(); if(!a)return; const dist=Math.hypot(P.x-x-.5,P.y-y,P.z-z-.5); if(dist>48)return;
+  const vol=Math.min(.32,5/(dist+5)), b=getBlock(x,y-1,z);
+  if([STONE,COBBLE,STONE_BRICKS,SMOOTH_STONE,MOSSY_COBBLE,OBSIDIAN,BRICK,SANDSTONE,TUFF_BRICKS].includes(b)){sfxClick(90+p*6,vol*1.8,.2);return;}
+  if(b===SAND||b===GRAVEL){sfxClick(1800+p*40,vol*1.2,.12);return;}
+  if(b===GLASS){sfxClick(6000+p*80,vol,.04);return;}
+  const wood=PLANKSET.includes(b)||LOGS.includes(b), wool=[WOOL,RED_WOOL,YELLOW_WOOL,BLACK_WOOL].includes(b);
+  const [type,mul,att,dec]=wood?['triangle',.5,.005,.5]:b===GOLD_BLOCK?['sine',4,.003,1.4]:wool?['sine',2,.06,.6]:b===IRON_BLOCK?['square',2,.003,.25]:['triangle',1,.004,.9];
+  const t=a.currentTime, o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.setValueAtTime(440*Math.pow(2,(p-15)/12)*mul,t);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(type==='square'?vol*.4:vol,t+att); g.gain.exponentialRampToValueAtTime(.0001,t+dec);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t+dec+.05);
+}
+function rsSmoke(x,y,z,d){for(let i=0;i<6;i++)glowPart([150,150,150],x+.5+d[0]*.6,y+.5+d[1]*.6,z+.5+d[2]*.6,d[0]*2+(Math.random()-.5),d[1]*2+Math.random(),d[2]*2+(Math.random()-.5),.5,-1);}
+function rsDispense(x,y,z,k){
+  const c=chests[k], f=meta[k]|0, d=RS_D[f];
+  const idx=c?c.map((s,i)=>s?i:-1).filter(i=>i>=0):[]; if(!idx.length){sfxClick(1400,.25,.03);return;}
+  const i=idx[Math.floor(Math.random()*idx.length)], s=c[i], ox=x+.5+d[0]*.75, oy=y+.5+d[1]*.75, oz=z+.5+d[2]*.75;
+  let used=true;
+  if(s.id===ARROW){const v=30;spawnArrow(ox,oy,oz,d[0]*v,d[1]*v+1,d[2]*v,.9,true);sfxTwang(.6);
+    if(MP.connected)mpSend({t:'arw',x:+ox.toFixed(2),y:+oy.toFixed(2),z:+oz.toFixed(2),vx:d[0]*v,vy:d[1]*v+1,vz:d[2]*v});}
+  else if(s.id===TNT||s.id===MEGA_TNT){const tx=x+d[0],ty=y+d[1],tz=z+d[2];
+    if(getBlock(tx,ty,tz)===AIR&&setBlock(tx,ty,tz,s.id)){igniteTNT(tx,ty,tz,3);mpSend({t:'ign',x:tx,y:ty,z:tz});}else used=false;}
+  else if(s.id===GRENADE||s.id===FLASHBANG){const k2=s.id===GRENADE?'g':'f',v=14,vy=d[1]*v+3;spawnNade(k2,ox,oy,oz,d[0]*v,vy,d[2]*v,MP.id);
+    if(MP.connected)mpSend({t:'nade',k:k2,x:+ox.toFixed(2),y:+oy.toFixed(2),z:+oz.toFixed(2),vx:d[0]*v,vy,vz:d[2]*v,by:MP.id});}
+  else spawnDrop(s.id,ox,oy-.15,oz,d[0]*5,d[1]*5+1.5,d[2]*5,.6,1,s.dur);
+  if(used){if(--s.n<=0)c[i]=null;rsBoxSync(k);}
+  rsSmoke(x,y,z,d);
+}
+function rsPlace(x,y,z,k){
+  if(worldMG)return; const c=chests[k]; if(!c)return;
+  const f=meta[k]|0, d=RS_D[f], tx=x+d[0], ty=y+d[1], tz=z+d[2], tk=tx+','+ty+','+tz, cur=getBlock(tx,ty,tz);
+  if(!(cur===AIR||cur===WATER||SOFT.has(cur))){sfxClick(1400,.2,.03);return;}
+  for(let i=0;i<c.length;i++){
+    const s=c[i]; if(!s||s.id===SHULKER)continue;
+    const pid=DEF[s.id].places||s.id, pd=DEF[pid];
+    if(pid>255||!pd||(DEF[s.id].item&&!DEF[s.id].places)||pd.door||pd.crop||pid===WATER||pid===LAVA)continue;
+    if((pd.plant||pd.flat)&&!solid(getBlock(tx,ty-1,tz)))continue;
+    if(pd.facing||pd.hfacing)meta[tk]=pd.hfacing&&(f===2||f===3)?4:(pid===HOPPER&&f===3?2:f);
+    if(!setBlock(tx,ty,tz,pid))return;
+    if(rsIsBox(pid)&&!chests[tk]){chests[tk]=new Array(27).fill(null);}
+    if(--s.n<=0)c[i]=null; rsBoxSync(k); sfxClick(500,.3,.06); return;
+  }
+  sfxClick(1400,.25,.03);
+}
+function rsBreak(x,y,z,k){
+  if(worldMG)return;
+  const f=meta[k]|0, d=RS_D[f], tx=x+d[0], ty=y+d[1], tz=z+d[2], b=getBlock(tx,ty,tz);
+  if(b===AIR||b===WATER||b===LAVA||ty<=0||RS_NOBREAK.has(b)||DEF[b].door)return;
+  if(rsIsBox(b)&&b!==SHULKER)spillChest(tx,ty,tz);
+  if(!setBlock(tx,ty,tz,b===ICE?WATER:AIR))return;
+  if(b===SHULKER)shulkerBreak(tx,ty,tz); else for(const dd of dropsOf(b))spawnDrop(dd,tx+.5,ty+.5,tz+.5);
+  burst(b,tx,ty,tz); sfxClick(380,.35,.09);
+}
+function rsHopper(x,y,z,k){
+  const c=chests[k]||(chests[k]=new Array(27).fill(null)); let ch=false;
+  const ak=x+','+(y+1)+','+z, ab=getBlock(x,y+1,z);
+  if(rsIsBox(ab)&&chests[ak]){const src=chests[ak],i=src.findIndex(Boolean);if(i>=0&&rsBoxAdd(c,src[i].id,src[i].dur)){if(--src[i].n<=0)src[i]=null;ch=true;rsBoxSync(ak);}}
+  else if(!solid(ab))for(let i=drops.length-1;i>=0;i--){
+    const dr=drops[i]; if(Math.floor(dr.x)!==x||Math.floor(dr.z)!==z||dr.y<y+.8||dr.y>y+2.2)continue;
+    const before=dr.n; while(dr.n>0&&rsBoxAdd(c,dr.id,dr.dur))dr.n--;
+    if(dr.n!==before){ch=true;if(MP.connected)mpSend({t:'take',k:dr.nid,n:dr.n});}
+    if(dr.n<=0)removeDrop(i); break;
+  }
+  const f=meta[k]|0, d=RS_D[f], tx=x+d[0], ty=y+d[1], tz=z+d[2], tk=tx+','+ty+','+tz, tb=getBlock(tx,ty,tz);
+  if(rsIsBox(tb)){const dst=chests[tk]||(chests[tk]=new Array(27).fill(null)),i=c.findIndex(Boolean);if(i>=0&&rsBoxAdd(dst,c[i].id,c[i].dur)){if(--c[i].n<=0)c[i]=null;ch=true;rsBoxSync(tk);}}
+  if(ch)rsBoxSync(k);
+}
+function rsLaunchMe(){V.y=24;maceSafe=true;airMaxY=P.y;onGround=false;sfxTwang(1.4);for(let i=0;i<14;i++)glowPart([255,180,60],P.x,P.y+.1,P.z,(Math.random()-.5)*5,Math.random()*6,(Math.random()-.5)*5,.5,10);}
+function rsPadFire(x,y,z){
+  if(!dead&&!riding&&Math.floor(P.x)===x&&Math.floor(P.y+.05)===y&&Math.floor(P.z)===z)rsLaunchMe();
+  if(!MP.connected||MP.isHost)for(const m of mobs)if(!m.remote&&Math.floor(m.x)===x&&Math.floor(m.z)===z&&Math.abs(m.y-y)<1)m.vy=20;
+}
+// fans and launch pads act every frame while powered
+function rsFrame(dt){
+  for(const [x,y,z,f] of rsFans){
+    const d=RS_D[f], cx=x+.5, cy=y+.5, cz=z+.5;
+    let reach=10; for(let i=1;i<=10;i++)if(solid(getBlock(x+d[0]*i,y+d[1]*i,z+d[2]*i))){reach=i-1;break;}
+    if(reach<=0)continue;
+    const push=(ex,ey,ez,fn)=>{const rx=ex-cx,ry=ey-cy,rz=ez-cz,al=rx*d[0]+ry*d[1]+rz*d[2];if(al<0||al>reach+.5)return;
+      if(Math.hypot(rx-al*d[0],ry-al*d[1],rz-al*d[2])>1.1)return;fn(1-al/(reach+1));};
+    if(!dead&&!riding)push(P.x,P.y+.9,P.z,s2=>{if(d[1]>0){V.y=Math.max(V.y,4+9*s2);airMaxY=P.y;}else if(d[1]<0)V.y=Math.min(V.y,-6*s2);else{moveAxis('x',d[0]*11*s2*dt);moveAxis('z',d[2]*11*s2*dt);}});
+    if(!MP.connected||MP.isHost)for(const m of mobs)if(!m.remote&&m.type!=='dragon')push(m.x,m.y+m.h*.5,m.z,s2=>{if(d[1]>0)m.vy=Math.max(m.vy||0,4+9*s2);else{entAxis(m,'x',d[0]*9*s2*dt);entAxis(m,'z',d[2]*9*s2*dt);}});
+    for(const dr of drops)push(dr.x,dr.y,dr.z,s2=>{dr.vx+=d[0]*30*s2*dt;dr.vy+=d[1]*40*s2*dt+(d[1]>0?20*dt:0);dr.vz+=d[2]*30*s2*dt;});
+    if(Math.random()<dt*12){const t=Math.random()*reach+.6,R=()=>(Math.random()-.5)*.8;glowPart([230,240,255],cx+d[0]*t+R(),cy+d[1]*t+R(),cz+d[2]*t+R(),d[0]*6,d[1]*6,d[2]*6,.35,0);}
+  }
+  if(rsPads.length&&onGround&&!dead&&!riding){const px=Math.floor(P.x),py=Math.floor(P.y+.05),pz=Math.floor(P.z);for(const [x,y,z] of rsPads)if(x===px&&y===py&&z===pz){rsLaunchMe();break;}}
+}
+// right-click on a redstone part changes its setting; returns true when it handled the click
+function rsUse(t,peek){
+  const id=t.id, k=t.x+','+t.y+','+t.z, m=meta[k]|0;
+  const handles=[REPEATER,REPEATER_ON,COMPARATOR,COMPARATOR_ON,DAYLIGHT,NOTEBLOCK,RS_CLOCK,TRANSMITTER,RECEIVER,DISPENSER,HOPPER,PLACER].includes(id);
+  if(!handles)return false;
+  if(sneaking&&inv[sel]&&!DEF[inv[sel].id].item)return false;   // crouch + block in hand: place against it
+  if(peek&&(id===TRANSMITTER||id===RECEIVER)&&inv[sel]&&inv[sel].id===REMOTE){const c=m;inv[sel].dur=c;drawSlot(sel);saveSoon();toast('Remote set to channel '+c);return true;}
+  const set=(v,msg)=>{meta[k]=v;setBlock(t.x,t.y,t.z,id);sfxClick(900,.3,.04);swing();if(msg)toast(msg);};
+  switch(id){
+    case REPEATER: case REPEATER_ON:{const d=((m>>3)+1)%4;set((m&7)|(d<<3),'Delay: '+(d+1)+' tick'+(d?'s':'')+' ('+((d+1)/10).toFixed(1)+' s)');return true;}
+    case COMPARATOR: case COMPARATOR_ON:{const md=((m>>3)&1)^1;set((m&7)|(md<<3),md?'Subtract mode: back signal minus the strongest side':'Compare mode: passes the back signal unless a side is stronger');return true;}
+    case DAYLIGHT: set(m?0:1,m?'Daylight sensor: on during the day':'Inverted: on at night'); return true;
+    case NOTEBLOCK:{const p=(m+(sneaking?24:1))%25;set(p,'Note: '+RS_NOTE[p%12]+(3+Math.floor((p+6)/12)));rsNote(t.x,t.y,t.z,p);return true;}
+    case RS_CLOCK:{const v=(m+1)%RS_HALF.length;set(v,'Clock: pulses every '+(RS_HALF[v]*.2).toFixed(1)+' s');return true;}
+    case TRANSMITTER: case RECEIVER:{const c=(m+(sneaking?15:1))%16;set(c,(id===TRANSMITTER?'Transmitter':'Receiver')+' channel '+c+(sneaking?'':' · crouch to go back'));return true;}
+    default: swing(); openBag(CHEST,t); return true;
+  }
+}
+function useRemote(){
+  const it=inv[sel], ch=(it.dur|0)%16;
+  if(sneaking){it.dur=(ch+1)%16;drawSlot(sel);saveSoon();toast('Remote channel '+it.dur+' · use it on a receiver to copy its channel');return;}
+  swing(); rsChanPulse.set(ch,10); if(MP.connected)mpSend({t:'rsch',c:ch}); sfxClick(1500,.3,.04); toast('Pulsed channel '+ch);
+}
+function extendPiston(x,y,z,f,sticky){
   const d=FACES[f].dir; let end=-1;
   for(let k=1;k<=13;k++){
     const by=y+d[1]*k, b=getBlock(x+d[0]*k,by,z+d[2]*k);
     if(b===AIR||b===WATER||DEF[b].plant||DEF[b].flat){end=k;break;}
-    if(b===PISTON_ON||b===PISTON_HEAD||k===13||by<=0||by>=H-1)return;
+    if(RS_IMMOVABLE.has(b)||DEF[b].door||k===13||by<=0||by>=H-1)return;
   }
   if(end<0)return;
   for(let j=end-1;j>=1;j--){
     const sx=x+d[0]*j,sy=y+d[1]*j,sz=z+d[2]*j, b=getBlock(sx,sy,sz);
     const sk=sx+','+sy+','+sz, tk=(sx+d[0])+','+(sy+d[1])+','+(sz+d[2]);
     if(meta[sk]!==undefined)meta[tk]=meta[sk];
-    if(b===CHEST&&chests[sk]){chests[tk]=chests[sk];delete chests[sk];}
+    if(rsIsBox(b)&&chests[sk]){chests[tk]=chests[sk];delete chests[sk];}
     setBlock(sx+d[0],sy+d[1],sz+d[2],b,{noSync:true});
   }
   meta[(x+d[0])+','+(y+d[1])+','+(z+d[2])]=f;
   setBlock(x+d[0],y+d[1],z+d[2],PISTON_HEAD,{noSync:true});
-  setBlock(x,y,z,PISTON_ON,{noSync:true});
+  setBlock(x,y,z,sticky?STICKY_ON:PISTON_ON,{noSync:true});
 }
-function retractPiston(x,y,z,f){
+function retractPiston(x,y,z,f,sticky){
   const d=FACES[f].dir, hx=x+d[0],hy=y+d[1],hz=z+d[2];
-  if(getBlock(hx,hy,hz)===PISTON_HEAD)setBlock(hx,hy,hz,AIR,{noSync:true});
-  setBlock(x,y,z,PISTON,{noSync:true});
+  if(getBlock(hx,hy,hz)===PISTON_HEAD){
+    const bx=hx+d[0],by=hy+d[1],bz=hz+d[2], b=sticky?getBlock(bx,by,bz):AIR;
+    if(sticky&&b!==AIR&&b!==WATER&&b!==LAVA&&!DEF[b].plant&&!DEF[b].flat&&!RS_IMMOVABLE.has(b)&&!DEF[b].door){
+      const sk=bx+','+by+','+bz, tk=hx+','+hy+','+hz;
+      if(meta[sk]!==undefined)meta[tk]=meta[sk];
+      if(rsIsBox(b)&&chests[sk]){chests[tk]=chests[sk];delete chests[sk];}
+      setBlock(hx,hy,hz,b,{noSync:true}); setBlock(bx,by,bz,AIR,{noSync:true});
+    }else setBlock(hx,hy,hz,AIR,{noSync:true});
+  }
+  setBlock(x,y,z,sticky?STICKY:PISTON,{noSync:true});
 }
 const tnts=[], matFlash=new THREE.MeshBasicMaterial({color:0xffffff});
 function igniteTNT(x,y,z,fuse){
@@ -3751,7 +4078,7 @@ function explode(cx,cy,cz,r){
     if(id===TNT||id===MEGA_TNT){igniteTNT(bx,by,bz,.4+Math.random()*.6);continue;}
     if(id===OBSIDIAN||id===SPAWNER||id===LAVA||id===PORTAL||id===DEMON_PORTAL||id===DEMON_BRICKS||id===DEMON_SPAWNER||id===DEMONISER||id===DEMON_ORE||id===NETHERITE_BLOCK||demonBlocks.has(bx+','+by+','+bz))continue;
     const auth=!MP.connected||MP.isHost;   // explosions run on every player's game; only the host drops loot so items aren't doubled
-    if(id===CHEST)spillChest(bx,by,bz,!auth);
+    if(id===CHEST||RS_BOX.has(id))spillChest(bx,by,bz,!auth);
     if(id===SHULKER){if(auth)shulkerBreak(bx,by,bz);else delete chests[bx+','+by+','+bz];}
     setBlock(bx,by,bz,AIR,{noSync:true});
     if(auth&&Math.random()<.2)for(const dd of dropsOf(id))spawnDrop(dd,bx+.5,by+.5,bz+.5);
@@ -3771,7 +4098,9 @@ function tickRedstone(dt){
     if(pb===PLATE||pb===PLATE_ON){if(pb===PLATE)setBlock(px,py,pz,PLATE_ON);myPlate=[px,py,pz];}
     else if(myPlate){const [a,b,c]=myPlate;myPlate=null;if(getBlock(a,b,c)===PLATE_ON)setBlock(a,b,c,PLATE);}
   }
-  if(rsDirty){rsDirty=false;recomputeRS();}
+  rsDirty=false;
+  rsAcc+=dt; if(rsAcc>=.1){rsAcc=Math.min(rsAcc-.1,.2);if(rsSet.size)rsStep();}
+  rsFrame(dt);
 }
 
 // ---------- crafting ----------
@@ -3826,7 +4155,14 @@ const RECIPES=[];
   r(IGNITER,1,[[IRON,1],['fuel',1]]); r(TOTEM,1,[[GOLD_BLOCK,2],[DIAMOND,2],[GOLDEN_APPLE,1]],TABLE);
   r(TUFF_BRICKS,4,[[COBBLE,3],[GRAVEL,1]],TABLE); r(COPPER_BULB,1,[[GOLD,1],[REDSTONE,2],[TORCH,1]],TABLE);
   r(CINDER_BRICKS,4,[[EMBERROCK,4],['fuel',1]],FURNACE); r(GOLD,1,[[EMBER_ORE,1],['fuel',1]],FURNACE);
-  r(PISTON,1,[['planks',3],[COBBLE,4],[IRON,1],[REDSTONE,1]],TABLE); r(TNT,1,[[SAND,4],['fuel',4],[REDSTONE,1]],TABLE);
+  r(PISTON,1,[['planks',3],[COBBLE,4],[IRON,1],[REDSTONE,1]],TABLE);
+  r(REPEATER,1,[[RS_TORCH,2],[REDSTONE,1],[COBBLE,3]],TABLE); r(COMPARATOR,1,[[RS_TORCH,3],[GOLD,1],[COBBLE,3]],TABLE);
+  r(OBSERVER,1,[[COBBLE,6],[REDSTONE,2],[IRON,1]],TABLE); r(DAYLIGHT,1,[[GLASS,3],['planks',3],[GOLD,1]],TABLE); r(NOTEBLOCK,1,[['planks',8],[REDSTONE,1]],TABLE);
+  r(DISPENSER,1,[[COBBLE,7],[BOW,1],[REDSTONE,1]],TABLE); r(HOPPER,1,[[IRON,5],[CHEST,1]],TABLE); r(SLIME,2,[[FIBER,6],[WATER_BOTTLE,1]]);
+  r(STICKY,1,[[PISTON,1],[SLIME,1]]); r(TARGET,1,[[WHEAT,4],[REDSTONE,4]],TABLE); r(RS_CLOCK,1,[[RS_BLOCK,1],[GOLD,2],[REDSTONE,2]],TABLE);
+  r(TRANSMITTER,1,[[IRON,3],[REDSTONE,4],[GOLD,1]],TABLE); r(RECEIVER,1,[[IRON,3],[REDSTONE,4],[GOLD,1]],TABLE); r(REMOTE,1,[[IRON,1],[REDSTONE,2],[GOLD,1]],TABLE);
+  r(SCULK,1,[[REDSTONE,3],[WOOL,3],[GOLD,1]],TABLE); r(FAN,1,[[IRON,4],[FIBER,4],[REDSTONE,1]],TABLE); r(LAUNCHPAD,1,[[IRON,2],[REDSTONE,2],[SLIME,1]],TABLE);
+  r(BREAKER,1,[[COBBLE,7],[IRON_PICK,1],[REDSTONE,1]],TABLE); r(PLACER,1,[[COBBLE,7],['planks',1],[REDSTONE,2]],TABLE); r(TNT,1,[[SAND,4],['fuel',4],[REDSTONE,1]],TABLE);
 }
 const GROUPS={planks:{name:'Planks (any)',ids:PLANKSET},log:{name:'Log (any)',ids:LOGS},fuel:{name:'Coal or Charcoal',ids:[COAL,CHARCOAL]}};
 const ingIds=k=>typeof k==='string'?GROUPS[k].ids:[k];
@@ -3918,7 +4254,7 @@ const INFO_SRC={
   [NETHERITE_SCRAP]:'Smelt Netherite Ore. Demons and overlords drop it.',[SEEDS]:'Break tall grass, or till grass with a hoe.',[SAPLING]:'Sometimes drops from leaves.',[WOOL]:'Sheep.',[RAW_MEAT]:'Cows, pigs, sheep and chickens.',
   [END_STONE]:'The End island.',[TUFF_BRICKS]:'Trial chambers, or craft it.',[COPPER_TILE]:'Trial chambers.',[DEMON_BRICKS]:'Demon fortresses.',[CINDER_BRICKS]:'Nether ruins, or smelt emberrock.',[DRAGON_EGG]:'Appears when the Ender Dragon dies.',
 };
-const INFO_SKIP=new Set([AIR,WATER,LAVA,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O,CORRUPT_SWORD,PORTAL,DEMON_PORTAL,END_PORTAL,SPAWNER,DEMON_SPAWNER,END_CRYSTAL]);
+const INFO_SKIP=new Set([AIR,WATER,LAVA,RS_TORCH_OFF,REPEATER_ON,COMPARATOR_ON,STICKY_ON,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O,CORRUPT_SWORD,PORTAL,DEMON_PORTAL,END_PORTAL,SPAWNER,DEMON_SPAWNER,END_CRYSTAL]);
 const MOB_INFO=[
   ['Shambler','Slow undead that comes out at night and burns in daylight. Drops stale meat.'],['Skitter','Fast night crawler. Burns in daylight.'],
   ['Voidling','Tall dark wanderer from the End, sometimes seen at night. Leaves you alone until you hit it. Drops Ender Pearls.'],
@@ -3973,7 +4309,8 @@ const SYS_INFO=[
   ['Wind charges','Throw with E. They burst into a gust that flings mobs and launches you high if you’re close (no fall damage). Great for rocket-jumping. Maces can get the Wind Burst enchant for bigger launches.'],
   ['Mace','Hit while falling for a smash: extra damage the further you fell, no fall damage, nearby mobs knocked away.'],
   ['Trial spawners','Wake when you come close and send a wave of mobs. Beat it for loot; it rests 4 minutes.'],
-  ['Redstone','Levers, buttons and pressure plates power wire, lamps, pistons and TNT. Mega TNT has double the blast.'],
+  ['Redstone','Levers, buttons, pressure plates, redstone blocks and torches power wire (up to 15 blocks), lamps, pistons, doors and TNT. A redstone torch turns OFF when the block under it is powered, so you can build NOT gates and clocks. Repeaters boost and delay signals, comparators compare or subtract and read chests. Also: observers, daylight sensors, note blocks, dispensers, hoppers, sticky pistons, slime blocks, targets, clocks, wireless transmitters/receivers + remote, sculk sensors, fans, launch pads, block breakers and block placers. Mega TNT has double the blast.'],
+  ['Redstone tips','Wire powers the block under it and the block it points into; that block then powers things next to it. Repeaters, comparators and observers only output from their arrow/back. Use (E) on repeaters, comparators, note blocks, clocks, sensors and transmitters to change their setting; crouch + E with a block in hand places against them instead.'],
   ['Doors, ladders, slabs, stairs','Doors open with E. Ladders: walk forward or jump to climb, C to hold still. Two slabs make a full block. You step up slabs and stairs automatically.'],
   ['Multiplayer','Create a Multiplayer world to host, or join with a code / from Public servers. Chests, drops, mobs and blocks sync; PvP can be turned off.'],
   ['Mods','Install mods from the Mods page. Server mods (like The Corruption) run on worlds you host; client mods only change your screen.'],
@@ -3989,7 +4326,7 @@ function infoBuild(){
   DEF.forEach((d,id)=>{
     if(!d||INFO_SKIP.has(id)||d.admin)return;
     const kind=d.tool?'Tools':d.armor?'Tools':d.potion||d.food?'Items':d.item?'Items':'Blocks';
-    const lines=[];
+    const lines=[]; if(d.desc)lines.push(d.desc);
     if(d.tool&&d.tool.kind==='grapple')lines.push('Tool · never breaks');else if(d.tool)lines.push(d.tool.kind==='sword'||d.tool.kind==='mace'||d.tool.kind==='spear'?'Weapon · '+d.tool.dmg+' damage · '+d.tool.max+' durability':'Tool · '+d.tool.max+' durability');
     if(d.armor)lines.push('Armor · '+d.armor.pts+' protection points');
     if(d.food)lines.push('Food · fills '+d.food+(d.heal?' · heals '+d.heal/2+' hearts':''));
@@ -4241,7 +4578,7 @@ function removeItems(id,n){
   if(infHas(id))return;
   for(let i=INV-1;i>=0&&n>0;i--){const s=inv[i];if(!s||s.id!==id)continue;const t=Math.min(n,s.n);s.n-=t;n-=t;if(s.n<=0)inv[i]=null;drawSlot(i);}
 }
-const CREATIVE_IDS=DEF.map((d,i)=>d?i:0).filter(i=>i&&!DEF[i].admin&&i!==WATER&&![LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O,CORRUPT_SWORD].includes(i));
+const CREATIVE_IDS=DEF.map((d,i)=>d?i:0).filter(i=>i&&!DEF[i].admin&&i!==WATER&&![RS_TORCH_OFF,REPEATER_ON,COMPARATOR_ON,STICKY_ON,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,WHEAT_0+1,WHEAT_0+2,WHEAT_0+3,DOOR_LO,DOOR_HI,DOOR_LO_O,DOOR_HI_O,CORRUPT_SWORD].includes(i));
 function renderCreative(){
   stationTxt.textContent='Creative: click anything to add a full stack to your inventory. Blocks you place are never used up.';
   recipesEl.textContent='';
@@ -4320,7 +4657,8 @@ function gbFill(){const l=gbList(),pages=Math.max(1,Math.ceil(l.length/27));gbPa
 function gbLabel(t){
   const gb=openChestKey==='gunbox', pages=Math.max(1,Math.ceil(gbList().length/27));
   document.getElementById('gbPrev').hidden=document.getElementById('gbNext').hidden=!gb||pages<2;
-  const isSh=!gb&&t&&t.x!==undefined&&getBlock(t.x,t.y,t.z)===SHULKER;
+  const isSh=!gb&&t&&t.x!==undefined&&getBlock(t.x,t.y,t.z)===SHULKER, rb=!gb&&t&&t.x!==undefined?getBlock(t.x,t.y,t.z):0;
+  if(RS_BOX.has(rb)){document.getElementById('chestLabelT').textContent=DEF[rb].name+(rb===HOPPER?' · moves one item every 0.4 s':rb===PLACER?' · places one block per pulse':' · fires one item per pulse');bagTitle.textContent=DEF[rb].name;return;}
   if(openChestKey&&openChestKey.startsWith('guard')){document.getElementById('chestLabelT').textContent='Guard’s bag · it fights with the first gun inside, or its best melee weapon';bagTitle.textContent='Guard';return;}
   document.getElementById('chestLabelT').textContent=gb?'Admin Gun Box · page '+(gbPage+1)+'/'+pages+' · never runs out':isSh?'Shulker Box':'Chest';
   if(gb||isSh)bagTitle.textContent=gb?'Admin Gun Box':'Shulker Box';
@@ -5536,7 +5874,7 @@ function fireOnce(id){
       if(gunThin(b)){if(canBreak){setBlock(x,y,z,AIR);impactFx(b,o.x+d.x*t,o.y+d.y*t,o.z+d.z*t,-d.x,-d.y,-d.z,true);continue;}if(!solid(b))continue;bt=t;bc=[x,y,z];break;}
       if(woodBreaker&&canBreak&&gunWood(b)){setBlock(x,y,z,AIR);impactFx(b,o.x+d.x*t,o.y+d.y*t,o.z+d.z*t,-d.x,-d.y,-d.z,true);if(DEF[b].door){for(const dy of [-1,1])if(DEF[getBlock(x,y+dy,z)].door)setBlock(x,y+dy,z,AIR);}
         if(pen>0){pen--;continue;}bt=t;break;}
-      if(solid(b)||DEF[b].ladder){bt=t;bc=[x,y,z];break;}}
+      if(solid(b)||DEF[b].ladder){bt=t;bc=[x,y,z];if(b===TARGET)rsTargetHit(x,y,z,true);break;}}
     if(g.pierce){const end=o.clone().addScaledVector(d,bt);addTracer(mz,end,0x4fd8ff);for(let k=0;k<14;k++){const t=Math.random()*bt;glowPart([120,220,255],o.x+d.x*t,o.y+d.y*t,o.z+d.z*t,(Math.random()-.5),(Math.random()-.5),(Math.random()-.5),.5,0);}
       for(const m of [...mobs]){const t=rayBox(o,d,[m.x-m.hw,m.y,m.z-m.hw],[m.x+m.hw,m.y+m.h,m.z+m.hw],bt);if(t<0)continue;hitmark(false);burstC([120,220,255],m.x-.5,m.y+m.h*.5-.5,m.z-.5,10);if(m.type==='dummy')floatNum(m.x,m.y+m.h+.2,m.z,g.dmg,2);
         if(m.remote)mpSend({t:'mdmg',id:m.nid,dmg:g.dmg,kx:+(d.x*.6).toFixed(2),kz:+(d.z*.6).toFixed(2)});else{m.angry=true;m.flash=.2;m.hp-=g.dmg;m.vx=d.x*8;m.vz=d.z*8;m.vy=4;if(m.hp<=0)killMob(mobs.indexOf(m),true);}}
@@ -5663,7 +6001,7 @@ function updateArrows(dt){
         else{hit.angry=true;hit.flash=.15;hit.hp-=dmg;hit.vx=a.vx/sp*5;hit.vz=a.vz/sp*5;hit.vy=4;if(hit.passive)hit.flee=4;if(hit.hp<=0)killMob(mobs.indexOf(hit),true);}
         scene.remove(a.g);arrows.splice(i,1);continue;}}
     const b=getBlock(Math.floor(nx),Math.floor(ny),Math.floor(nz));
-    if(b!==AIR&&b!==WATER&&solid(b)){a.stuck=true;a.t=0;sfxClick(600,.4,.06);continue;}
+    if(b!==AIR&&b!==WATER&&solid(b)){a.stuck=true;a.t=0;sfxClick(600,.4,.06);if(b===TARGET)rsTargetHit(Math.floor(nx),Math.floor(ny),Math.floor(nz),false);continue;}
     if(a.t>12){scene.remove(a.g);arrows.splice(i,1);continue;}
     a.g.position.set(nx,ny,nz); a.g.lookAt(nx-a.vx,ny-a.vy,nz-a.vz);
   }
@@ -7520,7 +7858,7 @@ chatIn.addEventListener('keydown',e=>{
 // ---------- commands ----------
 const ITEM_KEYS={};
 DEF.forEach((d,i)=>{
-  if(!d||!i||[WATER,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,CORRUPT_SWORD].includes(i))return;
+  if(!d||!i||[WATER,RS_TORCH_OFF,REPEATER_ON,COMPARATOR_ON,STICKY_ON,LEVER_ON,BUTTON_ON,PLATE_ON,LAMP_ON,PISTON_ON,PISTON_HEAD,DRIP_DOWN,WIRE,CORRUPT_SWORD].includes(i))return;
   const k=d.name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,''); if(ITEM_KEYS[k]===undefined)ITEM_KEYS[k]=i;
 });
 function findItem(q){
@@ -8058,6 +8396,8 @@ function mpOnMsg(o){
       saveSoon();
     } break;
     case 'ign': igniteTNT(o.x|0,o.y|0,o.z|0,3); break;
+    case 'rsch': if(typeof o.c==='number')rsChanPulse.set((o.c|0)&15,10); break;
+    case 'rst': rsTargetHit(o.x|0,o.y|0,o.z|0,false); break;
     case 'xpo': if([o.x,o.y,o.z].every(v=>typeof v==='number'))spawnXP(o.x,o.y,o.z,Math.min(800,o.n|0)); break;
     case 'dd': meta['#dd']=1; break;
     case 'cor': if(o.c&&typeof o.c.x==='number'){const old=meta['#cor'];meta['#cor']=o.c;corDirty(old?old.r:0,o.c.r);} break;
