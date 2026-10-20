@@ -62,6 +62,36 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);
 #locbar .ld{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:1px solid rgba(0,0,0,.7);box-shadow:0 0 4px rgba(0,0,0,.6)}
 #locbar .ld i{position:absolute;left:50%;transform:translateX(-50%);font:700 9px monospace;color:#fff;text-shadow:0 1px 1px #000;font-style:normal;line-height:1}
 #locbar .ld b{position:absolute;left:50%;top:-15px;transform:translateX(-50%);font:600 10px var(--font-display,monospace);color:#fff;white-space:nowrap;text-shadow:0 1px 2px #000}
+#dashPanel .card{max-width:960px;width:calc(100% - 32px);max-height:calc(100vh - 48px);overflow:auto}
+#dashPanel .db-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#dashPanel .db-sub{font-size:12px;color:var(--muted)}
+#dashPanel .db-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:14px 0}
+#dashPanel .db-tile{border:1px solid var(--panel-edge);border-radius:6px;padding:10px 12px;background:rgba(255,255,255,.03)}
+#dashPanel .db-tile b{display:block;font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1.1}
+#dashPanel .db-tile span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#dashPanel .db-tile small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+#dashPanel .db-grid{display:grid;grid-template-columns:3fr 2fr;gap:12px}
+@media (max-width:720px){#dashPanel .db-grid{grid-template-columns:1fr}}
+#dashPanel .db-box{border:1px solid var(--panel-edge);border-radius:6px;padding:12px;background:rgba(255,255,255,.02);min-width:0}
+#dashPanel .db-box h3{margin:0 0 8px;font-family:var(--font-display);font-size:15px;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:8px}
+#dashPanel .db-box h3 button{all:unset;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted);text-decoration:underline}
+#dashPanel .db-chart{position:relative}
+#dashPanel .db-chart svg{display:block;width:100%;height:auto;overflow:visible}
+#dashPanel .db-tip{position:absolute;pointer-events:none;background:#0d100f;border:1px solid var(--panel-edge);border-radius:4px;padding:6px 8px;font-size:12px;color:var(--text);white-space:nowrap;transform:translate(-50%,-100%);display:none;z-index:2}
+#dashPanel .db-tip small{color:var(--muted)}
+#dashPanel table{width:100%;border-collapse:collapse;font-size:12px}
+#dashPanel th{text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--panel-edge);padding:5px 6px;white-space:nowrap}
+#dashPanel td{padding:5px 6px;border-bottom:1px solid rgba(242,239,228,.06);color:var(--text);white-space:nowrap}
+#dashPanel td.n,#dashPanel th.n{text-align:right;font-variant-numeric:tabular-nums}
+#dashPanel .db-hbar{display:grid;grid-template-columns:minmax(80px,1fr) 2fr auto;align-items:center;gap:8px;font-size:12px;margin:5px 0;color:var(--text)}
+#dashPanel .db-hbar i{display:block;height:12px;border-radius:0 4px 4px 0;background:#3987e5;min-width:2px}
+#dashPanel .db-feed{list-style:none;margin:0;padding:0;font-size:12px;max-height:220px;overflow:auto}
+#dashPanel .db-feed li{padding:5px 0;border-bottom:1px solid rgba(242,239,228,.06);color:var(--text)}
+#dashPanel .db-feed li small{color:var(--muted)}
+#dashPanel .db-tag{display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;border:1px solid var(--panel-edge);color:var(--muted);margin-right:6px}
+#dashPanel .db-setup ol{padding-left:20px;line-height:1.7;font-size:13px}
+#dashPanel .db-setup code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px}
+#dashPanel .scroll-x{overflow-x:auto}
 #moveBar{position:fixed;left:50%;bottom:calc(146px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:flex-end;gap:6px;z-index:22;transition:opacity .2s,transform .2s}
 #moveBar .mv-tag{font-family:var(--font-display);font-size:12px;letter-spacing:.08em;color:var(--muted);text-shadow:0 1px 0 rgba(0,0,0,.7);margin-right:4px;align-self:center;text-align:right;line-height:1.1}
 #moveBar.on .mv-tag{color:var(--accent)}
@@ -2452,7 +2482,7 @@ function toggleLatch(){startLatch();}
 function breakAt(t){
   const id=t.id, req=NEEDPICK[id]||0, ok=pickTier()>=req||rbHeld(), wasDm=demonBlocks.has(t.x+','+t.y+','+t.z)?(meta['d'+t.x+','+t.y+','+t.z]||1):0;
   if(!setBlock(t.x,t.y,t.z,id===ICE?WATER:AIR))return;
-  burst(id,t.x,t.y,t.z);
+  swStat.broken++; burst(id,t.x,t.y,t.z);
   if(heldTool()&&!DEF[id].plant)useTool();
   if(id===CHEST)spillChest(t.x,t.y,t.z);
   if(id===SHULKER)shulkerBreak(t.x,t.y,t.z);
@@ -2601,7 +2631,7 @@ function doPlace(){
     meta[x+','+y+','+z]=ay>=ax&&ay>=az?(camDir.y<0?2:3):ax>=az?(camDir.x<0?0:1):(camDir.z<0?4:5);
   }
   if(LEAFSET.has(pid))meta[x+','+y+','+z]=99; // player-placed leaves never decay
-  if(setBlock(x,y,z,pid,isDm(it)?{dm:tierOf(it)}:undefined)){swing();if(GM.mode!=='creative')takeSel();if(pid===CHEST)chests[x+','+y+','+z]=new Array(27).fill(null);
+  if(setBlock(x,y,z,pid,isDm(it)?{dm:tierOf(it)}:undefined)){swStat.placed++;swing();if(GM.mode!=='creative')takeSel();if(pid===CHEST)chests[x+','+y+','+z]=new Array(27).fill(null);
     if(pid===SHULKER){const sk=it.dur&&meta['shk'+it.dur], ck2=x+','+y+','+z;chests[ck2]=sk?sk.map(deser).concat(new Array(27).fill(null)).slice(0,27):new Array(27).fill(null);if(sk)delete meta['shk'+it.dur];mpSend({t:'c',k:ck2,d:chests[ck2].map(ser)});}}
 }
 // ---------- status effects, XP, farming, doors, potions ----------
@@ -3029,7 +3059,7 @@ function removeMob(i){
   mobs.splice(i,1);
 }
 function killMob(i,loot){
-  const m=mobs[i]; if(!m)return;
+  const m=mobs[i]; if(!m)return; if(loot&&!m.remote)swStat.kills++;
   if(m.type==='bot'&&!m.remote){if(worldMG&&mgIsHost()){const k=mgKiller||(loot&&!mgHostKill?MP.id:null);mgKiller=null;burstC([200,30,30],m.x-.5,m.y+.5,m.z-.5,16);mgHostEvent({t:'mgk',k:k&&k!==m.botId?k:null,x:+m.x.toFixed(1),y:+m.y.toFixed(1),z:+m.z.toFixed(1)},m.botId);botRespawnAt[m.botId]=performance.now()+3000;}removeMob(i);return;}
   if(worldMG&&loot){if(!mgHostKill&&worldMG==='gungame')mgEvent({t:'mgmk'});loot=false;}
   burstC(m.type==='shambler'?[138,150,163]:[80,60,96],m.x-.5,m.y+m.h*.4-.5,m.z-.5,14);
@@ -4391,6 +4421,7 @@ function updateTotemFx(dt){
   }
 }
 function die(){
+  swStat.deaths++;
   backPos=[P.x,P.y,P.z];
   closeBag(); dead=true; gliding=false; endGrapple();
   for(let i=0;i<INV;i++){const s=inv[i];if(!s)continue;spawnDrop(s.id,P.x,P.y+1,P.z,(Math.random()-.5)*4,Math.random()*3+2,(Math.random()-.5)*4,1,s.n,s.dur);inv[i]=null;}
@@ -4467,6 +4498,7 @@ window.addEventListener('keydown',e=>{
   if(e.target&&(e.target.tagName==='INPUT'||e.target.tagName==='SELECT'))return;
   if(chatOpen)return;
   if(turPanelOn()){if(e.code==='Escape'||e.code==='KeyT'){e.preventDefault();turPanelClose();}return;}
+  if(dashOn()){if(e.code==='Escape'){e.preventDefault();closeDashboard();}return;}
   if(['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Tab'].includes(e.code))e.preventDefault();
   if(paused){ if((e.code==='Enter'||e.code==='Space')&&!loading&&document.activeElement!==newBtn){e.preventDefault();closeMenu();} return; }
   if(dead){ if(e.code==='Enter'||e.code==='Space'){e.preventDefault();respawnPlayer();} return; }
@@ -4919,7 +4951,7 @@ const AP_MODS=[
   ['Rainbow Sky','Cycling rainbow daytime sky',()=>clientModOn('rainbowsky'),v=>setClientMod('rainbowsky',v)],
   ['FPS counter','Corner FPS readout',()=>clientModOn('fps'),v=>setClientMod('fps',v)],
 ];
-const AP_ACTS=[['Gun kit','/guns'],['Vehicles','/vehicles'],['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
+const AP_ACTS=[['Dashboard','/dashboard'],['Gun kit','/guns'],['Vehicles','/vehicles'],['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function apRow(k,v){return '<b>'+esc(k)+'</b><span>'+esc(v)+'</span>';}
 const DIMN=['Overworld','Nether','Demon Realm','The End'];
@@ -5467,6 +5499,7 @@ function addHole(x,y,z,nx,ny,nz){const m=new THREE.Mesh(new THREE.PlaneGeometry(
 function rayBox(o,d,mn,mx,maxT){let t0=0,t1=maxT;for(let a=0;a<3;a++){const oa=a?a===1?o.y:o.z:o.x, da=a?a===1?d.y:d.z:d.x;if(Math.abs(da)<1e-9){if(oa<mn[a]||oa>mx[a])return -1;continue;}let ta=(mn[a]-oa)/da,tb=(mx[a]-oa)/da;if(ta>tb){const q=ta;ta=tb;tb=q;}t0=Math.max(t0,ta);t1=Math.min(t1,tb);if(t0>t1)return -1;}return t0;}
 function hitmark(hs){const e=document.getElementById('hitmk');e.classList.toggle('hs',!!hs);e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),hs?220:120);}
 function fireOnce(id){
+  swStat.shots++;
   const g=gunStat(id), o=camera.position.clone(); camera.getWorldDirection(camDir);
   const moving=Math.hypot(V.x,V.z)>1, air=!onGround&&!flying;
   let spr=(g.spread*(moving?1.6:1)*(air?2.5:1)*(sneaking?.7:1)+gunBloom)*(gunAds>.8?g.ads:1-gunAds*(1-g.ads)); if(g.scope&&gunAds>.9)spr=0;
@@ -7190,7 +7223,7 @@ function useMove(i){
   if(moveCd[i]>0){if(mvBarEls){const b=mvBarEls[i];b.animate([{transform:'translateX(0)'},{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'translateX(0)'}],{duration:180});}sfxClick(400,.3,.05);return;}
   camera.getWorldDirection(camDir); const fl=new THREE.Vector3(camDir.x,0,camDir.z); if(fl.lengthSq()<1e-4)fl.set(-Math.sin(yaw),0,-Math.cos(yaw)); fl.normalize();
   curMove={k:M.k,i,t:0,dur:M.dur,dir:fl,aim:camDir.clone(),hit:new Set(),tick:0};
-  moveCd[i]=M.cd; if(mvBarEls){const b=mvBarEls[i];b.classList.add('fire');setTimeout(()=>b.classList.remove('fire'),160);}
+  moveCd[i]=M.cd; swStat.moves++; if(mvBarEls){const b=mvBarEls[i];b.classList.add('fire');setTimeout(()=>b.classList.remove('fire'),160);}
   swing(); airMaxY=P.y;
   if(M.k==='dash'){mvFovK=16;mvSfx('dash');}
   if(M.k==='slam'){if(onGround||flying)V.y=13.5;else V.y=Math.max(V.y,6);flying=false;mvSfx('whoosh');}
@@ -7321,6 +7354,91 @@ function mvAvatarPose(av,k,t,dur){
   else if(k==='blast'){av.arms[0].rotation.x=av.arms[1].rotation.x=t<.4?1.2:1.6;av.arms[0].rotation.y=.35;av.arms[1].rotation.y=-.35;}
   else if(k==='spin'){av.g.rotation.y+=t*25;av.arms[0].rotation.z=1.4;av.arms[1].rotation.z=-1.4;av.arms[0].rotation.x=av.arms[1].rotation.x=0;}
 }
+// ---------- stats: play time and counters go to NuggetBase through the site's own /api/track (the key stays on the server) ----------
+const SW_SID=Math.random().toString(36).slice(2,12)+Date.now().toString(36).slice(-6);
+const swStat={kills:0,deaths:0,broken:0,placed:0,shots:0,moves:0}; let swActive=0, swHbT=20;
+const swOn=()=>location.protocol.startsWith('http');
+function swBase(){return{pid:PID,name:String((mpPrefs&&mpPrefs.name)||MP.name||'Player').slice(0,16)};}
+function swHeartbeat(beacon){
+  if(!swOn()||swActive<1)return;
+  const body=Object.assign(swBase(),{type:'hb',sid:SW_SID,dt:Math.round(Math.min(130,swActive)),d:Object.assign({},swStat),mode:GM.mode,mg:worldMG||'',mp:!!MP.connected,device:window.matchMedia&&matchMedia('(pointer: coarse)').matches?'touch':'desktop',admin:isAdmin()});
+  swActive=0; for(const k in swStat)swStat[k]=0;
+  const txt=JSON.stringify(body);
+  if(beacon&&navigator.sendBeacon){navigator.sendBeacon('/api/track',txt);return;}
+  fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:txt,keepalive:true}).catch(()=>{});
+}
+function swEvent(kind,detail){if(!swOn())return;fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign(swBase(),{type:'ev',kind,detail:String(detail||'').slice(0,120)})),keepalive:true}).catch(()=>{});}
+function swTick(dt){if(!paused&&!loading&&!dead)swActive+=dt;swHbT-=dt;if(swHbT<=0){swHbT=60;swHeartbeat(false);}}
+window.addEventListener('pagehide',()=>swHeartbeat(true));
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')swHeartbeat(true);});
+// ---------- admin dashboard (/dashboard): reads /api/stats ----------
+let dashData=null, dashTable=false;
+const dEsc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const dNum=n=>(+n||0)>=1e6?((+n)/1e6).toFixed(1)+'M':(+n||0)>=1e4?((+n)/1e3).toFixed(1)+'k':String(Math.round(+n||0));
+function dAgo(iso){const s=(Date.now()-Date.parse(iso))/1000;if(!isFinite(s))return'';if(s<60)return'just now';if(s<3600)return Math.floor(s/60)+'m ago';if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';}
+function openDashboard(){
+  if(!isAdmin()){toast('The dashboard is for admins');return;}
+  let el=document.getElementById('dashPanel');
+  if(!el){el=document.createElement('div');el.id='dashPanel';el.className='overlay';el.style.zIndex='36';document.body.appendChild(el);el.addEventListener('click',e=>{if(e.target===el)closeDashboard();});}
+  el.hidden=false; for(const k in keys)keys[k]=false; dashRender(); dashLoad();
+}
+function closeDashboard(){const el=document.getElementById('dashPanel');if(el)el.hidden=true;}
+const dashOn=()=>{const el=document.getElementById('dashPanel');return !!(el&&!el.hidden);};
+async function dashLoad(){
+  if(!swOn()){dashData={error:'The dashboard works on the live site (it needs the site’s /api/stats).'};dashRender();return;}
+  try{const r=await fetch('/api/stats',{cache:'no-store'});dashData=await r.json();}catch(e){dashData={error:'Couldn’t reach /api/stats.'};}
+  if(dashOn())dashRender();
+}
+function dashColumns(days){ // sessions per day, last 14 days: one series, so one hue and no legend
+  const W=560,Hh=190,pl=28,pr=8,pt=18,pb=26,iw=W-pl-pr,ih=Hh-pt-pb,max=Math.max(1,...days.map(d=>d.sessions)),nice=max<=5?5:max<=10?10:Math.ceil(max/5)*5;
+  const bw=Math.min(24,iw/days.length-6), y=v=>pt+ih-v/nice*ih;
+  let g='';
+  for(let i=0;i<=4;i++){const v=nice*i/4,yy=y(v);g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+yy+'" y2="'+yy+'" stroke="rgba(242,239,228,.08)"/><text x="'+(pl-6)+'" y="'+(yy+3)+'" text-anchor="end" font-size="10" fill="#b9b4a3">'+Math.round(v)+'</text>';}
+  const mi=days.reduce((b,d,i)=>d.sessions>days[b].sessions?i:b,0);
+  days.forEach((d,i)=>{const cx=pl+(i+.5)*iw/days.length,x=cx-bw/2,h=Math.max(0,ih-(y(d.sessions)-pt)),top=pt+ih-h,r=Math.min(4,h,bw/2);
+    if(h>0)g+='<path d="M'+x+','+(pt+ih)+'V'+(top+r)+'Q'+x+','+top+' '+(x+r)+','+top+'H'+(x+bw-r)+'Q'+(x+bw)+','+top+' '+(x+bw)+','+(top+r)+'V'+(pt+ih)+'Z" fill="#3987e5"/>';
+    if(i===mi&&d.sessions>0||i===days.length-1)g+='<text x="'+cx+'" y="'+(top-5)+'" text-anchor="middle" font-size="10" fill="#f2efe4">'+d.sessions+'</text>';
+    if(i%2===days.length%2||i===days.length-1)g+='<text x="'+cx+'" y="'+(Hh-8)+'" text-anchor="middle" font-size="10" fill="#b9b4a3">'+d.day.slice(5).replace('-','/')+'</text>';
+    g+='<rect class="db-hit" data-i="'+i+'" x="'+(pl+i*iw/days.length)+'" y="'+pt+'" width="'+(iw/days.length)+'" height="'+ih+'" fill="transparent"/>';});
+  g+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+(pt+ih)+'" y2="'+(pt+ih)+'" stroke="rgba(242,239,228,.25)"/>';
+  return '<svg viewBox="0 0 '+W+' '+Hh+'" role="img" aria-label="Sessions per day for the last 14 days">'+g+'</svg><div class="db-tip"></div>';
+}
+function dashRender(){
+  const el=document.getElementById('dashPanel'); if(!el)return; const d=dashData;
+  let h='<div class="card"><div class="db-head"><div><h2 style="margin:0">Server dashboard</h2><div class="db-sub">Stackwild stats · powered by NuggetBase'+(d&&d.at?' · updated '+dAgo(d.at):'')+'</div></div>'
+    +'<div class="row" style="gap:8px"><button class="btn ghost small" id="dbRef">Refresh</button><button class="btn ghost small" id="dbX">Close</button></div></div>';
+  if(!d)h+='<p class="sub" style="margin-top:16px">Loading stats…</p>';
+  else if(d.error&&d.configured!==false)h+='<p class="sub" style="margin-top:16px;color:var(--miss)">'+dEsc(d.error)+'</p>';
+  else if(d.configured===false)h+='<div class="db-setup"><p class="sub" style="margin-top:14px">The dashboard is ready, it just needs your NuggetBase key on Vercel:</p><ol>'
+    +'<li>Sign up at <a href="https://nuggetdata.vercel.app/login?mode=signup" target="_blank" rel="noopener" style="color:var(--accent)">nuggetdata.vercel.app</a> and open <b>API keys</b>.</li>'
+    +'<li>Create a <b>write</b> key (it starts with <code>nb_w_</code>).</li>'
+    +'<li>In Vercel, open this project → <b>Settings → Environment Variables</b>, add <code>NUGGETBASE_KEY</code> = your key, then redeploy.</li>'
+    +'<li>That’s it: the stats tables are created automatically and fill up as people play.</li></ol></div>';
+  else{const t=d.totals,last=d.days[d.days.length-1]||{sessions:0},sum14=d.days.reduce((a,x)=>a+x.sessions,0);
+    const tile=(v,l,sub)=>'<div class="db-tile"><b>'+v+'</b><span>'+l+'</span>'+(sub?'<small>'+sub+'</small>':'')+'</div>';
+    h+='<div class="db-tiles">'+tile(t.online,'Online now',d.online.length?dEsc(d.online.slice(0,3).map(o=>o.name).join(', '))+(d.online.length>3?'…':''):'nobody right now')
+      +tile(dNum(t.players),'Players',t.newWeek+' new this week')+tile(t.today,'Active today',t.week+' this week')+tile(dNum(sum14),'Sessions · 14 days',last.sessions+' today')
+      +tile(t.hours,'Hours played','all time')+tile(dNum(t.kills),'Mob kills',dNum(t.deaths)+' deaths')+tile(dNum(t.broken+t.placed),'Blocks changed',dNum(t.broken)+' broken')+tile(dNum(t.moves),'Moves used',dNum(t.shots)+' shots')+'</div>';
+    h+='<div class="db-grid"><div class="db-box"><h3>Sessions per day <button id="dbTbl">'+(dashTable?'Show chart':'Show table')+'</button></h3>'
+      +(dashTable?'<div class="scroll-x"><table><tr><th>Day</th><th class="n">Sessions</th><th class="n">Players</th><th class="n">Minutes</th></tr>'+d.days.slice().reverse().map(x=>'<tr><td>'+x.day+'</td><td class="n">'+x.sessions+'</td><td class="n">'+x.players+'</td><td class="n">'+x.minutes+'</td></tr>').join('')+'</table></div>':'<div class="db-chart">'+dashColumns(d.days)+'</div>')
+      +'</div><div class="db-box"><h3>What people play <small class="db-sub">last 30 days</small></h3>';
+    const mx=Math.max(1,...d.modes.map(m=>m.v));
+    h+=(d.modes.length?d.modes.slice(0,7).map(m=>'<div class="db-hbar"><span>'+dEsc(m.k)+'</span><i style="width:'+(m.v/mx*100).toFixed(1)+'%"></i><b>'+m.v+'</b></div>').join(''):'<p class="db-sub">No sessions yet.</p>')
+      +'<p class="db-sub" style="margin:10px 0 0">'+d.multiplayer+'% multiplayer · '+d.devices.map(x=>x.v+' '+dEsc(x.k)).join(' · ')+'</p></div></div>';
+    h+='<div class="db-grid" style="margin-top:12px"><div class="db-box"><h3>Top players</h3><div class="scroll-x"><table><tr><th>#</th><th>Player</th><th class="n">Hours</th><th class="n">Sessions</th><th class="n">Kills</th><th class="n">Deaths</th><th class="n">Blocks</th><th>Last seen</th></tr>'
+      +(d.top.length?d.top.map((p,i)=>'<tr><td>'+(i+1)+'</td><td>'+dEsc(p.name)+(p.admin?' <span class="db-tag">admin</span>':'')+'</td><td class="n">'+p.hours+'</td><td class="n">'+p.sessions+'</td><td class="n">'+dNum(p.kills)+'</td><td class="n">'+dNum(p.deaths)+'</td><td class="n">'+dNum(p.blocks)+'</td><td>'+dAgo(p.last)+'</td></tr>').join(''):'<tr><td colspan="8" class="db-sub">No players yet.</td></tr>')
+      +'</table></div></div><div class="db-box"><h3>Admin activity</h3><ul class="db-feed">'
+      +(d.events.length?d.events.map(e=>'<li><span class="db-tag">'+dEsc(e.kind)+'</span>'+dEsc(e.name)+(e.detail?' → '+dEsc(e.detail):'')+' <small>'+dAgo(e.at)+'</small></li>').join(''):'<li class="db-sub">Kicks, bans and admin changes show up here.</li>')+'</ul></div></div>';}
+  h+='</div>'; el.innerHTML=h;
+  el.querySelector('#dbX').addEventListener('click',closeDashboard);
+  el.querySelector('#dbRef').addEventListener('click',()=>{dashData=null;dashRender();dashLoad();});
+  const tb=el.querySelector('#dbTbl'); if(tb)tb.addEventListener('click',()=>{dashTable=!dashTable;dashRender();});
+  const ch=el.querySelector('.db-chart');
+  if(ch&&d&&d.days){const tip=ch.querySelector('.db-tip'), svg=ch.querySelector('svg');
+    ch.querySelectorAll('.db-hit').forEach(r=>{r.addEventListener('pointerenter',()=>{const x=d.days[+r.dataset.i],b=r.getBoundingClientRect(),c=ch.getBoundingClientRect();
+      tip.innerHTML='<b>'+x.day+'</b><br>'+x.sessions+' sessions<br><small>'+x.players+' players · '+x.minutes+' min</small>';tip.style.left=(b.left-c.left+b.width/2)+'px';tip.style.top=(b.top-c.top+8)+'px';tip.style.display='block';r.setAttribute('fill','rgba(242,239,228,.05)');});
+      r.addEventListener('pointerleave',()=>{tip.style.display='none';r.setAttribute('fill','transparent');});});}
+}
 // ---------- loop ----------
 let last=performance.now(), statT=0, saveT=0;
 function frame(now){
@@ -7365,7 +7483,7 @@ function frame(now){
   if(fastMesh>0)fastMesh-=dt;
   updateTotemFx(dt); tickVariants(dt); demonBlockFx(dt); updateLocator(); updateFloats(dt); updateGrappleLine(); updateHitboxes(); updateAdmPanel(dt); updateGuns(dt); updateBow(dt); updateArrows(dt); updateBP(); updateMG(dt); updateNades(dt); updateInf(); updateCasings(dt); if(!paused){updateLunge(dt);updateWinds(dt);updateStab(dt);updateLeafDecay(dt);}updateCraters();
   {const gf=gunWantFov(), want=mvFovK+(gf?gf:keys.KeyZ&&clientModOn('zoom')&&!chatOpen?22:gliding?Math.min(105,72+Math.max(0,Math.hypot(V.x,V.y,V.z)-8)*.35):72);if(Math.abs(camera.fov-want)>.3){camera.fov+=(want-camera.fov)*Math.min(1,dt*(gf?14:4));camera.updateProjectionMatrix();}} if(!paused&&!loading)modsTick(dt); if(!paused)updateBlade(dt);
-  mpTick(dt);
+  mpTick(dt); swTick(dt);
   let eyeSave=null;
   if(viewMode===1&&!dead){
     eyeSave=camera.position.clone(); camera.getWorldDirection(camDir);
@@ -7435,6 +7553,7 @@ function runCommand(line){
       if(isAdmin())say('Admin vehicles: /vehicles (all of them) or /give sedan, sports_car, jeep, monster_truck, police_car, prop_plane, biplane, fighter_jet, helicopter, attack_helicopter, twin_rotor_chopper');
       if(isAdmin())say('Admin guns: /guns gives all '+GUN_IDS.length+' (incl. Desert Eagle, AK, bullpup, double barrel, lever action, anti-materiel rifle, crossbow, grenade launcher, flamethrower, laser rifle, Tommy gun, Golden Gun) · /infammo [on|off]');
       if(legacyAdmin())say('Legacy admin: /security gives Auto Turrets and Guards (Security mod) · /deadmin <player> [reason] removes their admin · /readmin <player> gives it back · /deadminlist');
+      if(isAdmin())say('/dashboard opens the server dashboard (players, play time, sessions, top players, admin activity) powered by NuggetBase');
       if(isAdmin())say('/guns gives the Admin Gun Box (every gun, never runs out) · /guns all gives them loose · Shulker Box: chest + 2 ender pearls, keeps its items when broken');
       if(isAdmin())say('Gun keys: F fire · T aim · R reload · J attachments & skins · N fire mode · Y inspect · M melee bash');
       if(isAdmin())say('Admin fun: /smite · /launch [power] · /nuke [tnt] · /meteor [count] · /crater <radius|inf> · /clearcraters · /party · /boom [power]');
@@ -7588,18 +7707,19 @@ function runCommand(line){
       if(!isAdmin()){say('Only admins can kick players.');break;}
       const t=resolvePlayer(a[0]); if(!t){say('No player called “'+(a[0]||'')+'” found. Use a name from /list or a player ID.');break;}
       const r=a.slice(1).join(' ').slice(0,80);
-      mpSend({t:'kick',to:t.pid,r}); adminSend({t:'kick',to:t.pid,r}); say('Kicked '+t.name+'.'); break;
+      mpSend({t:'kick',to:t.pid,r}); adminSend({t:'kick',to:t.pid,r}); say('Kicked '+t.name+'.'); swEvent('kick',t.name+(r?' ('+r+')':'')); break;
     }
     case 'deadmin': case 'readmin':{
       if(!legacyAdmin()){say('Only legacy admins can remove or give back admin.');break;}
       const t=resolvePlayer(a[0]); if(!t){say('No player called “'+(a[0]||'')+'” found. Use a name from /list or a player ID.');break;}
       if(t.pid===PID){say('You can’t change your own admin.');break;}
       const on=c==='readmin'?1:0, r=a.slice(1).join(' ').slice(0,80), by=MP.name||mpName.value||'Admin';
-      mpSend({t:'adm',to:t.pid,on,r,by}); adminSend({t:'adm',to:t.pid,on,r});
+      mpSend({t:'adm',to:t.pid,on,r,by}); adminSend({t:'adm',to:t.pid,on,r}); swEvent(on?'readmin':'deadmin',t.name+(r?' ('+r+')':''));
       let list=[];try{list=JSON.parse(localStorage.getItem('stackwild:deadminned')||'[]')||[];}catch(e){}
       list=list.filter(x=>x&&x.pid!==t.pid); if(!on)list.push({pid:t.pid,n:t.name}); try{localStorage.setItem('stackwild:deadminned',JSON.stringify(list.slice(-100)));}catch(e){}
       say((on?'Gave admin back to ':'Removed admin from ')+t.name+'. It’s saved in their browser, so it sticks after they reload. They need to be online to get it.'); break;
     }
+    case 'dashboard': case 'stats':{if(!isAdmin()){say('Unknown command. Type /help.');break;}openDashboard();break;}
     case 'deadminlist':{
       if(!legacyAdmin()){say('Only legacy admins can see that.');break;}
       let list=[];try{list=JSON.parse(localStorage.getItem('stackwild:deadminned')||'[]')||[];}catch(e){}
@@ -7612,7 +7732,7 @@ function runCommand(line){
       if(bans.some(b=>b.id===t.pid)){say(t.name+' is already banned.');break;}
       const r=a.slice(1).join(' ').slice(0,80);
       bans=[...bans,{id:t.pid,n:t.name,r,by:MP.name||mpName.value,ts:Date.now()}];
-      if(pubBans()){mpSend({t:'kick',to:t.pid,r:'Banned'+(r?': '+r:'')});adminSend({t:'kick',to:t.pid,r:'Banned'+(r?': '+r:'')});say('Banned '+t.name+' from every server.');}
+      if(pubBans()){mpSend({t:'kick',to:t.pid,r:'Banned'+(r?': '+r:'')});adminSend({t:'kick',to:t.pid,r:'Banned'+(r?': '+r:'')});swEvent('ban',t.name+(r?' ('+r+')':''));say('Banned '+t.name+' from every server.');}
       break;
     }
     case 'unban':{
