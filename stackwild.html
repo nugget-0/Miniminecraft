@@ -5102,7 +5102,7 @@ function setHeld(id,tier){
   if(heldMesh){vm.remove(heldMesh);heldMesh.traverse(o=>{if(o.geometry&&o.geometry!==itemGeoCache[heldId])o.geometry.dispose();});heldMesh=null;}
   heldPix=null; heldHalo=null;
   heldId=id; heldTier=tier||0; heldGun=null; gunFlash=null; if(id<0)return;
-  if(DEF[id].gun){heldGun=gunStat(id);heldMesh=buildGunModel(heldGun,true);vm.add(heldMesh);gEquip=1;return;}
+  if(DEF[id].gun){heldGun=gunStat(id);heldMesh=buildGunModel(heldGun,true);vm.add(heldMesh);gEquip=1;foley('lift',.8);setTimeout(()=>foley('tap',.5),170);return;}
   const d=DEF[id], matHeld=heldTier===1?matHeldC:heldTier===2?matHeldE:matHeldBase;
   if(!d.item&&!d.plant&&!d.flat){heldMesh=new THREE.Mesh(itemGeo(id),matHeld);heldMesh.scale.setScalar(.85);heldMesh.position.set(-.06,.1,-.36);heldMesh.rotation.set(.1,.75,0);}
   else{
@@ -5494,6 +5494,52 @@ function flameShot(g,id,mz){
     if(b!==AIR&&b!==WATER&&gunMat(b)==='leaf'){setBlock(x,y,z,AIR);for(let k=0;k<5;k++)glowPart([255,120,30],x+.5,y+.5,z+.5,(Math.random()-.5)*2,2,(Math.random()-.5)*2,.5,-2);}}
   if(MP.connected&&Math.random()<.25)mpSend({t:'gs',x:+mz.x.toFixed(2),y:+mz.y.toFixed(2),z:+mz.z.toFixed(2),ex:+(mz.x+camDir.x).toFixed(2),ey:+(mz.y+camDir.y).toFixed(2),ez:+(mz.z+camDir.z).toFixed(2),g:id});
 }
+// ---------- gun foley: every mechanical sound is layered from friction scrapes, metal pings, thuds and clicks ----------
+function sfxOut(a,vol,pan){const g=a.createGain();g.gain.value=vol;if(pan&&a.createStereoPanner){const p=a.createStereoPanner();p.pan.value=Math.max(-1,Math.min(1,pan));g.connect(p);p.connect(a.destination);}else g.connect(a.destination);return g;}
+function fNoise(a,d,t,dur,type,freq,q,peak,att){const s=a.createBufferSource();s.buffer=noiseBuf;const f=a.createBiquadFilter();f.type=type;f.frequency.value=freq;f.Q.value=q;const g=a.createGain();
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(peak,t+(att||.002));g.gain.exponentialRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(d);s.start(t,Math.random());s.stop(t+dur+.03);}
+function fPing(a,d,t,f0,dur,peak){ // struck metal: inharmonic partials that die off at different speeds
+  for(const [m,v] of [[1,1],[2.76,.5],[5.4,.25],[8.93,.12]]){const o=a.createOscillator(),g=a.createGain();o.frequency.value=f0*m*(1+(Math.random()-.5)*.012);
+    g.gain.setValueAtTime(peak*v,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur/(1+m*.3));o.connect(g);g.connect(d);o.start(t);o.stop(t+dur+.02);}}
+function fThud(a,d,t,f0,dur,peak){const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(f0*1.7,t);o.frequency.exponentialRampToValueAtTime(f0,t+dur*.4);
+  g.gain.setValueAtTime(peak,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g);g.connect(d);o.start(t);o.stop(t+dur+.03);}
+function fSlide(a,d,t,dur,f0,f1,peak){ // metal sliding on metal: a band of noise sweeping in pitch
+  const s=a.createBufferSource();s.buffer=noiseBuf;const f=a.createBiquadFilter();f.type='bandpass';f.Q.value=3;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  const g=a.createGain();g.gain.setValueAtTime(.0001,t);g.gain.linearRampToValueAtTime(peak,t+dur*.3);g.gain.linearRampToValueAtTime(.0001,t+dur);s.connect(f);f.connect(g);g.connect(d);s.start(t,Math.random());s.stop(t+dur+.03);}
+const FOLEY={
+  magOut:(a,d,t,big)=>{fNoise(a,d,t,.025,'highpass',3200,.7,.45);fPing(a,d,t,big?900:1550,.08,.07);fSlide(a,d,t+.01,.13,2600,1100,.13);},           // release button, mag drags out
+  magIn:(a,d,t,big)=>{fSlide(a,d,t,.07,1100,2600,.1);fThud(a,d,t+.07,big?85:130,.13,.5);fNoise(a,d,t+.07,.04,'bandpass',2100,1.5,.6);fPing(a,d,t+.075,big?1100:1750,.13,.1);fNoise(a,d,t+.1,.018,'highpass',5200,.7,.35);}, // slides in, seats, latch clicks
+  rackBack:(a,d,t)=>{fNoise(a,d,t,.02,'highpass',4200,.7,.4);fSlide(a,d,t,.09,1800,3600,.18);fPing(a,d,t+.085,2200,.06,.06);},
+  rackFwd:(a,d,t)=>{fSlide(a,d,t,.035,3600,1500,.15);fThud(a,d,t+.035,160,.1,.55);fNoise(a,d,t+.035,.05,'bandpass',1800,1.2,.75);fPing(a,d,t+.04,1300,.2,.13);},
+  boltUp:(a,d,t)=>{fNoise(a,d,t,.03,'bandpass',2600,2,.4);fPing(a,d,t,1850,.07,.06);},
+  boltBack:(a,d,t)=>{fSlide(a,d,t,.12,1400,3300,.2);fNoise(a,d,t+.12,.03,'bandpass',3000,2,.4);},
+  boltFwd:(a,d,t)=>{fSlide(a,d,t,.1,3100,1300,.18);fNoise(a,d,t+.1,.03,'bandpass',2200,2,.45);},
+  boltDown:(a,d,t)=>{fNoise(a,d,t,.03,'bandpass',1600,2,.5);fThud(a,d,t,200,.06,.3);fPing(a,d,t,1500,.1,.08);},
+  pumpBack:(a,d,t)=>{fSlide(a,d,t,.09,900,2400,.26);fNoise(a,d,t+.09,.04,'bandpass',1500,1.4,.6);fThud(a,d,t+.09,120,.08,.35);},
+  pumpFwd:(a,d,t)=>{fSlide(a,d,t,.08,2400,900,.26);fNoise(a,d,t+.08,.04,'bandpass',1800,1.4,.65);fThud(a,d,t+.08,140,.08,.4);fPing(a,d,t+.085,1200,.16,.08);},
+  shellIn:(a,d,t)=>{fSlide(a,d,t,.06,1500,3000,.12);fNoise(a,d,t+.06,.03,'bandpass',2500,2,.5);fPing(a,d,t+.06,2500,.07,.05);},
+  cylOpen:(a,d,t)=>{fNoise(a,d,t,.03,'bandpass',2000,2,.45);fPing(a,d,t,1700,.16,.1);},
+  cylClose:(a,d,t)=>{fThud(a,d,t,170,.08,.45);fNoise(a,d,t,.04,'bandpass',2200,1.6,.6);fPing(a,d,t+.005,1400,.22,.12);},
+  cylSpin:(a,d,t)=>{for(let i=0;i<11;i++)fNoise(a,d,t+i*.02*(1+i*.09),.012,'bandpass',4300,3,.26*(1-i/13));},  // ratchet ticking down
+  brkOpen:(a,d,t)=>{fNoise(a,d,t,.04,'bandpass',1500,1.5,.55);fThud(a,d,t,110,.12,.4);fPing(a,d,t,950,.26,.1);},
+  brkClose:(a,d,t)=>{fThud(a,d,t,120,.12,.6);fNoise(a,d,t,.05,'bandpass',1700,1.2,.7);fPing(a,d,t+.005,1000,.3,.13);},
+  creak:(a,d,t)=>{fSlide(a,d,t,.35,300,700,.12);fNoise(a,d,t+.35,.03,'bandpass',1900,2,.45);},                                         // crossbow string spanning
+  tap:(a,d,t)=>{fThud(a,d,t,150,.06,.3);fNoise(a,d,t,.025,'bandpass',1500,1.5,.3);},                                                     // hand meets the gun
+  lift:(a,d,t)=>{fSlide(a,d,t,.22,350,900,.05);fNoise(a,d,t+.18,.02,'bandpass',2800,2,.08);},                                           // handling rustle
+};
+function foley(k,vol,big){const a=audio();if(!a||!FOLEY[k])return;FOLEY[k](a,sfxOut(a,(vol||1)*.6),a.currentTime,big);}
+// bullet glancing off stone or metal: crack, then a falling whine that wobbles, panned to where it happened
+function sfxRicochet(x,y,z){
+  const a=audio(); if(!a)return; const dist=Math.hypot(x-P.x,y-P.y-1.5,z-P.z); if(dist>70)return;
+  const rx=Math.cos(yaw),rz=-Math.sin(yaw), pan=((x-P.x)*rx+(z-P.z)*rz)/(dist||1), t=a.currentTime+Math.min(.2,dist/340), d=sfxOut(a,Math.min(.4,5/(dist+5)),pan);
+  fNoise(a,d,t,.03,'highpass',3500,.7,.6); fPing(a,d,t,2600+Math.random()*1500,.09,.06);
+  const o=a.createOscillator(),g=a.createGain(),f0=2000+Math.random()*2400,dur=.32+Math.random()*.45,lfo=a.createOscillator(),lg=a.createGain();
+  o.type=Math.random()<.5?'sine':'triangle'; o.frequency.setValueAtTime(f0,t+.01); o.frequency.exponentialRampToValueAtTime(f0*(.32+Math.random()*.25),t+dur);
+  lfo.frequency.value=22+Math.random()*30; lg.gain.value=f0*.035; lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(.45,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g); g.connect(d); o.start(t); o.stop(t+dur+.03); lfo.start(t); lfo.stop(t+dur+.03);
+  fSlide(a,d,t+.01,dur*.8,6500,2500,.07);
+}
 function sfxPew(){const a=audio();if(!a)return;const t=a.currentTime,o=a.createOscillator(),gn=a.createGain();o.type='sawtooth';o.frequency.setValueAtTime(1800,t);o.frequency.exponentialRampToValueAtTime(220,t+.16);gn.gain.setValueAtTime(.12,t);gn.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(gn);gn.connect(a.destination);o.start(t);o.stop(t+.2);}
 let gLagX=0, gLagY=0, gLastYaw=0, gLastPitch=0, gSprint=0, gLand=0, gWasGround=true, gFallV=0, gEquip=0, gKickR=0, gKickY=0;
 let gTrig=0, gHam=0, gStrafe=0, gCrouch=0; const gRc=new THREE.Vector3(), gRcV=new THREE.Vector3();
@@ -5835,7 +5881,7 @@ function gunSkin(G,sk){
   if(rb.length)G.userData.rainbow=rb;
 }
 // ---------- gun animations: off hand, slide/bolt cycling & lock-back, charging handles, mag swaps ----------
-let gunActEj=false, gunActT=0, gunActDur=0, gunActKind='', gunActDelay=0, cylSpin=0, reloadPrevP=0, gunReloadEmpty=false;
+let gunActPq=-9, gunActEj=false, gunActT=0, gunActDur=0, gunActKind='', gunActDelay=0, cylSpin=0, reloadPrevP=0, gunReloadEmpty=false;
 // where the support hand rests on each gun (gun model space), and the elbow it reaches from
 const PISTOLS=['pistol','mpistol','deagle','golden','m1911'];
 const BRK=g=>g.k==='dbarrel'||g.k==='sawed';
@@ -5854,7 +5900,7 @@ function gunActStart(g){
   else if(g.k==='lever'){gunActKind='lever';gunActDur=.5;gunActDelay=.12;}
   else if(AR_GUNS.includes(g.k)){gunActKind='bolt2';gunActDur=.075;gunActDelay=0;}
   else{gunActKind='';return;}
-  gunActT=-gunActDelay; gunActEj=false;
+  gunActT=-gunActDelay; gunActEj=false; gunActPq=-9;
 }
 const ease=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
 const blow=q=>q<.3?ease(q/.3):1-ease((q-.3)/.7); // snaps back fast, rides home slower
@@ -5872,12 +5918,17 @@ function animGun(dt){
   // action after a shot
   if(gunActKind){gunActT+=dt;const q=gunActT/gunActDur;
     if(q>=0&&q<=1){
+      {const A=v=>gunActPq<v&&q>=v;
+       if(gunActKind==='pump'){if(A(0))foley('pumpBack');if(A(.45))foley('pumpFwd');}
+       else if(gunActKind==='bolt'){if(A(0))foley('boltUp');if(A(.22))foley('boltBack');if(A(.58))foley('boltFwd');if(A(.82))foley('boltDown');}
+       else if(gunActKind==='lever'){if(A(0))foley('rackBack',.8);if(A(.45))foley('rackFwd',.8);}
+       gunActPq=q;}
       if((gunActKind==='pump'&&q>=.45||gunActKind==='bolt'&&q>=.42)&&!gunActEj){gunActEj=true;ejectShell(gunActKind==='pump'?1:0);}
       if(gunActKind==='pump'){const a=q<.45?ease(q/.45):1-ease((q-.45)/.55);P0(U.pump,0,0,a*.13);tilt+=a*.1;roll+=a*.06;}
       else if(gunActKind==='bolt'){const up=ease(q/.18)-ease((q-.82)/.18), back=ease((q-.22)/.2)-ease((q-.58)/.2);if(U.bolt){P0(U.bolt,0,0,back*.11);Rz(U.bolt,0,0,up*1.3);}roll-=up*.18+back*.1;tilt+=back*.05;}
       else if(gunActKind==='slide'){const b=locked?ease(q/.3):blow(q);P0(U.slide,0,0,b*.06);tilt+=blow(q)*.04;}
       else if(gunActKind==='bolt2'){P0(U.slide,0,0,(locked?ease(q/.3):blow(q))*.035);}
-      else if(gunActKind==='lever'){const a=q<.45?ease(q/.45):1-ease((q-.45)/.55);if(U.lever)U.lever.rotation.x=a*.95;tilt+=a*.06;roll-=a*.05;if(q>=.42&&!gunActEj){gunActEj=true;ejectShell(0);sfxClick(1200,.5,.06);}}
+      else if(gunActKind==='lever'){const a=q<.45?ease(q/.45):1-ease((q-.45)/.55);if(U.lever)U.lever.rotation.x=a*.95;tilt+=a*.06;roll-=a*.05;if(q>=.42&&!gunActEj){gunActEj=true;ejectShell(0);}}
     }else if(q>1)gunActKind='';}
   if(g.k==='crossbow'&&rp<0){P0(U.string,0,0,empty?-.17:0);if(U.mag)U.mag.visible=!empty;}
   if(U.orb){const tt=performance.now()/1000;U.orb.scale.setScalar(1+Math.sin(tt*9)*.15);U.orb.rotation.y=tt*3;}
@@ -5921,11 +5972,14 @@ function animGun(dt){
     }
     // sounds + a dropped mag at the right moments
     const S=(a)=>reloadPrevP<a&&p>=a;
-    if(!g.shell&&g.k!=='revolver'&&!BRK(g)&&g.k!=='crossbow'){if(S(.2)){sfxClick(1500,.5,.05);if(!g.rocket&&!g.flame)spawnMag(g.k==='lmg'||g.k==='minigun');}if(S(.62))sfxClick(2100,.6,.05);if(gunReloadEmpty){if(S(.7))sfxClick(900,.6,.07);if(S(RL))sfxClick(1700,.7,.05);}}
-    if(BRK(g)){if(S(.14)){sfxClick(800,.6,.08);ejectShell(1);ejectShell(1);}if(S(.5)||S(.72))sfxClick(1500,.5,.05);if(S(.86))sfxClick(700,.8,.09);}
-    if(g.k==='crossbow'){if(S(.2))sfxClick(500,.4,.2);if(S(.5))sfxClick(1800,.6,.05);if(S(.75))sfxClick(1200,.4,.05);}
+    if(!g.shell&&g.k!=='revolver'&&!BRK(g)&&g.k!=='crossbow'){const big=g.k==='lmg'||g.k==='minigun';
+      if(S(.04))foley('lift',.8); if(S(.2)){foley('magOut',1,big);if(!g.rocket&&!g.flame)spawnMag(big);} if(S(.48))foley('lift',.6); if(S(.6))foley('magIn',1,big);
+      if(gunReloadEmpty){if(S(.7))foley('rackBack');if(S(RL))foley('rackFwd');}}
+    if(g.shell&&!BRK(g)){if(S(.08))foley('lift',.5);if(S(.62))foley('shellIn');}
+    if(BRK(g)){if(S(.14)){foley('brkOpen');ejectShell(1);ejectShell(1);}if(S(.5)||S(.72))foley('shellIn');if(S(.86))foley('brkClose');}
+    if(g.k==='crossbow'){if(S(.14))foley('creak');if(S(.5))foley('rackBack',.6);if(S(.75))foley('shellIn',.8);}
     if(g.k==='glauncher'&&S(.8))cylSpin+=Math.PI/3;
-    if(g.k==='revolver'){if(S(.22))for(let i=0;i<6;i++)ejectShell(0,true);if(S(.6))sfxClick(2000,.5,.05);if(S(.86))sfxClick(1000,.6,.07);}
+    if(g.k==='revolver'){if(S(.12))foley('cylOpen');if(S(.22))for(let i=0;i<6;i++)ejectShell(0,true);if(S(.6))foley('shellIn');if(S(.76))foley('cylSpin');if(S(.86))foley('cylClose');}
     reloadPrevP=p;
   }else reloadPrevP=0;
   // revolver cylinder turns one chamber per shot
@@ -6029,7 +6083,8 @@ function gunMat(b){
   return'stone';}
 function impactFx(b,x,y,z,nx,ny,nz,snd){
   const m=gunMat(b), col=(DEF[b]&&tileAvg[DEF[b].t[0]])||[130,130,130], R=()=>Math.random()-.5, vol=snd?Math.min(.5,6/(Math.hypot(x-P.x,y-P.y,z-P.z)+4)):0;
-  if(m==='stone'||m==='metal'){const n=m==='metal'?10:6;for(let i=0;i<n;i++)glowPart(Math.random()<.5?[255,220,120]:[255,160,60],x,y,z,(nx+R()*1.6)*7,(ny+R()*1.6)*7+2,(nz+R()*1.6)*7,.12+Math.random()*.15,14);
+  if(m==='stone'||m==='metal'){const n=m==='metal'?10:6;
+    if(snd&&Math.random()<(m==='metal'?.6:.35)){sfxRicochet(x,y,z);for(let i=0;i<2;i++)glowPart([255,240,200],x,y,z,(nx+R()*2)*16,(ny+R()*2)*16+3,(nz+R()*2)*16,.22,4);}for(let i=0;i<n;i++)glowPart(Math.random()<.5?[255,220,120]:[255,160,60],x,y,z,(nx+R()*1.6)*7,(ny+R()*1.6)*7+2,(nz+R()*1.6)*7,.12+Math.random()*.15,14);
     for(let i=0;i<4;i++)glowPart(col,x,y,z,(nx+R())*3,(ny+Math.random())*3,(nz+R())*3,.45,12); glowPart([170,170,170],x,y,z,nx*.6,.6,nz*.6,.7,-1.2);
     if(vol)sfxClick(m==='metal'?5200:3600,vol,.05);}
   else if(m==='wood'){for(let i=0;i<9;i++)glowPart(Math.random()<.5?col:[200,160,100],x,y,z,(nx+R()*1.4)*5,(ny+Math.random())*5,(nz+R()*1.4)*5,.5+Math.random()*.3,16);if(vol)sfxClick(520,vol*1.4,.08);}
@@ -6172,8 +6227,9 @@ function updateGuns(dt){
   sc.hidden=!(g.scope&&gunAds>.88); cross.style.visibility=gunAds>.5?'hidden':'';
   // reload
   gunDip=gunReload>0?Math.min(1,Math.min(gunReloadMax-gunReload,gunReload)*6):Math.max(0,gunDip-dt*6);
-  if(gunReload>0){gunReload-=dt;if(gunReload<=0){if(g.shell){gunAmmo[id]=ammoOf(id)+1;sfxClick(900,.7,.06);if(gunAmmo[id]<g.mag&&!(keys.KeyF||touchDig)){gunReloadMax=gunReload=g.reload;}else{gunReload=0;setTimeout(()=>sfxClick(700,.6,.1),120);}}
-    else{gunAmmo[id]=g.mag;sfxClick(1300,.7,.07);setTimeout(()=>sfxClick(2200,.6,.05),110);}}}
+  if(gunReload>0){gunReload-=dt;if(gunReload<=0){if(g.shell){gunAmmo[id]=ammoOf(id)+1;if(gunAmmo[id]<g.mag&&!(keys.KeyF||touchDig)){gunReloadMax=gunReload=g.reload;}else{gunReload=0;
+      if(g.k==='shotgun'||g.k==='spas'){setTimeout(()=>foley('pumpBack'),110);setTimeout(()=>foley('pumpFwd'),270);}else if(g.k==='lever'){setTimeout(()=>foley('rackBack'),110);setTimeout(()=>foley('rackFwd'),280);}else setTimeout(()=>foley('cylClose'),110);}}
+    else{gunAmmo[id]=g.mag;foley('tap',.6);}}}
   // trigger
   if(gBash>0){gBash=Math.max(0,gBash-dt);if(!gBashHit&&gBash<.36){gBashHit=true;gunBashHit();}}
   if(gInspect>0){gInspect=Math.max(0,gInspect-dt);if(gunAds>.2||gunReload>0)gInspect=0;}
