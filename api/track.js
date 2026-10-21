@@ -26,6 +26,14 @@ module.exports = async (req, res) => {
       await nb('/tables/sw_events/rows', { method: 'POST', body: JSON.stringify({ kind, pid, name, detail: str(b.detail, 120), at: now }) });
       return res.status(200).json({ ok: true });
     }
+    if (b.type === 'login') {
+      const ncid = str(b.ncid, 40).trim().toUpperCase(), role = b.role === 'admin' ? 'admin' : 'user';
+      if (!/^[A-Z0-9][A-Z0-9-]{2,39}$/.test(ncid)) return res.status(400).json({ ok: false });
+      const r = await findOne('sw_ids', 'ncid', ncid);
+      if (r) await nb('/tables/sw_ids/rows/' + r.id, { method: 'PATCH', body: JSON.stringify({ role, pid, name, last_seen: now, logins: (r.logins || 0) + 1 }) });
+      else await nb('/tables/sw_ids/rows', { method: 'POST', body: JSON.stringify({ ncid, role, pid, name, first_seen: now, last_seen: now, logins: 1 }) });
+      return res.status(200).json({ ok: true });
+    }
     if (b.type !== 'hb') return res.status(400).json({ ok: false });
 
     const sid = str(b.sid, 24), dt = num(b.dt, 130), d = b.d || {};

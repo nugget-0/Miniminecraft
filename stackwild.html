@@ -357,6 +357,12 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 #nc .nc-btn:active{transform:translate(4px,4px);box-shadow:none}
 #nc .nc-btn:disabled{opacity:.5;cursor:wait}
 #nc .nc-btn:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+#nc .nc-used{margin-top:20px} #nc .nc-used-h{font-size:12px;letter-spacing:.14em;color:var(--muted);margin-bottom:8px}
+#nc .nc-chips{display:flex;flex-wrap:wrap;gap:8px}
+#nc .nc-chip{display:inline-flex;align-items:center;border:2px solid var(--gold);font-size:13px;letter-spacing:.06em}
+#nc .nc-chip button{all:unset;cursor:pointer;color:var(--ink);padding:8px 10px;min-height:20px}
+#nc .nc-chip button.nc-x{color:var(--muted);padding:8px 10px 8px 2px}
+#nc .nc-chip button:hover{color:var(--gold)} #nc .nc-chip button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
 #nc .nc-foot{margin:24px 0 0;font-size:13px;color:var(--muted);text-align:center;line-height:1.6}
 
 @media (prefers-reduced-motion:reduce){#nc .nc-scene,#nc .nc-shine,#nc .nc-blink{animation:none}}
@@ -433,6 +439,13 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
   function lsSet(v) { try { localStorage.setItem(LS_ID, v); } catch (e) {} }
   function lsDel() { try { localStorage.removeItem(LS_ID); } catch (e) {} }
   function norm(id) { return String(id || '').trim().toUpperCase(); }
+  // every ID that has logged in on this device, newest first (tap one to log back in)
+  var LS_IDS = 'stackwild:nuggetcode-ids';
+  function idsGet() { try { var a = JSON.parse(localStorage.getItem(LS_IDS) || '[]'); return Array.isArray(a) ? a.filter(function (x) { return typeof x === 'string'; }) : []; } catch (e) { return []; } }
+  function idsSave(a) { try { localStorage.setItem(LS_IDS, JSON.stringify(a.slice(0, 30))); } catch (e) {} }
+  function idsAdd(id) { var a = idsGet().filter(function (x) { return x !== id; }); a.unshift(id); idsSave(a); }
+  function idsDel(id) { idsSave(idsGet().filter(function (x) { return x !== id; })); }
+  window.ncUsedIds = idsGet;
 
   var gate = document.getElementById('nc');
   var card = document.getElementById('nc-card');
@@ -455,6 +468,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
   window.NC_ROLE = null; window.NC_ID = null;
   function enter(id, role) {
     window.NC_ID = id; window.NC_ROLE = role;
+    if (id) idsAdd(id);
     gate.classList.add('nc-gone');
     hudBadge.hidden = role !== 'admin';
     renderAccount();
@@ -466,6 +480,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     requestAnimationFrame(function () { gate.classList.add('nc-ready'); });
     input.value = prefill || '';
     setError(msg || '');
+    renderUsed();
     go.disabled = false; go.textContent = 'LOG IN';
     input.focus({ preventScroll: true });
   }
@@ -482,6 +497,22 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
     showLogin('');
   }
   window.ncLogOut = logOut;
+
+  function renderUsed() {
+    var box = document.getElementById('nc-used');
+    if (!box) { box = document.createElement('div'); box.id = 'nc-used'; box.className = 'nc-used'; form.parentNode.insertBefore(box, form.nextSibling); }
+    var ids = idsGet(); box.textContent = ''; box.hidden = !ids.length; if (!ids.length) return;
+    var h = document.createElement('div'); h.className = 'nc-used-h'; h.textContent = 'USED ON THIS DEVICE'; box.appendChild(h);
+    var wrap = document.createElement('div'); wrap.className = 'nc-chips'; box.appendChild(wrap);
+    ids.forEach(function (id) {
+      var chip = document.createElement('span'); chip.className = 'nc-chip';
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = id; b.title = 'Log in as ' + id;
+      b.addEventListener('click', function () { input.value = id; if (form.requestSubmit) form.requestSubmit(); else form.dispatchEvent(new Event('submit', { cancelable: true })); });
+      var x = document.createElement('button'); x.type = 'button'; x.className = 'nc-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Forget ' + id);
+      x.addEventListener('click', function () { idsDel(id); renderUsed(); });
+      chip.appendChild(b); chip.appendChild(x); wrap.appendChild(chip);
+    });
+  }
 
   // Account row at the top of the game's pause menu: your ID, the ADMIN badge, Log out.
   function renderAccount() {
@@ -8206,6 +8237,13 @@ function mvAvatarPose(av,k,t,dur){
 const SW_SID=Math.random().toString(36).slice(2,12)+Date.now().toString(36).slice(-6);
 const swStat={kills:0,deaths:0,broken:0,placed:0,shots:0,moves:0}; let swActive=0, swHbT=20;
 const swOn=()=>location.protocol.startsWith('http');
+// every NuggetCode ID that logs in is recorded (sw_ids) so admins can see who has used the game
+function swLogin(id,role){
+  if(!swOn()||!id||window.__ncLogged===id)return; window.__ncLogged=id;
+  try{fetch('/api/track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.assign(swBase(),{type:'login',ncid:id,role})),keepalive:true}).catch(()=>{});}catch(e){}
+}
+window.addEventListener('nuggetcode:login',e=>{const d=e.detail||{};if(d.id)swLogin(d.id,d.role);});
+setTimeout(()=>{if(window.NC_ID)swLogin(window.NC_ID,window.NC_ROLE);},0);
 function swBase(){return{pid:PID,name:String((mpPrefs&&mpPrefs.name)||MP.name||'Player').slice(0,16)};}
 function swHeartbeat(beacon){
   if(!swOn()||swActive<1)return;
@@ -8360,7 +8398,10 @@ function dashRender(){
     h+='<div class="db-grid" style="margin-top:12px"><div class="db-box"><h3>Top players</h3><div class="scroll-x"><table><tr><th>#</th><th>Player</th><th class="n">Hours</th><th class="n">Sessions</th><th class="n">Kills</th><th class="n">Deaths</th><th class="n">Blocks</th><th>Last seen</th></tr>'
       +(d.top.length?d.top.map((p,i)=>'<tr><td>'+(i+1)+'</td><td>'+dEsc(p.name)+(p.admin?' <span class="db-tag">admin</span>':'')+'</td><td class="n">'+p.hours+'</td><td class="n">'+p.sessions+'</td><td class="n">'+dNum(p.kills)+'</td><td class="n">'+dNum(p.deaths)+'</td><td class="n">'+dNum(p.blocks)+'</td><td>'+dAgo(p.last)+'</td></tr>').join(''):'<tr><td colspan="8" class="db-sub">No players yet.</td></tr>')
       +'</table></div></div><div class="db-box"><h3>Admin activity</h3><ul class="db-feed">'
-      +(d.events.length?d.events.map(e=>'<li><span class="db-tag">'+dEsc(e.kind)+'</span>'+dEsc(e.name)+(e.detail?' → '+dEsc(e.detail):'')+' <small>'+dAgo(e.at)+'</small></li>').join(''):'<li class="db-sub">Kicks, bans and admin changes show up here.</li>')+'</ul></div></div>';}
+      +(d.events.length?d.events.map(e=>'<li><span class="db-tag">'+dEsc(e.kind)+'</span>'+dEsc(e.name)+(e.detail?' → '+dEsc(e.detail):'')+' <small>'+dAgo(e.at)+'</small></li>').join(''):'<li class="db-sub">Kicks, bans and admin changes show up here.</li>')+'</ul></div></div>';
+    if(d.ids){h+='<div class="db-box" style="margin-top:12px"><h3>NuggetCode IDs used <span class="db-sub">'+dNum(d.idsTotal||0)+' total · partly hidden here; full IDs are in your NuggetBase sw_ids table</span></h3><div class="scroll-x"><table><tr><th>ID</th><th>Role</th><th>Player</th><th class="n">Logins</th><th>First seen</th><th>Last seen</th></tr>'
+      +(d.ids.length?d.ids.map(r=>'<tr><td>'+dEsc(r.id)+'</td><td>'+(r.role==='admin'?'<span class="db-tag">admin</span>':'user')+'</td><td>'+dEsc(r.name||'')+'</td><td class="n">'+dNum(r.logins||0)+'</td><td>'+dAgo(r.first)+'</td><td>'+dAgo(r.last)+'</td></tr>').join(''):'<tr><td colspan="6" class="db-sub">IDs show up here after someone logs in.</td></tr>')
+      +'</table></div></div>';}}
   h+='</div>'; el.innerHTML=h;
   el.querySelector('#dbX').addEventListener('click',closeDashboard);
   el.querySelector('#dbRef').addEventListener('click',()=>{dashData=null;dashRender();dashLoad();});

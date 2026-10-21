@@ -36,6 +36,10 @@ const SCHEMA = {
     { name: 'mode', type: 'text' }, { name: 'minigame', type: 'text' },
     { name: 'multiplayer', type: 'boolean' }, { name: 'device', type: 'text' },
   ],
+  sw_ids: [
+    { name: 'ncid', type: 'text', required: true }, { name: 'role', type: 'text' }, { name: 'pid', type: 'text' }, { name: 'name', type: 'text' },
+    { name: 'first_seen', type: 'date' }, { name: 'last_seen', type: 'date' }, { name: 'logins', type: 'number' },
+  ],
   sw_events: [
     { name: 'kind', type: 'text', required: true }, { name: 'pid', type: 'text' }, { name: 'name', type: 'text' },
     { name: 'detail', type: 'text' }, { name: 'at', type: 'date' },

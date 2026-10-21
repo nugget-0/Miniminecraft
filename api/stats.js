@@ -9,11 +9,14 @@ module.exports = async (req, res) => {
   if (!configured()) return res.status(200).json({ configured: false });
   try {
     await ensureTables();
-    const [players, sessions, events] = await Promise.all([
+    const [players, sessions, events, ids] = await Promise.all([
       allRows('sw_players', '-playtime', 2000),
       allRows('sw_sessions', '-started', 2000),
       allRows('sw_events', '-at', 500),
+      allRows('sw_ids', '-last_seen', 2000),
     ]);
+    // this endpoint is public, and an ID is what you log in with, so only part of each ID is shown
+    const mask = id => { id = String(id || ''); return id.length <= 6 ? id.slice(0, 2) + '•'.repeat(Math.max(0, id.length - 2)) : id.slice(0, 4) + '•'.repeat(id.length - 6) + id.slice(-2); };
     const now = Date.now(), today = day(new Date().toISOString());
     const since = ms => r => r && now - Date.parse(r) < ms;
     const sum = (rows, k) => rows.reduce((a, r) => a + (+r[k] || 0), 0);
@@ -50,6 +53,8 @@ module.exports = async (req, res) => {
       multiplayer: recent.length ? Math.round(recent.filter(s => s.multiplayer).length / recent.length * 100) : 0,
       online: sessions.filter(s => since(150e3)(s.last)).map(s => ({ name: s.name, minigame: MG[s.minigame || ''] || s.minigame, mode: s.mode, minutes: Math.round((s.seconds || 0) / 60) })),
       top: players.slice(0, 15).map(p => ({ name: p.name, pid: p.pid, hours: Math.round((p.playtime || 0) / 360) / 10, sessions: p.sessions || 0, kills: p.kills || 0, deaths: p.deaths || 0, blocks: (p.broken || 0) + (p.placed || 0), admin: !!p.admin, last: p.last_seen })),
+      idsTotal: ids.length,
+      ids: ids.slice(0, 100).map(r => ({ id: mask(r.ncid), role: r.role, name: r.name, logins: r.logins || 0, first: r.first_seen, last: r.last_seen })),
       events: events.slice(0, 30).map(e => ({ kind: e.kind, name: e.name, detail: e.detail, at: e.at })),
     });
   } catch (e) {
