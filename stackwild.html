@@ -1060,6 +1060,20 @@ Object.assign(GUNS,{
 const GUN_W7=[357,358,359,360,361,362,363,364,365,366];
 GUN_IDS.push(...GUN_W7);
 GUN_W7.forEach((id,i)=>I(id,GUNS[id].name,376+i,{tool:{kind:'gun',tier:0,max:1,dmg:1},admin:true,gun:GUNS[id]}));
+// ---- Gun Realm: parts you find there, and the guns you can craft from them (3× weaker than the admin guns) ----
+const GP_BARREL=367, GP_RECEIVER=368, GP_TRIGGER=369, GP_STOCK=370, GP_MAG=371, GP_SCOPE=372;
+const GUN_PARTS=[GP_BARREL,GP_RECEIVER,GP_TRIGGER,GP_STOCK,GP_MAG,GP_SCOPE];
+const GP_DESC='Gun part. Found in Gun Realm bunkers and supply crates, and dropped by monsters there. Craft guns with it at a crafting table.';
+[['Gun Barrel',386],['Receiver',387],['Trigger Group',388],['Gun Stock',389],['Magazine',390],['Scope',391]].forEach(([n,t],i)=>I(GUN_PARTS[i],n,t,{desc:GP_DESC}));
+// [base gun, receivers, barrels, triggers, mags, stocks, scopes, extra material, extra count]
+const CRAFT_GUNS=[[247,1,1,1,1,0,0,IRON,2],[357,1,1,1,1,0,0,IRON,3],[341,1,1,1,1,0,0,IRON,3],[260,1,1,1,0,0,0,IRON,4],
+  [248,1,1,1,2,0,0,IRON,3],[301,1,1,1,1,0,0,IRON,4],[342,1,1,1,1,1,0,IRON,2],[311,1,1,1,2,1,0,'planks',2],
+  [249,2,1,1,1,1,0,IRON,3],[302,2,1,1,1,1,0,'planks',2],[361,1,2,1,0,1,0,'planks',3],[362,2,2,1,1,1,0,'planks',2],
+  [250,1,2,1,0,1,0,'planks',2],[345,2,2,1,0,1,0,IRON,3],[251,2,2,1,0,1,1,IRON,2],[346,1,2,1,0,1,1,'planks',3]];
+const CRAFT_GUN_IDS=CRAFT_GUNS.map((c,i)=>400+i);
+CRAFT_GUNS.forEach(([b],i)=>{const id=400+i,base=GUNS[b];
+  GUNS[id]=Object.assign({},base,{name:'Crafted '+base.name,dmg:base.dmg>0&&base.dmg<9999?+(base.dmg/3).toFixed(2):base.dmg,crafted:1});
+  I(id,GUNS[id].name,DEF[b].t[0],{tool:{kind:'gun',tier:0,max:1,dmg:1},gun:GUNS[id],crafted:1,desc:'Made from Gun Realm parts. Anyone can use it, but it does a third of the damage of the real thing.'});});
 // shulker box: keeps what's inside when you break it. admin gun box: never runs out, opens in your hand
 const SHULKER=254, GUNBOX=335;
 B(SHULKER,'Shulker Box',[299,299,298],{drop:[],shulker:1});
@@ -1107,6 +1121,9 @@ const NETHER_MIN=50000, NETHER_X=100000, DEMON_MIN=150000, DEMON_X=200000;
 const isNetherX=x=>x>=NETHER_MIN&&x<DEMON_MIN;
 const isDemonX=x=>x>=DEMON_MIN&&x<250000;
 const isEndX=x=>x>=250000;
+// the Gun Realm lives far out at negative x: a smoky wasteland of scrap, concrete roads and bunkers full of gun parts
+const GUN_MAX=-100000, GUN_X=-200000;
+const isGunX=x=>x<=GUN_MAX;
 const opaque=id=>id!==AIR&&!DEF[id].transparent;
 const solid=id=>id!==AIR&&id!==WATER&&!DEF[id].plant&&!DEF[id].flat&&!DEF[id].nosolid;
 const maxStack=id=>(DEF[id].tool||DEF[id].armor||DEF[id].veh||DEF[id].shulker||DEF[id].gunbox)?1:STACK;
@@ -1591,6 +1608,14 @@ const atlas=document.createElement('canvas'); atlas.width=AW*16; atlas.height=AH
     if(mh&&x>=b+L-7&&x<=b+L-6&&y>=9&&y<9+mh)return sh(j===8?[74,80,56]:[35,35,38],.9);
     if(sc&&x>=b+4&&x<=b+9&&y>=4&&y<=5)return[25,25,30];
     return T;}));
+  // gun part icons (386-391)
+  {const gm=[66,68,74], st=[92,94,100];
+   tile(386,(x,y)=>{if(y>=6&&y<=9&&x>=1&&x<=14)return sh(gm,y===6?1.35:y===9?.7:1)/*barrel*/;if(x>=12&&x<=14&&y>=5&&y<=10)return sh(st,.9);return T;});
+   tile(387,(x,y)=>{if(x>=2&&x<=13&&y>=4&&y<=10){if(x>=7&&x<=11&&y>=5&&y<=6)return[24,24,26];return sh(st,(y===4?1.3:.95)+rnd()*.08);}if(x>=4&&x<=6&&y>=11&&y<=13)return sh(gm,.9);return T;});
+   tile(388,(x,y)=>{if((y===11&&x>=3&&x<=11)||(x===3&&y>=7&&y<=11))return sh(gm,1);if(x>=7&&x<=8&&y>=5&&y<=9)return sh(st,1.1);if(y>=3&&y<=5&&x>=5&&x<=11)return sh(gm,.85);return T;});
+   tile(389,(x,y)=>{const top=4+x*.25, bot=8+x*.45;if(x>=1&&x<=14&&y>=top&&y<=bot)return sh([128,84,46],(y<top+1?1.2:.9)+rnd()*.12);return T;});
+   tile(390,(x,y)=>{const sx=Math.round((y-2)*.3);if(x>=5+sx&&x<=10+sx&&y>=2&&y<=14){if(y<=3)return[200,160,70];return sh([44,45,48],(x===5+sx?1.25:.95)+rnd()*.06);}return T;});
+   tile(391,(x,y)=>{if(y>=5&&y<=9&&x>=2&&x<=13){if(x<=3||x>=12)return y>=6&&y<=8?[80,150,220]:sh(gm,.8);return sh(gm,(y===5?1.3:1)+rnd()*.06);}if(y>=10&&y<=11&&(x===5||x===10))return sh(gm,.8);return T;});}
   g.putImageData(img,0,0);
 })();
 const tileAvg=[];
@@ -1719,7 +1744,7 @@ function finishChunk(cx,cz,d){
     if(id===SPAWNER||id===DEMON_SPAWNER)spawners.add(lk);
     if(DEF[id].crop)crops.add(lk);
   }
-  for(const [lk,i,sd,kind] of genLoot)if(d[i]===CHEST&&!chests[lk])chests[lk]=kind==='demon'?demonLoot(sd):kind==='sky'?skyLoot(sd):lootFor(sd);
+  for(const [lk,i,sd,kind] of genLoot)if(d[i]===CHEST&&!chests[lk])chests[lk]=kind==='demon'?demonLoot(sd):kind==='sky'?skyLoot(sd):kind==='guns'?gunLoot(sd):lootFor(sd);
   genLoot=[];
   chunks.set(ck(cx,cz),d);
   return d;
@@ -1854,9 +1879,58 @@ function genEnd(cx,cz){
   for(let dz=-2;dz<=2;dz++)for(let dx=-2;dx<=2;dx++){S(END_X+56+dx-ox,endTopAt(END_X+56,0),dz-oz,OBSIDIAN);}
   return d;
 }
+function gunLoot(sd){
+  const r=mulberry32(sd|0), out=new Array(27).fill(null), put=(id,n,dur)=>{let i=Math.floor(r()*27),g=0;while(out[i]&&g++<27)i=(i+1)%27;out[i]=dur?{id,n,dur}:{id,n};};
+  for(const id of GUN_PARTS)if(r()<(id===GP_SCOPE?.3:.55))put(id,1+(r()<.35?1:0));
+  if(r()<.7)put(IRON,2+Math.floor(r()*5)); if(r()<.4)put(COAL,2+Math.floor(r()*4)); if(r()<.3)put(GOLD,1+Math.floor(r()*2)); if(r()<.25)put(GRENADE,1+Math.floor(r()*2));
+  if(r()<.06)put(CRAFT_GUN_IDS[Math.floor(r()*CRAFT_GUN_IDS.length)],1,1);
+  return out;
+}
+function genGuns(cx,cz){
+  const d=new Uint8Array(CS*CS*H), ox=cx*CS, oz=cz*CS;
+  const S=(x,y,z,id)=>{if(x>=0&&x<CS&&z>=0&&z<CS&&y>=0&&y<H)d[x+z*CS+y*CS*CS]=id;};
+  const hAt=(wx,wz)=>Math.round(20+fbm(N.base,wx*.012,wz*.012)*6+N.detail(wx*.08,wz*.08)*1.2);
+  const crate=(x,y,z,wx,wz)=>{if(x<0||x>=CS||z<0||z>=CS||y<1||y>=H)return;const i=x+z*CS+y*CS*CS;d[i]=CHEST;genLoot.push([wx+','+y+','+wz,i,hash2(wx*3+y,wz*5-y)*1e9,'guns']);};
+  for(let z=0;z<CS;z++)for(let x=0;x<CS;x++){
+    const wx=ox+x, wz=oz+z, h=hAt(wx,wz), road=((wx%64)+64)%64<4||((wz%64)+64)%64<4, conc=fbm(N.hum,wx*.05,wz*.05)>.2;
+    for(let y=0;y<=h;y++){
+      let id=y<h-3?STONE:y<h?GRAVEL:road?SMOOTH_STONE:conc?COBBLE:GRAVEL;
+      if(y>2&&y<h-3){const o=hash2(wx*31+y*7,wz*17-y*3);if(o<.014)id=IRON_ORE;else if(o<.026)id=COAL_ORE;}
+      S(x,y,z,id);
+    }
+    if(road)continue;
+    const sp=hash2(wx*13+5,wz*7+11);
+    if(sp<.012){const hh=1+Math.floor(hash2(wz,wx)*3);for(let k=1;k<=hh;k++)S(x,h+k,z,hash2(wx+k,wz-k)<.5?IRON_BLOCK:COAL_BLOCK);}   // scrap heaps
+    else if(sp<.0128)crate(x,h+1,z,wx,wz);                                                                                         // supply crates
+  }
+  // bunkers: brick boxes with a light, an iron weapon rack and two crates of parts
+  for(let gx=Math.floor(ox/48);gx<=Math.floor((ox+CS-1)/48);gx++)for(let gz=Math.floor(oz/48);gz<=Math.floor((oz+CS-1)/48);gz++){
+    if(hash2(gx*91+7,gz*53+3)>.62)continue;
+    const bx=gx*48+24, bz=gz*48+24, fy=hAt(bx,bz), W=5, top=fy+5;
+    for(let lx=-W;lx<=W;lx++)for(let lz=-W;lz<=W;lz++){
+      const x=bx+lx-ox, z=bz+lz-oz; if(x<0||x>=CS||z<0||z>=CS)continue;
+      const edge=Math.abs(lx)===W||Math.abs(lz)===W, wx=bx+lx, wz=bz+lz;
+      for(let y=Math.max(1,hAt(wx,wz)-1);y<fy;y++)S(x,y,z,STONE_BRICKS);
+      for(let y=fy;y<=top+8;y++){
+        let id=AIR;
+        if(y===fy)id=SMOOTH_STONE;
+        else if(y===top+1)id=STONE_BRICKS;
+        else if(y<=top&&edge){id=(lx+lz+y)%3===0?TUFF_BRICKS:STONE_BRICKS;
+          if(lz===W&&(lx===0||lx===-1)&&y<=fy+2)id=AIR;                               // doorway
+          if(y===fy+3&&!(Math.abs(lx)===W&&Math.abs(lz)===W)&&((lx+lz)%3===0))id=GLASS;} // windows
+        S(x,y,z,id);
+      }
+      if(lx===0&&lz===0){S(x,top,z,COPPER_BULB);lights.add(wx+','+top+','+wz);}
+      if(lx===-W+1&&lz>-W&&lz<-1)S(x,fy+1,z,IRON_BLOCK);                             // weapon rack
+    }
+    crate(bx-W+1-ox,fy+1,bz-W+1-oz,bx-W+1,bz-W+1); crate(bx+W-1-ox,fy+1,bz+W-1-oz,bx+W-1,bz+W-1);
+  }
+  return d;
+}
 function genChunk(cx,cz){
   genLoot=[];
   if(worldMG)return finishChunk(cx,cz,genArena(cx,cz));
+  if(isGunX(cx*CS))return finishChunk(cx,cz,genGuns(cx,cz));
   if(isEndX(cx*CS))return finishChunk(cx,cz,genEnd(cx,cz));
   if(isDemonX(cx*CS))return finishChunk(cx,cz,genDemon(cx,cz));
   if(isNetherX(cx*CS))return finishChunk(cx,cz,genNether(cx,cz));
@@ -2922,15 +2996,15 @@ function useIgniter(t){
   swing();
   if(t.id===TNT||t.id===MEGA_TNT){igniteTNT(t.x,t.y,t.z,3);mpSend({t:'ign',x:t.x,y:t.y,z:t.z});useTool();return;}
   const sx=t.x+t.nx, sy=t.y+t.ny, sz=t.z+t.nz;
-  const demonFrame=t.id===CINDER_BRICKS&&(isNetherX(t.x)||isDemonX(t.x));
+  const demonFrame=t.id===CINDER_BRICKS&&(isNetherX(t.x)||isDemonX(t.x)), gunFrame=t.id===IRON_BLOCK&&t.x<NETHER_MIN;
   if(t.id===OBSIDIAN&&isDemonX(t.x)){toast('Obsidian portals don’t work in the Demon Realm. Use cinder bricks');return;}
-  if((t.id===OBSIDIAN||demonFrame)&&getBlock(sx,sy,sz)===AIR){
-    const inner=demonFrame?DEMON_PORTAL:PORTAL, col=demonFrame?[255,50,80]:[180,90,255];
+  if((t.id===OBSIDIAN||demonFrame||gunFrame)&&getBlock(sx,sy,sz)===AIR){
+    const inner=demonFrame?DEMON_PORTAL:PORTAL, col=demonFrame?[255,50,80]:gunFrame?[255,190,80]:[180,90,255];
     for(const ax of ['x','z']){
       const cells=portalFill(sx,sy,sz,ax,t.id); if(!cells)continue;
       for(const c of cells)setBlock(c[0],c[1],c[2],inner);
       for(const c of cells)glowPart(col,c[0]+.5,c[1]+.5,c[2]+.5,(Math.random()-.5)*3,Math.random()*3,(Math.random()-.5)*3,.8,2);
-      useTool(); toast(demonFrame?'A demon portal tears open…':'The portal hums to life!'); return;
+      useTool(); toast(demonFrame?'A demon portal tears open…':gunFrame?'The armory portal clanks open…':'The portal hums to life!'); return;
     }
     toast('That frame isn’t closed. Build a ring (inside 2 wide, 3 tall)'); return;
   }
@@ -2949,6 +3023,8 @@ function breakPortalNear(x,y,z){
     }
   }
 }
+// what the portal you're standing in is framed with (iron = Gun Realm portal)
+function portalFrameUnder(){const fx=Math.floor(P.x),fz=Math.floor(P.z);let y=Math.floor(P.y+.2);for(let k=0;k<6&&getBlock(fx,y,fz)===PORTAL;k++)y--;return getBlock(fx,y,fz);}
 function inPortal(){
   const fx=Math.floor(P.x),fz=Math.floor(P.z);
   for(const yy of [Math.floor(P.y+.2),Math.floor(P.y+1.2)]){const b=getBlock(fx,yy,fz);if(b===PORTAL||b===DEMON_PORTAL||b===END_PORTAL)return b;}
@@ -2963,7 +3039,7 @@ function tickPortal(dt){
       if(portalT>=(pk===END_PORTAL?.3:GM.mode==='creative'?.5:2.2)){portalT=0;portalLock=true;travelDim(pk);}
     }
   }else{portalLock=false;portalT=Math.max(0,portalT-dt*2);}
-  portalEl.style.background=pk===DEMON_PORTAL?'radial-gradient(ellipse at center,rgba(255,40,70,.35),rgba(120,0,20,.85))':'';
+  portalEl.style.background=pk===DEMON_PORTAL?'radial-gradient(ellipse at center,rgba(255,40,70,.35),rgba(120,0,20,.85))':pk===PORTAL&&portalFrameUnder()===IRON_BLOCK?'radial-gradient(ellipse at center,rgba(255,200,90,.3),rgba(90,60,20,.85))':'';
   portalEl.style.opacity=portalLock?'0':Math.min(1,portalT/2.2).toFixed(2);
 }
 function buildPortal(x,y,z,filler,frame,inner){
@@ -2989,6 +3065,10 @@ function travelDim(kind){
     else{dest='demon';tx=DEMON_X+Math.floor(P.x-NETHER_X);filler=DEMONROCK;
       const fxc=Math.floor(tx/96)*96+48, fzc=Math.floor(tz/96)*96+48;
       if(Math.abs(tx-fxc)<22&&Math.abs(tz-fzc)<22)tx=fxc+(tx>=fxc?26:-27);}
+  }else if(isGunX(P.x)||portalFrameUnder()===IRON_BLOCK){
+    inner=PORTAL; frame=IRON_BLOCK;
+    const toG=!isGunX(P.x); dest=toG?'guns':'over';
+    tx=toG?GUN_X+Math.floor(P.x):Math.floor(P.x-GUN_X); filler=toG?GRAVEL:COBBLE;
   }else{
     inner=PORTAL; frame=OBSIDIAN;
     const toN=!isNetherX(P.x); dest=toN?'nether':'over';
@@ -3000,7 +3080,7 @@ function travelDim(kind){
   let best=null, bd=1e9;
   for(let z=tz-16;z<=tz+16;z++)for(let x=tx-16;x<=tx+16;x++){
     const dd=(x-tx)*(x-tx)+(z-tz)*(z-tz); if(dd>=bd)continue;
-    for(let y=1;y<H-1;y++)if(getBlock(x,y,z)===inner&&getBlock(x,y-1,z)!==inner){best=[x+.5,y,z+.5];bd=dd;break;}
+    for(let y=1;y<H-1;y++)if(getBlock(x,y,z)===inner&&getBlock(x,y-1,z)!==inner){if(getBlock(x,y-1,z)!==frame)continue;best=[x+.5,y,z+.5];bd=dd;break;}
   }
   if(!best){
     let y=-1;
@@ -3011,7 +3091,7 @@ function travelDim(kind){
   P.x=best[0]; P.y=best[1]+.02; P.z=best[2]; V.x=V.y=V.z=0; airMaxY=P.y; immune=Math.max(immune,1);
   for(const set of [lights,rsSet])for(const k of [...set]){const x=+k.split(',')[0];if(Math.abs(x-P.x)>400)set.delete(k);}
   fastMesh=2;
-  chatSys(dest==='nether'?'You’re in the Nether. It’s hot down here.':dest==='demon'?'You entered the Demon Realm. A fortress looms nearby… beat every level, mine the demon ore at the top and take the Demoniser.':'You’re back in the Overworld.');
+  chatSys(dest==='guns'?'You entered the Gun Realm. Raid the bunkers and supply crates for gun parts, then craft guns at a crafting table. Monsters here drop parts too.':dest==='nether'?'You’re in the Nether. It’s hot down here.':dest==='demon'?'You entered the Demon Realm. A fortress looms nearby… beat every level, mine the demon ore at the top and take the Demoniser.':'You’re back in the Overworld.');
   saveNow();
 }
 function doPick(){
@@ -3243,6 +3323,7 @@ function killMob(i,loot){
   if(loot)mobXP(m);
   if(m.type==='dragon')dragonDied(m,loot);
   if(loot){
+    if(isGunX(m.x)&&Math.random()<.45)spawnDrop(GUN_PARTS[Math.floor(Math.random()*GUN_PARTS.length)],m.x,m.y+1,m.z);
     if(m.type==='voidling'){if(Math.random()<.65)spawnDrop(ENDER_PEARL,m.x,m.y+1,m.z);}
     if(m.type==='shambler'){const n=Math.random()<.6?1+(Math.random()<.4?1:0):0;for(let k=0;k<n;k++)spawnDrop(MEAT,m.x,m.y+.8,m.z);}
     else if(m.type==='skitter'){if(Math.random()<.4)spawnDrop(MEAT,m.x,m.y+.4,m.z);}
@@ -3262,6 +3343,12 @@ function trySpawn(){
     const ang=Math.random()*Math.PI*2, r=16+Math.random()*14;
     const sc=pickSpawnCenter(), x=Math.floor(sc.x+Math.cos(ang)*r), z=Math.floor(sc.z+Math.sin(ang)*r);
     if(!meshes.has(ck(Math.floor(x/CS),Math.floor(z/CS))))continue;
+    if(isGunX(x)){
+      let y=H-2; while(y>0&&getBlock(x,y,z)===AIR)y--;
+      if(!solid(getBlock(x,y,z))||getBlock(x,y+1,z)!==AIR||getBlock(x,y+2,z)!==AIR)continue;
+      if(curLight>=.35&&Math.random()<.5)continue;
+      spawnMob(Math.random()<.7?'shambler':'skitter',x+.5,y+1,z+.5); return;
+    }
     if(x>=NETHER_MIN){
       let y=Math.max(2,Math.min(H-4,Math.floor((sc.y||32)+(Math.random()-.5)*16)));
       if(getBlock(x,y,z)!==AIR)continue;
@@ -4260,6 +4347,7 @@ const RECIPES=[];
   r(TUFF_BRICKS,4,[[COBBLE,3],[GRAVEL,1]],TABLE); r(COPPER_BULB,1,[[GOLD,1],[REDSTONE,2],[TORCH,1]],TABLE);
   r(CINDER_BRICKS,4,[[EMBERROCK,4],['fuel',1]],FURNACE); r(GOLD,1,[[EMBER_ORE,1],['fuel',1]],FURNACE);
   r(PISTON,1,[['planks',3],[COBBLE,4],[IRON,1],[REDSTONE,1]],TABLE);
+  CRAFT_GUNS.forEach(([b,rc,br,tg,mg,sk,sc,ex,en],i)=>{const inp=[];if(rc)inp.push([GP_RECEIVER,rc]);if(br)inp.push([GP_BARREL,br]);if(tg)inp.push([GP_TRIGGER,tg]);if(mg)inp.push([GP_MAG,mg]);if(sk)inp.push([GP_STOCK,sk]);if(sc)inp.push([GP_SCOPE,sc]);inp.push([ex,en]);r(400+i,1,inp,TABLE);});
   r(REPEATER,1,[[RS_TORCH,2],[REDSTONE,1],[COBBLE,3]],TABLE); r(COMPARATOR,1,[[RS_TORCH,3],[GOLD,1],[COBBLE,3]],TABLE);
   r(OBSERVER,1,[[COBBLE,6],[REDSTONE,2],[IRON,1]],TABLE); r(DAYLIGHT,1,[[GLASS,3],['planks',3],[GOLD,1]],TABLE); r(NOTEBLOCK,1,[['planks',8],[REDSTONE,1]],TABLE);
   r(DISPENSER,1,[[COBBLE,7],[BOW,1],[REDSTONE,1]],TABLE); r(HOPPER,1,[[IRON,5],[CHEST,1]],TABLE); r(SLIME,2,[[FIBER,6],[WATER_BOTTLE,1]]);
@@ -4417,6 +4505,7 @@ const SYS_INFO=[
   ['Redstone tips','Wire powers the block under it and the block it points into; that block then powers things next to it. Repeaters, comparators and observers only output from their arrow/back. Use (E) on repeaters, comparators, note blocks, clocks, sensors and transmitters to change their setting; crouch + E with a block in hand places against them instead.'],
   ['Doors, ladders, slabs, stairs','Doors open with E. Ladders: walk forward or jump to climb, C to hold still. Two slabs make a full block. You step up slabs and stairs automatically.'],
   ['Multiplayer','Create a Multiplayer world to host, or join with a code / from Public servers. Chests, drops, mobs and blocks sync; PvP can be turned off.'],
+  ['Gun Realm','Build a portal frame out of Blocks of Iron (same shape as a Nether portal: inside 2 wide, 3 tall) and light it with an Igniter. The Gun Realm is a smoky wasteland of scrap heaps, concrete roads and brick bunkers. Bunkers and supply crates hold gun parts (barrels, receivers, trigger groups, stocks, magazines, scopes), and monsters there drop them too. Craft guns from the parts at a crafting table. Crafted guns work for everyone, but do a third of the damage of the admin guns.'],
   ['Private worlds','Private worlds aren’t on the public server list and other players can’t join them, but Stackwild admins can (to keep things safe). An admin may join without a message appearing. The world itself is still saved only on your device.'],
   ['Mods','Install mods from the Mods page. Server mods (like The Corruption) run on worlds you host; client mods only change your screen.'],
   ['The Corruption (mod)','A corrupted sword spreads corruption from near spawn. Inside it you take damage and demons spawn. Hold an Ender item or a Totem of Revival, use the sword, and survive 30 seconds next to it to pull it free.'],
@@ -5079,7 +5168,7 @@ function stream(){
 
 // ---------- day / night ----------
 const DAY_LEN=600;
-const skyDay=new THREE.Color(0x8ec5ff), skyNight=new THREE.Color(0x0b1430), skyDusk=new THREE.Color(0xf09060);
+const GUNSKY=new THREE.Color(0x8c6a4a), skyDay=new THREE.Color(0x8ec5ff), skyNight=new THREE.Color(0x0b1430), skyDusk=new THREE.Color(0xf09060);
 const skyCol=new THREE.Color();
 let cloudDrift=0;
 function updateSky(dt){
@@ -5092,6 +5181,7 @@ function updateSky(dt){
   else{skyCol.copy(skyNight).lerp(skyDay,light);skyCol.lerp(skyDusk,Math.max(0,1-Math.abs(sy)/0.28)*0.55);}
   if(!nether&&clientModOn('rainbowsky')){const rc=new THREE.Color().setHSL((performance.now()/40000)%1,.65,.6);skyCol.lerp(rc,.7*light);}
   if(!nether&&corZone(camera.position.x,camera.position.z)){skyCol.lerp(CORSKY,.6);}
+  if(isGunX(camera.position.x))skyCol.lerp(GUNSKY,.6);
   renderer.setClearColor(skyCol); scene.fog.color.copy(skyCol);
   sun.visible=moon.visible=clouds.visible=!nether;
   const b=Math.max(clientModOn('fullbright')?1:0,fx.night>0?.85:0,(!nether&&clientModOn('nightowl'))?.55:0,endR?.5:demonR?.34:nether?.42:0.2+0.8*light); curBright=b;
@@ -5325,7 +5415,7 @@ function wpSync(){
 }
 // ---------- locator bar: a dot for every other player in your dimension, placed by direction ----------
 const locbar=document.getElementById('locbar'), locDots=new Map();
-const dimOf=x=>x<NETHER_MIN?0:isNetherX(x)?1:isDemonX(x)?2:3;
+const dimOf=x=>isGunX(x)?4:x<NETHER_MIN?0:isNetherX(x)?1:isDemonX(x)?2:3;
 function updateLocator(){
   wpSync();
   for(const g of wpMeshes.values()){g.userData.core.rotation.y+=.03;g.visible=Math.hypot(g.position.x-P.x,g.position.z-P.z)<400;}
@@ -5409,7 +5499,7 @@ const AP_MODS=[
 const AP_ACTS=[['Dashboard','/dashboard'],['Legacy dashboard','/legacy'],['Void guns on/off','/void'],['Gun kit','/guns'],['Vehicles','/vehicles'],['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function apRow(k,v){return '<b>'+esc(k)+'</b><span>'+esc(v)+'</span>';}
-const DIMN=['Overworld','Nether','Demon Realm','The End'];
+const DIMN=['Overworld','Nether','Demon Realm','The End','Gun Realm'];
 function renderAdm(full){
   if(!admOpen)return;
   apEl.querySelectorAll('.ap-tab').forEach(b=>b.classList.toggle('on',b.dataset.tab===admTab));
@@ -5628,7 +5718,7 @@ function sfxPew(){const a=audio();if(!a)return;const t=a.currentTime,o=a.createO
 let gLagX=0, gLagY=0, gLastYaw=0, gLastPitch=0, gSprint=0, gLand=0, gWasGround=true, gFallV=0, gEquip=0, gKickR=0, gKickY=0;
 let gTrig=0, gHam=0, gStrafe=0, gCrouch=0; const gRc=new THREE.Vector3(), gRcV=new THREE.Vector3();
 const tracers=[], holes=[], rockets=[];
-const gunHeld=()=>!!(!riding&&!manning&&heldGun&&inv[sel]&&DEF[inv[sel].id].gun&&(worldMG==='gungame'||isAdmin()&&clientModOn('guns'))&&(!DEF[inv[sel].id].legacy||legacyAdmin()));
+const gunHeld=()=>!!(!riding&&!manning&&heldGun&&inv[sel]&&DEF[inv[sel].id].gun&&(worldMG==='gungame'||DEF[inv[sel].id].crafted||isAdmin()&&clientModOn('guns'))&&(!DEF[inv[sel].id].legacy||legacyAdmin()));
 const ATT_OPTS={
   sight:[['iron','Iron sights'],['reddot','Red dot'],['holo','Holo'],['x4','4× scope'],['x8','8× scope']],
   muzzle:[['none','None'],['silencer','Silencer'],['comp','Compensator'],['brake','Muzzle brake']],
@@ -8501,6 +8591,7 @@ function frame(now){
   if(underwater){scene.fog.color.setRGB(.12,.26,.5);scene.fog.near=1;scene.fog.far=18;renderer.setClearColor(scene.fog.color);}
   else if(getBlock(Math.floor(camera.position.x),Math.floor(camera.position.y),Math.floor(camera.position.z))===LAVA){scene.fog.color.setRGB(.9,.35,.05);scene.fog.near=.2;scene.fog.far=3;renderer.setClearColor(scene.fog.color);}
   else if(isEndX(P.x)){scene.fog.near=30;scene.fog.far=R*CS*.95;}
+  else if(isGunX(P.x)){scene.fog.near=R*CS*.3;scene.fog.far=R*CS*.75;}
   else if(P.x>=NETHER_MIN){scene.fog.near=isDemonX(P.x)?8:12;scene.fog.far=R*CS*(isDemonX(P.x)?.6:.7);}
   else{scene.fog.near=R*CS*0.55;scene.fog.far=R*CS*0.95;}
   if(fastMesh>0)fastMesh-=dt;
