@@ -1072,8 +1072,7 @@ const CRAFT_GUNS=[[247,1,1,1,1,0,0,IRON,2],[357,1,1,1,1,0,0,IRON,3],[341,1,1,1,1
   [250,1,2,1,0,1,0,'planks',2],[345,2,2,1,0,1,0,IRON,3],[251,2,2,1,0,1,1,IRON,2],[346,1,2,1,0,1,1,'planks',3]];
 const CRAFT_GUN_IDS=CRAFT_GUNS.map((c,i)=>400+i);
 CRAFT_GUNS.forEach(([b],i)=>{const id=400+i,base=GUNS[b];
-  GUNS[id]=Object.assign({},base,{name:'Crafted '+base.name,dmg:base.dmg>0&&base.dmg<9999?+(base.dmg/3).toFixed(2):base.dmg,crafted:1});
-  I(id,GUNS[id].name,DEF[b].t[0],{tool:{kind:'gun',tier:0,max:1,dmg:1},gun:GUNS[id],crafted:1,desc:'Made from Gun Realm parts. Anyone can use it, but it does a third of the damage of the real thing.'});});
+  GUNS[id]=Object.assign({},base,{name:'Crafted '+base.name,dmg:base.dmg>0&&base.dmg<9999?+(base.dmg/3).toFixed(2):base.dmg,crafted:1});});
 // shulker box: keeps what's inside when you break it. admin gun box: never runs out, opens in your hand
 const SHULKER=254, GUNBOX=335;
 B(SHULKER,'Shulker Box',[299,299,298],{drop:[],shulker:1});
@@ -1082,6 +1081,8 @@ const TURRET_ITEM=336, GUARD_ITEM=337;
 I(TURRET_ITEM,'Auto Turret',301,{admin:true,legacy:1,sec:'t'}); I(GUARD_ITEM,'Guard',302,{admin:true,legacy:1,sec:'g'});
 [260,261,262,263,264,265,266,267].forEach((id,i)=>I(id,GUNS[id].name,248+i,{tool:{kind:'gun',tier:0,max:1,dmg:1},admin:true,gun:GUNS[id]}));
 GUN_IDS.slice(0,6).forEach((id,i)=>I(id,GUNS[id].name,241+i,{tool:{kind:'gun',tier:0,max:1,dmg:1},admin:true,gun:GUNS[id]}));
+// crafted guns borrow their base gun's icon, so they're registered once every gun has one
+CRAFT_GUNS.forEach(([b],i)=>{const id=400+i;I(id,GUNS[id].name,DEF[b].t[0],{tool:{kind:'gun',tier:0,max:1,dmg:1},gun:GUNS[id],crafted:1,desc:'Made from Gun Realm parts. Anyone can use it, but it does a third of the damage of the real thing.'});});
 const HAMMER=253, GRENADE=270, FLASHBANG=271;
 I(GRENADE,'Grenade',256); I(FLASHBANG,'Flashbang',257);
 I(HAMMER,'Builder Hammer',247,{tool:{kind:'hammer',tier:1,max:9999,dmg:3}});
