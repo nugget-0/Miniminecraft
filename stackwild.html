@@ -5495,8 +5495,8 @@ const AP_MODS=[
   ['Auto-jump','Hop up 1-block steps',()=>autoJump,v=>setAutoJump(v)],
   ['Guns','Working guns (admin only)',()=>clientModOn('guns'),v=>setClientMod('guns',v)],
   ['Infinite ammo','Guns never need reloading',()=>infAmmo,v=>runCommand('/infammo '+(v?'on':'off'))],
-  ['Auto wind combo','Homing wind charges juggle the nearest target: Sky Juggle up close, Cyclone from range. Makes a wind-charge slot infinite',()=>autoCombo,v=>setAutoCombo(v)],
-  ['Auto spike','With auto combo: finishes a ×4 Sky Juggle (or earlier at the sky limit) with a Spike (Meteor if you hold a mace)',()=>autoSpike,v=>{autoSpike=v;}],
+  ['Auto wind combo','Homing wind charges juggle the nearest target up forever (no height limit) until you turn it off; Cyclone from range. Makes a wind-charge slot infinite',()=>autoCombo,v=>setAutoCombo(v)],
+  ['Auto spike','With auto combo: finishes each Sky Juggle at ×4 instead of juggling forever with a Spike (Meteor if you hold a mace)',()=>autoSpike,v=>{autoSpike=v;}],
   ['Combo players','Let the auto combo go for other players too (PvP must be on)',()=>acPlayers,v=>{acPlayers=v;}],
   ['Homing wind charges','Wind charges you throw curve onto whatever you’re aiming near',()=>homingWinds,v=>{homingWinds=v;}],
   ['Fullbright','Everything fully lit',()=>clientModOn('fullbright'),v=>setClientMod('fullbright',v)],
@@ -7380,9 +7380,9 @@ function windComboHit(who){
   }
   if(onGround)return;
   wc.n++; wc.stage=2; wc.t=2.6; wLiftMe=.9; wLiftVy=12; airMaxY=P.y; maceSafe=true; gliding=false;
-  wcLiftTarget(who,.9); wcDamage(who,1+wc.n);
+  wcLiftTarget(who,.9); wcDamage(who,autoCombo?.5:1+wc.n);   // auto juggles barely hurt, so they can go on and on
   for(let i=0;i<20;i++){const a=i/20*Math.PI*2;glowPart(i%2?[255,255,255]:[150,215,255],tp.x+Math.cos(a)*.8,tp.y,tp.z+Math.sin(a)*.8,Math.cos(a)*3,8+Math.random()*4,Math.sin(a)*3,.6,-2);}
-  if(wc.n>=5)wcDamage(who,wc.n);   // Sky King: big bonus damage from x5 up
+  if(wc.n>=5&&!autoCombo)wcDamage(who,wc.n);   // Sky King: big bonus damage from x5 up
   const first=comboFirst(wc.n>=5?'king':'sky');
   comboBanner((wc.n>=5?'SKY KING ×':'SKY JUGGLE ×')+wc.n,first?'Secret combo discovered!':wc.n>=3?'Melee them now to SPIKE':'');
   sfxTwang(1.6+wc.n*.15);
@@ -7428,13 +7428,13 @@ function wcTick(dt){
     if(m.hp<=0){const i=mobs.indexOf(m);if(i>=0)killMob(i,true);}}
   if(wc.stage){wc.t-=dt; if(wc.t<=0||(onGround&&wLiftMe<=0&&wc.t<2.3)){wc.stage=0;wc.n=0;wc.tgt=null;}}
   if(wLiftMe>0&&!dead){
-    wLiftMe-=dt; if(P.y>H-6)wLiftMe=0;
+    wLiftMe-=dt; if(P.y>H-6&&!autoCombo)wLiftMe=0;   // the auto combo has no ceiling
     V.y=Math.max(V.y,wLiftVy); airMaxY=P.y; maceSafe=true; gliding=false;
     const tp=wc.stage?wcPos(wc.tgt):null;
     if(tp){const dx=tp.x-P.x,dz=tp.z-P.z,dd=Math.hypot(dx,dz)||1,want=(dd-1.6)*5,k=Math.min(1,dt*6);V.x+=(dx/dd*want-V.x)*k;V.z+=(dz/dd*want-V.z)*k;}
     if(Math.random()<dt*30)glowPart([220,240,255],P.x+(Math.random()-.5),P.y,P.z+(Math.random()-.5),0,-4,0,.4,0);
   }
-  if(!MP.connected||MP.isHost)for(const m of mobs)if(m.wlift>0){m.wlift-=dt;if(m.y>H-6)m.wlift=0;m.vy=Math.max(m.vy||0,12);if(Math.random()<dt*20)glowPart([220,240,255],m.x,m.y,m.z,0,-4,0,.4,0);}
+  if(!MP.connected||MP.isHost)for(const m of mobs)if(m.wlift>0){m.wlift-=dt;if(m.y>H-6&&!autoCombo)m.wlift=0;m.vy=Math.max(m.vy||0,12);if(Math.random()<dt*20)glowPart([220,240,255],m.x,m.y,m.z,0,-4,0,.4,0);}
   autoComboTick(dt);
 }
 // Meteor: mace spike, then you crash down and the landing sends out a shockwave (hurts and throws, never breaks blocks)
@@ -7485,8 +7485,8 @@ function autoComboTick(dt){
   if(winds.some(w=>w.mine&&w.home))return;                 // wait for the one in flight to land
   const t=acPick(); if(!t)return; const tp=wcPos(t), d=Math.hypot(tp.x-P.x,tp.y-(P.y+.9),tp.z-P.z);
   if(wc.stage&&wcSame(wc.tgt,t)){
-    if(autoSpike&&(wc.n>=4||wc.n>=2&&P.y>H-14)&&!onGround&&d<7){if(wcSpike(t.mob||null,t.peer||null)){swing();acT=.6;}return;}
-    if(!onGround&&d<8&&P.y<H-12&&(wc.stage===1||wLiftMe<.35)){if(acThrow(t))acT=.12;}
+    if(autoSpike&&wc.n>=4&&!onGround&&d<7){if(wcSpike(t.mob||null,t.peer||null)){swing();acT=.6;}return;}
+    if(!onGround&&d<9&&(wc.stage===1||wLiftMe<.35)){if(acThrow(t))acT=.12;}
     return;
   }
   if(onGround&&wLiftMe<=0&&!myCyc){
