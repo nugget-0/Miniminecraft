@@ -8266,8 +8266,9 @@ function openLegacyDash(){
   let el=document.getElementById('ldashPanel');
   if(!el){el=document.createElement('div');el.id='ldashPanel';el.className='overlay';el.style.zIndex='36';document.body.appendChild(el);
     el.addEventListener('click',e=>{if(e.target===el){closeLegacyDash();return;}const b=e.target.closest('[data-ld]');if(b)ldashAct(b.dataset.ld,b.dataset.v||'');});
+    el.addEventListener('input',e=>{if(e.target.id==='ldIdQ'){ldIds.q=e.target.value;ldashRender();}});
     el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&e.target.id==='ldCode')ldashAct('code');if(e.key==='Escape')closeLegacyDash();});}
-  el.hidden=false; for(const k in keys)keys[k]=false; ldashRender();
+  el.hidden=false; for(const k in keys)keys[k]=false; ldashRender(); if(!ldIds.loading)ldashLoadIds();
   clearInterval(ldashT); ldashT=setInterval(()=>{if(ldashOn())ldashRender();else clearInterval(ldashT);},3000);
 }
 function closeLegacyDash(){const el=document.getElementById('ldashPanel');if(el)el.hidden=true;clearInterval(ldashT);}
@@ -8284,6 +8285,45 @@ function ldashAct(a,v){
   else if(a==='vis'){if(!MP.connected||MP.isHost)return;MP.vanish=!MP.vanish;MP.sendT=0;toast(MP.vanish?'Hidden again: your avatar disappears for everyone':'You’re visible: everyone sees you join');ldashRender();}
   else if(a==='leave'){mpDisconnect();playServer(servers.find(x=>x.type!=='joined')||servers[0]);mpSetStatus('Left the server.');closeLegacyDash();}
   else if(a==='cmd'){runCommand(v);ldashRender();}
+  else if(a==='ban')ldBan(v);
+  else if(a==='idsr')ldashLoadIds();
+}
+// every NuggetCode ID that has logged in, with who's using it now; ban bans that player's device and the ID itself
+const ldIds={data:null,loading:false,err:'',q:''};
+async function ldashLoadIds(){
+  ldIds.loading=true; ldIds.err=''; if(ldashOn())ldashRender();
+  try{if(!swOn())throw new Error('The ID list works on the live site.');const r=await fetch('/api/ids',{cache:'no-store'}),d=await r.json();
+    if(d.configured===false)throw new Error('Needs NUGGETBASE_KEY set on Vercel.'); if(d.error)throw new Error(d.error); ldIds.data=d.ids||[];}
+  catch(e){ldIds.err=String(e.message||e);}
+  ldIds.loading=false; if(ldashOn())ldashRender();
+}
+const ldBanOf=r=>bans.find(b=>(b.nc&&b.nc===r.ncid)||(r.pid&&b.id===r.pid));
+function ldBan(ncid){
+  const r=ldIds.data&&ldIds.data.find(x=>x.ncid===ncid); if(!r)return;
+  if(r.pid===PID||ncid===window.NC_ID){toast('You can’t ban yourself');return;}
+  const ex=ldBanOf(r), before=bans, who=r.name||ncid;
+  if(ex){bans=bans.filter(b=>b!==ex);if(pubBans()){toast('Unbanned '+who);swEvent('unban',who+' · '+ncid);}else{bans=before;toast('Not connected to the server list yet. Try again in a moment.');}}
+  else{
+    if(!confirm('Ban '+who+' ('+ncid+') from every server?'))return;
+    bans=[...bans,{id:r.pid||('nc:'+ncid),n:who,nc:ncid,r:'Banned from the legacy dashboard',by:MP.name||mpName.value,ts:Date.now()}];
+    if(pubBans()){if(r.pid){mpSend({t:'kick',to:r.pid,r:'Banned'});adminSend({t:'kick',to:r.pid,r:'Banned'});}swEvent('ban',who+' · '+ncid);toast('Banned '+who);}
+    else{bans=before;toast('Not connected to the server list yet. Try again in a moment.');}
+  }
+  ldashRender();
+}
+function ldIdsHtml(){
+  const btn=(a,v,t,cls)=>'<button class="btn small'+(cls?' '+cls:'')+'" data-ld="'+a+'" data-v="'+esc(v)+'">'+esc(t)+'</button>';
+  let h='<div class="db-box" style="margin-top:12px"><h3>NuggetCode IDs <button data-ld="idsr">'+(ldIds.loading?'Loading…':'Refresh')+'</button></h3>';
+  if(ldIds.err&&!ldIds.data)return h+'<p class="db-sub">'+esc(ldIds.err)+'</p></div>';
+  if(!ldIds.data)return h+'<p class="db-sub">Loading every ID that has logged in…</p></div>';
+  const q=ldIds.q.trim().toLowerCase(), rows=ldIds.data.filter(r=>!q||String(r.ncid).toLowerCase().includes(q)||String(r.name).toLowerCase().includes(q));
+  h+='<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap"><input id="ldIdQ" placeholder="Search ID or name" aria-label="Search IDs or names" value="'+esc(ldIds.q)+'" style="flex:1;min-width:140px"><span class="db-sub">'+rows.length+' of '+ldIds.data.length+' IDs</span></div>';
+  if(!rows.length)return h+'<p class="db-sub">'+(ldIds.data.length?'No IDs match.':'No one has logged in with an ID yet.')+'</p></div>';
+  h+='<div style="overflow-x:auto"><table><thead><tr><th>NuggetCode ID</th><th>Player now</th><th>Role</th><th>Last seen</th><th>Logins</th><th></th></tr></thead><tbody>';
+  for(const r of rows.slice(0,200)){const b=ldBanOf(r), me=r.pid===PID||r.ncid===window.NC_ID;
+    h+='<tr><td>'+esc(r.ncid)+'</td><td>'+(r.online?'<span title="Online now" style="color:#5fd068">● </span>':'')+esc(r.name||'?')+(b?' <span class="db-sub">(banned)</span>':'')+'</td><td>'+(r.role==='admin'?'admin':'user')+'</td><td>'+esc(dAgo(r.last))+'</td><td>'+(r.logins|0)+'</td><td>'
+      +(me?'<span class="db-sub">You</span>':b?btn('ban',r.ncid,'Unban','ghost'):btn('ban',r.ncid,'Ban','warn'))+'</td></tr>';}
+  return h+'</tbody></table></div>'+(rows.length>200?'<p class="db-sub">Showing the first 200. Search to narrow it down.</p>':'')+'</div>';
 }
 function ldashRender(){
   const el=document.getElementById('ldashPanel'); if(!el)return;
@@ -8336,9 +8376,11 @@ function ldashRender(){
       h+='</tbody></table>';
     }
   }
-  h+='<p class="db-sub" style="margin:10px 0 0">Private worlds tell their players that admins can join. They never appear on the public list, and only legacy admins get let in.</p></div></div></div>';
+  h+='<p class="db-sub" style="margin:10px 0 0">Private worlds tell their players that admins can join. They never appear on the public list, and only legacy admins get let in.</p></div></div>'+ldIdsHtml()+'</div>';
+  const qFocus=document.activeElement&&document.activeElement.id==='ldIdQ';
   el.innerHTML=h;
   const ni=document.getElementById('ldCode'); if(ni){ni.value=typed;if(hadFocus){ni.focus();ni.setSelectionRange(typed.length,typed.length);}}
+  const qi=document.getElementById('ldIdQ'); if(qi&&qFocus){qi.focus();qi.setSelectionRange(qi.value.length,qi.value.length);}
 }
 
 // ---------- admin dashboard (/dashboard): reads /api/stats ----------
@@ -9240,7 +9282,7 @@ const PID=(()=>{let v=null;try{v=localStorage.getItem('stackwild:pid');}catch(e)
 const ADMIN_TOPIC='stackwild/v2/admin', BAN_TOPIC='stackwild/v2/bans';
 const known=new Map();
 let bans=[];
-function amBanned(){return bans.some(b=>b.id===PID);}
+function amBanned(){return bans.some(b=>b.id===PID||(b.nc&&window.NC_ID&&b.nc===window.NC_ID));}
 function resolvePlayer(q){
   if(!q)return null; const lq=q.toLowerCase();
   for(const p of MP.peers.values())if(p.pid&&p.n.toLowerCase()===lq)return{pid:p.pid,name:p.n};
