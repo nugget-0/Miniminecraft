@@ -5369,7 +5369,7 @@ const AP_MODS=[
   ['Rainbow Sky','Cycling rainbow daytime sky',()=>clientModOn('rainbowsky'),v=>setClientMod('rainbowsky',v)],
   ['FPS counter','Corner FPS readout',()=>clientModOn('fps'),v=>setClientMod('fps',v)],
 ];
-const AP_ACTS=[['Dashboard','/dashboard'],['Legacy dashboard','/legacy'],['Gun kit','/guns'],['Vehicles','/vehicles'],['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
+const AP_ACTS=[['Dashboard','/dashboard'],['Legacy dashboard','/legacy'],['Void guns on/off','/void'],['Gun kit','/guns'],['Vehicles','/vehicles'],['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function apRow(k,v){return '<b>'+esc(k)+'</b><span>'+esc(v)+'</span>';}
 const DIMN=['Overworld','Nether','Demon Realm','The End'];
@@ -5393,7 +5393,7 @@ function renderAdm(full){
     AP_MODS.forEach((m,i)=>{const on=!!m[2]();h+='<div class="ap-mod'+(on?' on':'')+'" data-mod="'+i+'"><div><div class="nm">'+esc(m[0])+'</div><div class="ds">'+esc(m[1])+'</div></div><div class="ap-sw"></div></div>';});
     h+='<div class="ap-sec">Speed</div><div class="ap-range"><input type="range" id="apSpeed" min="1" max="20" step="1" value="'+Math.round(admSpeed)+'"><span id="apSpeedV">×'+admSpeed+'</span></div>';
   }else if(admTab==='act'){
-    h+='<div class="ap-sec">Quick actions</div><div class="ap-btns">'+AP_ACTS.filter(a=>a[1]!=='/legacy'||canLegacy()).map(a=>'<button class="ap-btn'+(a[2]?' danger':'')+'" data-cmd="'+esc(a[1])+'">'+esc(a[0])+'</button>').join('')+'</div>';
+    h+='<div class="ap-sec">Quick actions</div><div class="ap-btns">'+AP_ACTS.filter(a=>(a[1]!=='/legacy'&&a[1]!=='/void')||canLegacy()).map(a=>'<button class="ap-btn'+(a[2]?' danger':'')+'" data-cmd="'+esc(a[1])+'">'+esc(a[0])+'</button>').join('')+'</div>';
     h+='<div class="ap-sec">Crater at your feet</div><div class="ap-btns">'+[['10','/crater 10'],['100','/crater 100'],['1,000','/crater 1000'],['10,000','/crater 10000'],['∞','/crater inf']].map(a=>'<button class="ap-btn danger" data-cmd="'+a[1]+'">'+a[0]+'</button>').join('')+'</div>';
     h+='<div class="ap-sec">Summon</div><div class="ap-btns">'+['shambler','skitter','demon','overlord','voidling','dragon','dummy','tnt','megatnt'].map(t=>'<button class="ap-btn" data-cmd="/summon '+t+'">'+t+'</button>').join('')+'</div>';
   }else if(admTab==='pl'){
@@ -5604,8 +5604,15 @@ const attOf=id=>Object.assign({sight:GUNS[id]&&GUNS[id].scope?'x8':'iron',muzzle
 // legacy admins (thing.admin / nugget67 names) get a Void version of every gun: harder hitting, and every bullet bores through any block, even the bottom of the world
 const legacyAdmin=()=>!!(window.swLegacyAdmin&&window.swLegacyAdmin());
 const voidStatCache={};
+let voidOff=false; try{voidOff=localStorage.getItem('stackwild:novoid')==='1';}catch(e){}
+function setVoidOff(v){
+  voidOff=v; try{localStorage.setItem('stackwild:novoid',v?'1':'0');}catch(e){}
+  for(const k in voidStatCache)delete voidStatCache[k];
+  for(const k in gunAmmo){const g=gunStat(+k);if(g)gunAmmo[k]=Math.min(gunAmmo[k],g.mag);}
+  heldId=-1;
+}
 function gunStat(id){
-  const b=gunStatBase(id); if(!b||!legacyAdmin())return b;
+  const b=gunStatBase(id); if(!b||!legacyAdmin()||voidOff)return b;
   if(voidStatCache[id])return voidStatCache[id];
   const g=Object.assign({},b); g.void=1; g.name='Void '+b.name;
   if(g.dmg>0&&g.dmg<9999)g.dmg*=3; g.rpm*=1.25; g.mag=Math.ceil(g.mag*2); g.reload*=.6; g.spread*=.5; g.recoil*=.6;
@@ -8479,6 +8486,7 @@ function runCommand(line){
       if(isAdmin())say('Admin guns: /guns gives all '+GUN_IDS.length+' (incl. Desert Eagle, AK, bullpup, double barrel, lever action, anti-materiel rifle, crossbow, grenade launcher, flamethrower, laser rifle, Tommy gun, Golden Gun) · /infammo [on|off]');
       if(legacyAdmin())say('Legacy admin: /security gives Auto Turrets and Guards (Security mod) · /deadmin <player> [reason] removes their admin · /readmin <player> gives it back · /deadminlist');
       if(isAdmin())say('/dashboard opens the server dashboard (players, play time, sessions, top players, admin activity) powered by NuggetBase');
+      if(canLegacy())say('/void turns your Void gun upgrade off or on (/void off, /void on)');
       if(canLegacy())say('/legacy opens the legacy admin dashboard: every live server, join any of them secretly or normally, and manage players');
       if(isAdmin())say('/guns gives the Admin Gun Box (every gun, never runs out) · /guns all gives them loose · Shulker Box: chest + 2 ender pearls, keeps its items when broken');
       if(isAdmin())say('Gun keys: F fire · T aim · R reload · J attachments & skins · N fire mode · Y inspect · M melee bash');
@@ -8646,6 +8654,9 @@ function runCommand(line){
       say((on?'Gave admin back to ':'Removed admin from ')+t.name+'. It’s saved in their browser, so it sticks after they reload. They need to be online to get it.'); break;
     }
     case 'dashboard': case 'stats':{if(!isAdmin()){say('Unknown command. Type /help.');break;}openDashboard();break;}
+    case 'void':{if(!canLegacy()){say('Unknown command. Type /help.');break;}
+      const v=(a[0]||'').toLowerCase(), off=v==='off'?true:v==='on'?false:!voidOff; setVoidOff(off);
+      say(off?'Void guns OFF: your guns are normal (normal damage, bullets stop at blocks, ricochets work). /void to turn them back on.':'Void guns ON: 3× damage and bullets bore through anything.'); break;}
     case 'legacy': case 'ldash':{if(!canLegacy()){say('Unknown command. Type /help.');break;}openLegacyDash();break;}
     case 'deadminlist':{
       if(!legacyAdmin()){say('Only legacy admins can see that.');break;}
