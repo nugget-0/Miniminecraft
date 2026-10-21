@@ -62,36 +62,36 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-ui);
 #locbar .ld{position:absolute;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;border:1px solid rgba(0,0,0,.7);box-shadow:0 0 4px rgba(0,0,0,.6)}
 #locbar .ld i{position:absolute;left:50%;transform:translateX(-50%);font:700 9px monospace;color:#fff;text-shadow:0 1px 1px #000;font-style:normal;line-height:1}
 #locbar .ld b{position:absolute;left:50%;top:-15px;transform:translateX(-50%);font:600 10px var(--font-display,monospace);color:#fff;white-space:nowrap;text-shadow:0 1px 2px #000}
-#dashPanel .card{max-width:960px;width:calc(100% - 32px);max-height:calc(100vh - 48px);overflow:auto}
-#dashPanel .db-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-#dashPanel .db-sub{font-size:12px;color:var(--muted)}
-#dashPanel .db-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:14px 0}
-#dashPanel .db-tile{border:1px solid var(--panel-edge);border-radius:6px;padding:10px 12px;background:rgba(255,255,255,.03)}
-#dashPanel .db-tile b{display:block;font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1.1}
-#dashPanel .db-tile span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-#dashPanel .db-tile small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
-#dashPanel .db-grid{display:grid;grid-template-columns:3fr 2fr;gap:12px}
-@media (max-width:720px){#dashPanel .db-grid{grid-template-columns:1fr}}
-#dashPanel .db-box{border:1px solid var(--panel-edge);border-radius:6px;padding:12px;background:rgba(255,255,255,.02);min-width:0}
-#dashPanel .db-box h3{margin:0 0 8px;font-family:var(--font-display);font-size:15px;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:8px}
-#dashPanel .db-box h3 button{all:unset;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted);text-decoration:underline}
-#dashPanel .db-chart{position:relative}
-#dashPanel .db-chart svg{display:block;width:100%;height:auto;overflow:visible}
-#dashPanel .db-tip{position:absolute;pointer-events:none;background:#0d100f;border:1px solid var(--panel-edge);border-radius:4px;padding:6px 8px;font-size:12px;color:var(--text);white-space:nowrap;transform:translate(-50%,-100%);display:none;z-index:2}
-#dashPanel .db-tip small{color:var(--muted)}
-#dashPanel table{width:100%;border-collapse:collapse;font-size:12px}
-#dashPanel th{text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--panel-edge);padding:5px 6px;white-space:nowrap}
-#dashPanel td{padding:5px 6px;border-bottom:1px solid rgba(242,239,228,.06);color:var(--text);white-space:nowrap}
-#dashPanel td.n,#dashPanel th.n{text-align:right;font-variant-numeric:tabular-nums}
-#dashPanel .db-hbar{display:grid;grid-template-columns:minmax(80px,1fr) 2fr auto;align-items:center;gap:8px;font-size:12px;margin:5px 0;color:var(--text)}
-#dashPanel .db-hbar i{display:block;height:12px;border-radius:0 4px 4px 0;background:#3987e5;min-width:2px}
-#dashPanel .db-feed{list-style:none;margin:0;padding:0;font-size:12px;max-height:220px;overflow:auto}
-#dashPanel .db-feed li{padding:5px 0;border-bottom:1px solid rgba(242,239,228,.06);color:var(--text)}
-#dashPanel .db-feed li small{color:var(--muted)}
-#dashPanel .db-tag{display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;border:1px solid var(--panel-edge);color:var(--muted);margin-right:6px}
-#dashPanel .db-setup ol{padding-left:20px;line-height:1.7;font-size:13px}
-#dashPanel .db-setup code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px}
-#dashPanel .scroll-x{overflow-x:auto}
+#dashPanel .card,#ldashPanel .card{max-width:960px;width:calc(100% - 32px);max-height:calc(100vh - 48px);overflow:auto}
+#dashPanel .db-head,#ldashPanel .db-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#dashPanel .db-sub,#ldashPanel .db-sub{font-size:12px;color:var(--muted)}
+#dashPanel .db-tiles,#ldashPanel .db-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:14px 0}
+#dashPanel .db-tile,#ldashPanel .db-tile{border:1px solid var(--panel-edge);border-radius:6px;padding:10px 12px;background:rgba(255,255,255,.03)}
+#dashPanel .db-tile b,#ldashPanel .db-tile b{display:block;font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1.1}
+#dashPanel .db-tile span,#ldashPanel .db-tile span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+#dashPanel .db-tile small,#ldashPanel .db-tile small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+#dashPanel .db-grid,#ldashPanel .db-grid{display:grid;grid-template-columns:3fr 2fr;gap:12px}
+@media (max-width:720px){#dashPanel .db-grid,#ldashPanel .db-grid{grid-template-columns:1fr}}
+#dashPanel .db-box,#ldashPanel .db-box{border:1px solid var(--panel-edge);border-radius:6px;padding:12px;background:rgba(255,255,255,.02);min-width:0}
+#dashPanel .db-box h3,#ldashPanel .db-box h3{margin:0 0 8px;font-family:var(--font-display);font-size:15px;color:var(--text);display:flex;justify-content:space-between;align-items:center;gap:8px}
+#dashPanel .db-box h3 button,#ldashPanel .db-box h3 button{all:unset;cursor:pointer;font-family:var(--font-ui);font-size:11px;color:var(--muted);text-decoration:underline}
+#dashPanel .db-chart,#ldashPanel .db-chart{position:relative}
+#dashPanel .db-chart svg,#ldashPanel .db-chart svg{display:block;width:100%;height:auto;overflow:visible}
+#dashPanel .db-tip,#ldashPanel .db-tip{position:absolute;pointer-events:none;background:#0d100f;border:1px solid var(--panel-edge);border-radius:4px;padding:6px 8px;font-size:12px;color:var(--text);white-space:nowrap;transform:translate(-50%,-100%);display:none;z-index:2}
+#dashPanel .db-tip small,#ldashPanel .db-tip small{color:var(--muted)}
+#dashPanel table,#ldashPanel table{width:100%;border-collapse:collapse;font-size:12px}
+#dashPanel th,#ldashPanel th{text-align:left;font-weight:600;color:var(--muted);border-bottom:1px solid var(--panel-edge);padding:5px 6px;white-space:nowrap}
+#dashPanel td,#ldashPanel td{padding:5px 6px;border-bottom:1px solid rgba(242,239,228,.06);color:var(--text);white-space:nowrap}
+#dashPanel td.n,#dashPanel th.n,#ldashPanel td.n,#ldashPanel th.n{text-align:right;font-variant-numeric:tabular-nums}
+#dashPanel .db-hbar,#ldashPanel .db-hbar{display:grid;grid-template-columns:minmax(80px,1fr) 2fr auto;align-items:center;gap:8px;font-size:12px;margin:5px 0;color:var(--text)}
+#dashPanel .db-hbar i,#ldashPanel .db-hbar i{display:block;height:12px;border-radius:0 4px 4px 0;background:#3987e5;min-width:2px}
+#dashPanel .db-feed,#ldashPanel .db-feed{list-style:none;margin:0;padding:0;font-size:12px;max-height:220px;overflow:auto}
+#dashPanel .db-feed li,#ldashPanel .db-feed li{padding:5px 0;border-bottom:1px solid rgba(242,239,228,.06);color:var(--text)}
+#dashPanel .db-feed li small,#ldashPanel .db-feed li small{color:var(--muted)}
+#dashPanel .db-tag,#ldashPanel .db-tag{display:inline-block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:1px 6px;border-radius:3px;border:1px solid var(--panel-edge);color:var(--muted);margin-right:6px}
+#dashPanel .db-setup ol,#ldashPanel .db-setup ol{padding-left:20px;line-height:1.7;font-size:13px}
+#dashPanel .db-setup code,#ldashPanel .db-setup code{background:rgba(255,255,255,.07);padding:1px 5px;border-radius:3px}
+#dashPanel .scroll-x,#ldashPanel .scroll-x{overflow-x:auto}
 #moveBar{position:fixed;left:50%;bottom:calc(146px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:flex-end;gap:6px;z-index:22;transition:opacity .2s,transform .2s}
 #moveBar .mv-tag{font-family:var(--font-display);font-size:12px;letter-spacing:.08em;color:var(--muted);text-shadow:0 1px 0 rgba(0,0,0,.7);margin-right:4px;align-self:center;text-align:right;line-height:1.1}
 #moveBar.on .mv-tag{color:var(--accent)}
@@ -5289,7 +5289,7 @@ const AP_MODS=[
   ['Rainbow Sky','Cycling rainbow daytime sky',()=>clientModOn('rainbowsky'),v=>setClientMod('rainbowsky',v)],
   ['FPS counter','Corner FPS readout',()=>clientModOn('fps'),v=>setClientMod('fps',v)],
 ];
-const AP_ACTS=[['Dashboard','/dashboard'],['Gun kit','/guns'],['Vehicles','/vehicles'],['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
+const AP_ACTS=[['Dashboard','/dashboard'],['Legacy dashboard','/legacy'],['Gun kit','/guns'],['Vehicles','/vehicles'],['Heal','/heal'],['Feed','/feed'],['Repair','/repair'],['Admin kit','/adm'],['+10 levels','/xp 10'],['Top','/top'],['Back','/back'],['Day','/time set day'],['Night','/time set night'],['Butcher','/butcher',1],['Smite','/smite'],['Launch','/launch'],['Party','/party'],['Meteor','/meteor'],['Nuke','/nuke',1],['Corrupt held','/corrupt'],['Enderise held','/enderise'],['Clear craters','/clearcraters',1]];
 const esc=t=>String(t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function apRow(k,v){return '<b>'+esc(k)+'</b><span>'+esc(v)+'</span>';}
 const DIMN=['Overworld','Nether','Demon Realm','The End'];
@@ -5307,13 +5307,13 @@ function renderAdm(full){
     const hr=(dayT*24+6)%24;
     h+='<div class="ap-sec">World</div><div class="ap-grid">'+apRow('Name',current?current.name:'—')+apRow('Seed',seed)+apRow('Mode',GM.mode)+apRow('Difficulty',['Peaceful','Easy','Normal','Hard'][GM.diff]||GM.diff)
       +apRow('Time',String(Math.floor(hr)).padStart(2,'0')+':'+String(Math.floor(hr%1*60)).padStart(2,'0')+(current&&current.alwaysDay?' (locked)':''))+apRow('Mobs',mobs.length+' ('+mobs.filter(m=>!m.passive).length+' hostile)')
-      +apRow('Players',(MP.connected?MP.peers.size+1:1)+'')+apRow('Craters',(Array.isArray(meta['#cr'])?meta['#cr'].length:0)+'')+'</div>';
+      +apRow('Players',(MP.connected?visPeers().length+1:1)+'')+apRow('Craters',(Array.isArray(meta['#cr'])?meta['#cr'].length:0)+'')+'</div>';
   }else if(admTab==='mods'){
     h+='<div class="ap-sec">Modules</div>';
     AP_MODS.forEach((m,i)=>{const on=!!m[2]();h+='<div class="ap-mod'+(on?' on':'')+'" data-mod="'+i+'"><div><div class="nm">'+esc(m[0])+'</div><div class="ds">'+esc(m[1])+'</div></div><div class="ap-sw"></div></div>';});
     h+='<div class="ap-sec">Speed</div><div class="ap-range"><input type="range" id="apSpeed" min="1" max="20" step="1" value="'+Math.round(admSpeed)+'"><span id="apSpeedV">×'+admSpeed+'</span></div>';
   }else if(admTab==='act'){
-    h+='<div class="ap-sec">Quick actions</div><div class="ap-btns">'+AP_ACTS.map(a=>'<button class="ap-btn'+(a[2]?' danger':'')+'" data-cmd="'+esc(a[1])+'">'+esc(a[0])+'</button>').join('')+'</div>';
+    h+='<div class="ap-sec">Quick actions</div><div class="ap-btns">'+AP_ACTS.filter(a=>a[1]!=='/legacy'||canLegacy()).map(a=>'<button class="ap-btn'+(a[2]?' danger':'')+'" data-cmd="'+esc(a[1])+'">'+esc(a[0])+'</button>').join('')+'</div>';
     h+='<div class="ap-sec">Crater at your feet</div><div class="ap-btns">'+[['10','/crater 10'],['100','/crater 100'],['1,000','/crater 1000'],['10,000','/crater 10000'],['∞','/crater inf']].map(a=>'<button class="ap-btn danger" data-cmd="'+a[1]+'">'+a[0]+'</button>').join('')+'</div>';
     h+='<div class="ap-sec">Summon</div><div class="ap-btns">'+['shambler','skitter','demon','overlord','voidling','dragon','dummy','tnt','megatnt'].map(t=>'<button class="ap-btn" data-cmd="/summon '+t+'">'+t+'</button>').join('')+'</div>';
   }else if(admTab==='pl'){
@@ -7709,6 +7709,80 @@ function swEvent(kind,detail){if(!swOn())return;fetch('/api/track',{method:'POST
 function swTick(dt){if(!paused&&!loading&&!dead)swActive+=dt;swHbT-=dt;if(swHbT<=0){swHbT=60;swHeartbeat(false);}}
 window.addEventListener('pagehide',()=>swHeartbeat(true));
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')swHeartbeat(true);});
+// ---------- legacy admin dashboard (/legacy): live servers, secret or normal join, player tools ----------
+const visPeers=()=>[...MP.peers.values()].filter(p=>!p.hid);
+const canLegacy=()=>legacyAdmin()&&!deadminned();
+let ldashT=0;
+function openLegacyDash(){
+  if(!canLegacy()){toast('The legacy dashboard is for legacy admins');return;}
+  let el=document.getElementById('ldashPanel');
+  if(!el){el=document.createElement('div');el.id='ldashPanel';el.className='overlay';el.style.zIndex='36';document.body.appendChild(el);
+    el.addEventListener('click',e=>{if(e.target===el){closeLegacyDash();return;}const b=e.target.closest('[data-ld]');if(b)ldashAct(b.dataset.ld,b.dataset.v||'');});
+    el.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter'&&e.target.id==='ldCode')ldashAct('code');if(e.key==='Escape')closeLegacyDash();});}
+  el.hidden=false; for(const k in keys)keys[k]=false; ldashRender();
+  clearInterval(ldashT); ldashT=setInterval(()=>{if(ldashOn())ldashRender();else clearInterval(ldashT);},3000);
+}
+function closeLegacyDash(){const el=document.getElementById('ldashPanel');if(el)el.hidden=true;clearInterval(ldashT);}
+const ldashOn=()=>{const el=document.getElementById('ldashPanel');return !!(el&&!el.hidden);};
+function ldashJoin(code,secret){
+  code=String(code||'').trim().toLowerCase().replace(/[^a-z0-9]/g,''); if(!code){toast('Type a server code');return;}
+  if(MP.connected&&MP.isHost&&MP.room===code){toast('That’s your own server');return;}
+  closeLegacyDash(); mpRoom.value=code; mpJoinCode(code,secret);
+}
+function ldashAct(a,v){
+  if(a==='close')closeLegacyDash();
+  else if(a==='join'||a==='sjoin')ldashJoin(v,a==='sjoin');
+  else if(a==='code'||a==='scode'){const i=document.getElementById('ldCode');ldashJoin(i&&i.value,a==='scode');}
+  else if(a==='vis'){if(!MP.connected||MP.isHost)return;MP.vanish=!MP.vanish;MP.sendT=0;toast(MP.vanish?'Hidden again: your avatar disappears for everyone':'You’re visible: everyone sees you join');ldashRender();}
+  else if(a==='leave'){mpDisconnect();playServer(servers.find(x=>x.type!=='joined')||servers[0]);mpSetStatus('Left the server.');closeLegacyDash();}
+  else if(a==='cmd'){runCommand(v);ldashRender();}
+}
+function ldashRender(){
+  const el=document.getElementById('ldashPanel'); if(!el)return;
+  const keep=document.getElementById('ldCode'), typed=keep?keep.value:'', hadFocus=keep&&document.activeElement===keep;
+  const now=Date.now(), list=[...LOB.servers.values()].filter(o=>Math.abs(now-o.ts)<45000).sort((a,b)=>(b.players|0)-(a.players|0));
+  const tile=(l,v,sub)=>'<div class="db-tile"><span>'+esc(l)+'</span><b>'+esc(v)+'</b>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</div>';
+  const btn=(a,v,t,cls)=>'<button class="btn small'+(cls?' '+cls:'')+'" data-ld="'+a+'" data-v="'+esc(v)+'">'+esc(t)+'</button>';
+  const joined=MP.connected&&!MP.isHost;
+  let h='<div class="card"><div class="db-head"><div><h2 style="margin:0">Legacy admin dashboard</h2><div class="db-sub">Every live multiplayer server · refreshes every 3 s · only legacy admins can open this</div></div><button class="btn ghost small" data-ld="close">Close</button></div>';
+  h+='<div class="db-tiles">'+tile('Servers live',list.length)+tile('Players online',list.reduce((n,o)=>n+(o.players|0),0))
+    +tile('You',!MP.connected?'Offline':MP.isHost?'Hosting':MP.vanish?'Hidden':'Visible',MP.connected?'code '+MP.room:'')+tile('Banned',bans.length)+'</div>';
+  if(joined){
+    h+='<div class="db-box" style="margin-bottom:12px"><h3>You’re in “'+esc(current&&current.name||MP.room)+'” · code '+esc(MP.room)+'</h3><p class="db-sub" style="margin:0 0 8px">'
+      +(MP.vanish?'Hidden: nobody was told you joined, your avatar is invisible and you’re left out of the player list and count. Chatting, shooting or building can still give you away.':'Visible: everyone can see you like a normal player.')+'</p>'
+      +btn('vis','',MP.vanish?'Go visible':'Go hidden')+' '+btn('leave','','Leave server','ghost')+'</div>';
+  }
+  h+='<div class="db-grid"><div class="db-box"><h3>Live servers</h3>';
+  if(LOB.state!=='online'&&!list.length)h+='<p class="db-sub">Connecting to the server list…</p>';
+  else if(!list.length)h+='<p class="db-sub">No multiplayer servers are online right now.</p>';
+  else{
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>Server</th><th>Host</th><th>Players</th><th>Mode</th><th>Code</th><th></th></tr></thead><tbody>';
+    for(const o of list){
+      const code=String(o.code).slice(0,12), here=MP.connected&&MP.room===o.code;
+      h+='<tr><td>'+esc(String(o.name||'Server').slice(0,24))+'</td><td>'+esc(String(o.host||'?').slice(0,16))+'</td><td>'+(o.players|0)+'</td><td>'+esc(String(o.mode||'').slice(0,20))+'</td><td>'+esc(code)+'</td><td>'
+        +(here?'<span class="db-sub">'+(MP.isHost?'Yours':'You’re here')+'</span>':btn('sjoin',code,'Join secretly')+' '+btn('join',code,'Join','ghost'))+'</td></tr>';
+    }
+    h+='</tbody></table></div>';
+  }
+  h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center"><input id="ldCode" placeholder="Server code" aria-label="Server code" style="flex:1;min-width:120px">'
+    +btn('scode','','Join secretly')+btn('code','','Join','ghost')+'</div></div>';
+  h+='<div class="db-box"><h3>Players here</h3>';
+  if(!MP.connected)h+='<p class="db-sub">Join or host a server to see and manage its players.</p>';
+  else{
+    const ps=[...MP.peers.values()];
+    if(!ps.length)h+='<p class="db-sub">Nobody else is on this server.</p>';
+    else{
+      h+='<table><tbody>';
+      for(const q of ps)h+='<tr><td>'+esc(q.n)+(q.hid?' <span class="db-sub">(hidden admin)</span>':'')+'</td><td style="text-align:right">'
+        +(q.hid?'':btn('cmd','/tp '+q.n,'TP','ghost')+' ')+btn('cmd','/kick '+q.n,'Kick','ghost')+' '+btn('cmd','/ban '+q.n,'Ban','warn')+'</td></tr>';
+      h+='</tbody></table>';
+    }
+  }
+  h+='<p class="db-sub" style="margin:10px 0 0">Private worlds are offline and only on the player’s own device, so they never show up here.</p></div></div></div>';
+  el.innerHTML=h;
+  const ni=document.getElementById('ldCode'); if(ni){ni.value=typed;if(hadFocus){ni.focus();ni.setSelectionRange(typed.length,typed.length);}}
+}
+
 // ---------- admin dashboard (/dashboard): reads /api/stats ----------
 let dashData=null, dashTable=false;
 const dEsc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -7837,7 +7911,7 @@ function frame(now){
   if(statT<=0){statT=.2;
     const hr=(dayT*24+6)%24, hh=Math.floor(hr), mm=Math.floor((hr-hh)*60);
     statsEl.innerHTML='<b>XYZ</b> '+Math.floor(P.x)+' '+Math.floor(P.y)+' '+Math.floor(P.z)+'<br><b>Time</b> '+String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0')+(curLight<.35?' · Night':'')+'<br><b>Biome</b> '+(isEndX(P.x)?'The End':isDemonX(P.x)?'Demon Realm':isNetherX(P.x)?'Nether':BIOME_NAMES[biomeAt(Math.floor(P.x),Math.floor(P.z))])
-      +(MP.connected?'<br><b>Server</b> '+MP.room+' · '+(MP.peers.size+1)+' online':'')
+      +(MP.connected?'<br><b>Server</b> '+MP.room+' · '+(visPeers().length+1)+' online':'')
       +'<br><b>Mode</b> '+modeLabelFor(GM)+(flying?' · flying':'')+(isAdmin()?' · Admin':'')+(fxText()?'<br><b>Effects</b> '+fxText():'');
   }
 }
@@ -7892,6 +7966,7 @@ function runCommand(line){
       if(isAdmin())say('Admin guns: /guns gives all '+GUN_IDS.length+' (incl. Desert Eagle, AK, bullpup, double barrel, lever action, anti-materiel rifle, crossbow, grenade launcher, flamethrower, laser rifle, Tommy gun, Golden Gun) · /infammo [on|off]');
       if(legacyAdmin())say('Legacy admin: /security gives Auto Turrets and Guards (Security mod) · /deadmin <player> [reason] removes their admin · /readmin <player> gives it back · /deadminlist');
       if(isAdmin())say('/dashboard opens the server dashboard (players, play time, sessions, top players, admin activity) powered by NuggetBase');
+      if(canLegacy())say('/legacy opens the legacy admin dashboard: every live server, join any of them secretly or normally, and manage players');
       if(isAdmin())say('/guns gives the Admin Gun Box (every gun, never runs out) · /guns all gives them loose · Shulker Box: chest + 2 ender pearls, keeps its items when broken');
       if(isAdmin())say('Gun keys: F fire · T aim · R reload · J attachments & skins · N fire mode · Y inspect · M melee bash');
       if(isAdmin())say('Admin fun: /smite · /launch [power] · /nuke [tnt] · /meteor [count] · /crater <radius|inf> · /clearcraters · /party · /boom [power]');
@@ -8058,6 +8133,7 @@ function runCommand(line){
       say((on?'Gave admin back to ':'Removed admin from ')+t.name+'. It’s saved in their browser, so it sticks after they reload. They need to be online to get it.'); break;
     }
     case 'dashboard': case 'stats':{if(!isAdmin()){say('Unknown command. Type /help.');break;}openDashboard();break;}
+    case 'legacy': case 'ldash':{if(!canLegacy()){say('Unknown command. Type /help.');break;}openLegacyDash();break;}
     case 'deadminlist':{
       if(!legacyAdmin()){say('Only legacy admins can see that.');break;}
       let list=[];try{list=JSON.parse(localStorage.getItem('stackwild:deadminned')||'[]')||[];}catch(e){}
@@ -8097,7 +8173,7 @@ function runCommand(line){
     case 'clear': if(!canCheat())break; inv=new Array(INV).fill(null); drawAll(); say('Inventory cleared.'); break;
     case 'spawnpoint': spawnPt=[Math.floor(P.x),Math.floor(P.y)-1,Math.floor(P.z)]; say('Spawn point set here.'); break;
     case 'seed': say('Seed: '+seed); break;
-    case 'list': say(MP.connected?[MP.name+' (you)',...[...MP.peers.values()].map(p=>p.n)].join(', '):'Just you. This world isn’t online.'); break;
+    case 'list': say(MP.connected?[MP.name+' (you)',...visPeers().map(p=>p.n)].join(', '):'Just you. This world isn’t online.'); break;
     case 'setblock':{
       if(!canCheat())break;
       const x=Math.floor(coord(a[0],P.x)),y=Math.floor(coord(a[1],P.y)),z=Math.floor(coord(a[2],P.z)),id=blockArg(a[3]);
@@ -8191,7 +8267,7 @@ function suggFor(){
   if(idx===0)opts=CMDS;
   else switch(cmd){
     case 'give': opts=idx===1?(cur.startsWith('corrupted_')?Object.keys(ITEM_KEYS).map(k=>'corrupted_'+k):cur.startsWith('ender_')?Object.keys(ITEM_KEYS).map(k=>'ender_'+k):[...Object.keys(ITEM_KEYS),'corrupted_','ender_']):idx===2?['1','16','32','64']:[]; break;
-    case 'tp': case 'teleport': opts=idx===1?['~',...[...MP.peers.values()].map(p=>p.n)]:idx<=3?['~']:[]; break;
+    case 'tp': case 'teleport': opts=idx===1?['~',...visPeers().map(p=>p.n)]:idx<=3?['~']:[]; break;
     case 'time': opts=idx===1?['set','day','noon','night','midnight']:(idx===2&&parts[1]==='set')?['day','noon','sunset','night','midnight','sunrise']:[]; break;
     case 'gamemode': case 'gm': opts=idx===1?['survival','creative']:[]; break;
     case 'difficulty': opts=idx===1?['peaceful','easy','normal','hard']:[]; break;
@@ -8206,7 +8282,7 @@ function suggFor(){
     case 'speed': opts=idx===1?['1','2','5','10']:[]; break;
     case 'enchant': opts=idx===1?ENCH_N.slice(1).map(n=>n.toLowerCase().replace(/ /g,'_')):idx===2?['1','3','5','9']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
-    case 'kick': case 'ban': case 'deadmin': case 'readmin': opts=idx===1?[...new Set([...[...MP.peers.values()].map(p=>p.n),...known.values()])]:[]; break;
+    case 'kick': case 'ban': case 'deadmin': case 'readmin': opts=idx===1?[...new Set([...visPeers().map(p=>p.n),...known.values()])]:[]; break;
     case 'unban': opts=idx===1?bans.map(b=>b.n):[]; break;
     case 'setblock': opts=idx<=3?['~']:idx===4?blockKeys():[]; break;
     case 'fill': opts=idx<=6?['~']:idx===7?blockKeys():[]; break;
@@ -8263,7 +8339,7 @@ function mpSend(o){
   o.s=MP.id;
   try{const NS=window.Paho;const m=new NS.Message(JSON.stringify(o));m.destinationName=MP.topic;m.qos=0;MP.client.send(m);}catch(e){}
 }
-function mpIsOldest(){for(const p of MP.peers.values())if(p.jt&&(p.jt<MP.jt||(p.jt===MP.jt&&p.id<MP.id)))return false;return true;}
+function mpIsOldest(){if(MP.vanish)return false;for(const p of MP.peers.values())if(!p.hid&&p.jt&&(p.jt<MP.jt||(p.jt===MP.jt&&p.id<MP.id)))return false;return true;}
 function loadWorld(key,forcedSeed,opts){
   saveNow();
   let st=null; try{st=JSON.parse(localStorage.getItem(key)||'null');}catch(e){}
@@ -8311,15 +8387,16 @@ function mpOpen(code,onReady){
 function mpHost(s){
   mpOpen(s.code,()=>{MP.isHost=true;renderServers();mpAnnounce();MP.annT=10;renderPublic();mpSetStatus('Hosting “'+s.name+'”. Share code '+s.code+' so friends can join. The world saves on this device.');chatSys('Server open · code '+s.code);});
 }
-function mpJoinCode(code){
+function mpJoinCode(code,secret){
   code=(code||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'');
   if(!code){mpSetStatus('Type the server code your friend shared.');return;}
   const own=servers.find(s=>s.type==='multi'&&s.code===code); if(own){playServer(own);return;}
   if(MP.connected)mpDisconnect();
+  MP.vanish=!!secret&&canLegacy();
   mpOpen(code,()=>{
     MP.isHost=false; MP.gotWorld=false;
     mpSetStatus('Connected. Waiting for the host to send the world…');
-    mpSend({t:'hi',n:MP.name,jt:MP.jt,pid:PID});
+    mpSend({t:'hi',n:MP.name,jt:MP.jt,pid:PID,v:MP.vanish?1:undefined});
     clearTimeout(MP.waitT);
     MP.waitT=setTimeout(()=>{if(!MP.gotWorld){mpDisconnect();mpSetStatus('No host answered on code '+code+'. The world lives on the host’s device, so they need to have it open.');}},7000);
   });
@@ -8333,12 +8410,12 @@ function joinedWorld(o){
   s.mode=['survival','hardcore','creative'].includes(o.mode)?o.mode:'survival'; s.diff=typeof o.diff==='number'?o.diff:2; s.pvp=o.pvp!==false; saveReg(); setGM(s);
   loadWorld(s.key,o.seed,{fresh:true}); if(typeof o.d==='number')dayT=o.d;
   mpJoin.textContent='Leave server'; renderServers();
-  mpSetStatus('Joined “'+s.name+'”. Press Play when the world is ready.'); chatSys('Joined '+s.name);
+  mpSetStatus('Joined “'+s.name+'”'+(MP.vanish?' secretly (nobody was told)':'')+'. Press Play when the world is ready.'); chatSys('Joined '+s.name+(MP.vanish?' · hidden: other players can’t see you':''));
 }
 function mpDisconnect(){
   clearTimeout(MP.waitT);
   if(MP.connected){if(MP.isHost)mpAnnounce(true);mpSend({t:'bye',h:MP.isHost?1:0});try{MP.client.disconnect();}catch(e){}}
-  MP.connected=false; MP.isHost=false; MP.client=null; for(const id of [...MP.peers.keys()])removePeer(id);
+  MP.connected=false; MP.isHost=false; MP.client=null; MP.vanish=false; for(const id of [...MP.peers.keys()])removePeer(id);
   mpJoin.textContent='Join';
 }
 mpJoin.addEventListener('click',()=>{
@@ -8380,14 +8457,14 @@ function applyRemoteBlock(o){
 function mpOnMsg(o){
   if(!o||o.s===MP.id)return;
   switch(o.t){
-    case 'hi': peerUpdate(o.s,o); chatSys((o.n||'Someone')+' joined'); if(MP.isHost)mpSendWorld(o.s); break;
+    case 'hi': peerUpdate(o.s,o); if(!o.v)chatSys((o.n||'Someone')+' joined'); if(MP.isHost)mpSendWorld(o.s); break;
     case 'p': peerUpdate(o.s,o); break;
     case 'wi': if(o.to===MP.id&&!MP.isHost&&typeof o.seed==='number')joinedWorld(o); break;
     case 'bye':
       if(o.h&&!MP.isHost){
         mpDisconnect(); playServer(servers.find(s=>s.type!=='joined')||servers[0]);
         mpSetStatus('The host closed the server.'); chatSys('The host closed the server');
-      }else{chatSys(peerName(o.s)+' left');removePeer(o.s);}
+      }else{const lp=MP.peers.get(o.s);if(!(lp&&lp.hid))chatSys(peerName(o.s)+' left');removePeer(o.s);}
       break;
     case 'b': applyRemoteBlock(o); break;
     case 'c': if(typeof o.k==='string'&&Array.isArray(o.d)){
@@ -8539,6 +8616,10 @@ function peerUpdate(id,o){
   if(o.n&&o.n!==p.n){p.n=String(o.n).slice(0,16);p.av.tag.material.map.dispose();p.av.tag.material.map=nameTex(p.n);}
   if(o.jt)p.jt=o.jt;
   if(typeof o.pid==='string'){p.pid=o.pid.slice(0,16);known.set(p.pid,p.n);}
+  // a legacy admin who joined secretly: no avatar, no join message, left out of player lists
+  const hid=!!o.v;
+  if(hid!==!!p.hid){p.hid=hid;p.av.g.visible=!hid;if(hid){p.seen=false;if(p.veh){vehDispose(p.veh.m);p.veh=null;}}else if(o.t==='p')chatSys(p.n+' joined');}
+  if(hid){p.last=performance.now();return;}
   p.cr=!!o.cr;
   if(Array.isArray(o.c)&&o.c.length===4&&o.c.every(c=>HEX.test(c))){
     const key=o.c.join(); if(key!==p.av.ck){p.av.ck=key;const m=p.av.mats;m.shirt.color.set(o.c[0]);m.pants.color.set(o.c[1]);m.skin.color.set(o.c[2]);m.hair.color.set(o.c[3]);}
@@ -8559,7 +8640,7 @@ function removePeer(id){
 function mpTick(dt){
   if(!MP.connected)return;
   MP.sendT-=dt;
-  if(MP.sendT<=0){MP.sendT=.1;mpSend({t:'p',x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),yaw:+yaw.toFixed(2),pi:+pitch.toFixed(2),n:MP.name,jt:MP.jt,pid:PID,cr:GM.mode==='creative'?1:0,c:myChar,h:inv[sel]?inv[sel].id:0,a:myArmorCodes(),gl:gliding?1:0,vh:riding?vehNet(riding):0});}
+  if(MP.sendT<=0){MP.sendT=.1;mpSend({t:'p',v:MP.vanish?1:undefined,x:+P.x.toFixed(2),y:+P.y.toFixed(2),z:+P.z.toFixed(2),yaw:+yaw.toFixed(2),pi:+pitch.toFixed(2),n:MP.name,jt:MP.jt,pid:PID,cr:GM.mode==='creative'?1:0,c:myChar,h:inv[sel]?inv[sel].id:0,a:myArmorCodes(),gl:gliding?1:0,vh:riding?vehNet(riding):0});}
   if(MP.isHost){MP.mobT=(MP.mobT||0)-dt;if(MP.mobT<=0){MP.mobT=.12;mpSend({t:'mobs',l:mobs.map(m=>[m.nid,Math.max(0,MOB_TYPES.indexOf(m.type)),+m.x.toFixed(2),+m.y.toFixed(2),+m.z.toFixed(2),+m.yaw.toFixed(2),m.flash>0?1:0,m.prof|0,m.type==='dragon'?+(m.hp/m.maxhp).toFixed(3):m.type==='dummy'?Math.ceil(m.hp):0])});}}
   if(MP.isHost){MP.annT=(MP.annT||0)-dt;if(MP.annT<=0){MP.annT=10;mpAnnounce();}}
   if(MP.isHost){MP.timeT-=dt;if(MP.timeT<=0){MP.timeT=10;mpSend({t:'time',d:dayT,h:1});}}
@@ -8627,7 +8708,7 @@ const pubList=document.getElementById('pubList'), lobbyStatus=document.getElemen
 function mpAnnounce(clear){
   if(!MP.client||!MP.connected||!MP.isHost||!current||!current.code)return;
   try{
-    const m=new window.Paho.Message(clear?'':JSON.stringify({code:current.code,name:current.name,host:MP.name,players:MP.peers.size+1,mode:modeLabelFor(GM),ts:Date.now()}));
+    const m=new window.Paho.Message(clear?'':JSON.stringify({code:current.code,name:current.name,host:MP.name,players:visPeers().length+1,mode:modeLabelFor(GM),ts:Date.now()}));
     m.destinationName=LOB_TOPIC+current.code; m.retained=true; m.qos=0; MP.client.send(m);
   }catch(e){}
 }
