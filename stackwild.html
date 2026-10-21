@@ -266,6 +266,8 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 
 #mgHud{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:32;pointer-events:none;padding:6px 14px;border-radius:6px;background:var(--panel);border:2px solid var(--panel-edge);font-family:var(--font-display);font-size:17px;white-space:nowrap;text-shadow:0 2px 0 rgba(0,0,0,.6);max-width:calc(100vw - 130px);overflow:hidden;text-overflow:ellipsis}
 #mgHud b{color:var(--accent);font-weight:400}#mgHud .r{color:#ff6b6b}#mgHud .bl{color:#6bb8ff}
+#comboBanner{position:fixed;left:50%;top:22%;transform:translate(-50%,-50%);z-index:33;pointer-events:none;font-family:var(--font-display);font-size:clamp(24px,5vw,44px);color:#d8f2ff;text-align:center;text-shadow:0 3px 0 rgba(0,0,0,.7),0 0 22px rgba(120,200,255,.6);animation:swpop .2s ease-out}
+#comboBanner small{display:block;font-size:.42em;color:#fff;letter-spacing:.08em}
 #mgBanner{position:fixed;left:50%;top:28%;transform:translate(-50%,-50%);z-index:33;pointer-events:none;font-family:var(--font-display);font-size:clamp(28px,6vw,54px);color:var(--accent);text-align:center;text-shadow:0 3px 0 rgba(0,0,0,.7),0 0 24px rgba(0,0,0,.5);animation:swpop .2s ease-out}
 #mgBanner small{display:block;font-size:.42em;color:var(--text)}
 
@@ -3410,6 +3412,7 @@ function tryAttack(){
   if(!m&&ph)return hitPeer(ph.p);
   if(!m&&!onGround&&V.y<0&&crMaceHeld()){if(!slamArmed){slamArmed=true;toast('Slam armed — land to smash!');}return true;}
   if(!m)return false;
+  wcSpike(m,null);
   const blade=bladeHeld(), rb=blade&&isAdmin();
   if(blade&&!rb)toast('Only admins can wield the Rainbow Fire Blade');
   const tool=blade&&!rb?null:heldTool(), dmw=!!tool&&isDm(inv[sel]), base=((tool?(tool.dmg||tool.tier+1):1)+(tool?1.25*enchLvl(inv[sel],1):0))*(tool?tierMul(inv[sel],2.2,1.6):1)*(fx.strength>0?1.5:1), cr=rollCrit();
@@ -3663,6 +3666,7 @@ function peerRay(maxT){
 }
 function hitPeer(p){
   if(!pvpOn()){toast('PvP is off on this world');atkCd=.45;return true;}
+  wcSpike(null,p);
   const tool=heldTool(), base=((tool?(tool.dmg||tool.tier+1):1)+(tool?1.25*enchLvl(inv[sel],1):0))*(tool?tierMul(inv[sel],2.2,1.6):1)*(fx.strength>0?1.5:1), cr=rollCrit(), dmg=cr===2?18:Math.round(base*(cr?1.5:1));
   const dx=p.x-P.x,dz=p.z-P.z,L=Math.hypot(dx,dz)||1;
   mpSend({t:'hit',to:p.id,dmg,kx:+(dx/L).toFixed(2),kz:+(dz/L).toFixed(2)});
@@ -5491,6 +5495,7 @@ const AP_MODS=[
   ['Auto-jump','Hop up 1-block steps',()=>autoJump,v=>setAutoJump(v)],
   ['Guns','Working guns (admin only)',()=>clientModOn('guns'),v=>setClientMod('guns',v)],
   ['Infinite ammo','Guns never need reloading',()=>infAmmo,v=>runCommand('/infammo '+(v?'on':'off'))],
+  ['Auto wind combo','Juggles the nearest mob or player with wind charges (Sky Juggle). Makes a wind-charge slot infinite',()=>autoCombo,v=>setAutoCombo(v)],
   ['Fullbright','Everything fully lit',()=>clientModOn('fullbright'),v=>setClientMod('fullbright',v)],
   ['Night Owl','Brighter nights and caves',()=>clientModOn('nightowl'),v=>setClientMod('nightowl',v)],
   ['Zoom','Hold Z to zoom',()=>clientModOn('zoom'),v=>setClientMod('zoom',v)],
@@ -7327,13 +7332,114 @@ function windBurst(x,y,z){
   if(d<3.8&&!dead){const L=Math.hypot(dx,dz)||1, f=1-d/3.8;V.x+=dx/L*9*f;V.z+=dz/L*9*f;V.y=Math.max(V.y,6+12*f);maceSafe=true;airMaxY=P.y;gliding=false;}
   if(!MP.connected||MP.isHost)for(const m of mobs){if(m.remote||m.type==='dragon')continue;const mx=m.x-x,mz=m.z-z,md=Math.hypot(mx,m.y+m.h*.5-y,mz);if(md>3.8)continue;const L=Math.hypot(mx,mz)||1,f=1-md/3.8;m.vx=mx/L*14*f;m.vz=mz/L*14*f;m.vy=7+6*f;m.flash=.15;if(m.passive)m.flee=3;}
 }
+// ---------- secret combo: Sky Juggle ----------
+// wind-charge something point blank and you both pop up; hit it again mid-air and you ride the updraft up together.
+// keep hitting it to climb higher; melee it while you're both up there to spike it into the ground.
+const wc={stage:0,t:0,tgt:null,n:0}; let wLiftMe=0, wLiftVy=15, comboBT=0;
+function comboBanner(big,small){
+  let el=document.getElementById('comboBanner'); if(!el){el=document.createElement('div');el.id='comboBanner';document.body.appendChild(el);}
+  el.innerHTML=esc(big)+(small?'<small>'+esc(small)+'</small>':''); el.hidden=false; el.style.animation='none'; void el.offsetWidth; el.style.animation='';
+  clearTimeout(comboBT); comboBT=setTimeout(()=>{el.hidden=true;},1300);
+}
+const wcSame=(a,b)=>!!a&&!!b&&(a.mob?a.mob===b.mob:a.peer===b.peer);
+function wcPos(t){if(!t)return null;if(t.mob){return mobs.includes(t.mob)?{x:t.mob.x,y:t.mob.y+t.mob.h*.5,z:t.mob.z}:null;}return t.peer&&MP.peers.get(t.peer.id)===t.peer&&t.peer.seen?{x:t.peer.x,y:t.peer.y+.9,z:t.peer.z}:null;}
+function wcLiftTarget(t,d){
+  if(t.mob){if(!MP.connected||MP.isHost)t.mob.wlift=d;else mpSend({t:'mlift',id:t.mob.nid,d});}
+  else mpSend({t:'wlift',to:t.peer.id,d});
+}
+function wcDamage(t,dmg){
+  const tp=wcPos(t); if(!tp)return; const dx=tp.x-P.x,dz=tp.z-P.z,L=Math.hypot(dx,dz)||1;
+  if(t.mob){if(!t.mob.remote)hurtMob(t.mob,dmg,dx/L*.3,dz/L*.3);else mpSend({t:'mdmg',id:t.mob.nid,dmg,kx:0,kz:0});}
+  else if(pvpOn())mpSend({t:'hit',to:t.peer.id,dmg,kx:+(dx/L*.2).toFixed(2),kz:+(dz/L*.2).toFixed(2)});
+}
+function windComboHit(who){
+  const tp=wcPos(who); if(!tp||dead)return;
+  const d=Math.hypot(tp.x-P.x,tp.y-(P.y+.9),tp.z-P.z); if(d>8)return;
+  if(wc.stage===0||!wcSame(wc.tgt,who)||wc.t<=0||onGround&&wLiftMe<=0){
+    // opener: you both pop up
+    Object.assign(wc,{stage:1,t:2.6,tgt:who,n:1}); V.y=Math.max(V.y,13); airMaxY=P.y; maceSafe=true; gliding=false; return;
+  }
+  if(onGround)return;
+  wc.n++; wc.stage=2; wc.t=2.6; wLiftMe=1.4; wLiftVy=15; airMaxY=P.y; maceSafe=true; gliding=false;
+  wcLiftTarget(who,1.4); wcDamage(who,1+wc.n);
+  for(let i=0;i<20;i++){const a=i/20*Math.PI*2;glowPart(i%2?[255,255,255]:[150,215,255],tp.x+Math.cos(a)*.8,tp.y,tp.z+Math.sin(a)*.8,Math.cos(a)*3,8+Math.random()*4,Math.sin(a)*3,.6,-2);}
+  let first=false; try{first=localStorage.getItem('stackwild:combo:sky')!=='1';localStorage.setItem('stackwild:combo:sky','1');}catch(e){}
+  comboBanner('SKY JUGGLE ×'+wc.n,first?'Secret combo discovered!':wc.n>=3?'Melee them now to SPIKE':'');
+  sfxTwang(1.6+wc.n*.15);
+}
+// melee hit on the juggled target while you're both in the air: slam it down
+function wcSpike(m,peer){
+  if(wc.n<2||onGround||!wc.tgt)return false;
+  if(m&&wc.tgt.mob!==m||peer&&wc.tgt.peer!==peer)return false;
+  const t=wc.tgt, tp=wcPos(t); if(!tp)return false;
+  if(m){if(!MP.connected||MP.isHost){m.wlift=0;m.vy=-30;}else mpSend({t:'mspike',id:m.nid});}
+  else mpSend({t:'wspike',to:peer.id});
+  wcDamage(t,4+wc.n*2);
+  for(let i=0;i<24;i++)glowPart([255,200,120],tp.x,tp.y,tp.z,(Math.random()-.5)*6,-6-Math.random()*8,(Math.random()-.5)*6,.5,6);
+  comboBanner('SPIKE!',wc.n+'-hit Sky Juggle'); sfxClick(160,.8,.2);
+  wc.stage=0; wc.n=0; wc.tgt=null; wLiftMe=0; return true;
+}
+function wcTick(dt){
+  if(wc.stage){wc.t-=dt; if(wc.t<=0||(onGround&&wLiftMe<=0&&wc.t<2.3)){wc.stage=0;wc.n=0;wc.tgt=null;}}
+  if(wLiftMe>0&&!dead){
+    wLiftMe-=dt; if(P.y>H-6)wLiftMe=0;
+    V.y=Math.max(V.y,wLiftVy); airMaxY=P.y; maceSafe=true; gliding=false;
+    const tp=wc.stage?wcPos(wc.tgt):null;
+    if(tp){const dx=tp.x-P.x,dz=tp.z-P.z,dd=Math.hypot(dx,dz)||1,want=(dd-1.6)*5,k=Math.min(1,dt*6);V.x+=(dx/dd*want-V.x)*k;V.z+=(dz/dd*want-V.z)*k;}
+    if(Math.random()<dt*30)glowPart([220,240,255],P.x+(Math.random()-.5),P.y,P.z+(Math.random()-.5),0,-4,0,.4,0);
+  }
+  if(!MP.connected||MP.isHost)for(const m of mobs)if(m.wlift>0){m.wlift-=dt;if(m.y>H-6)m.wlift=0;m.vy=Math.max(m.vy||0,15);if(Math.random()<dt*20)glowPart([220,240,255],m.x,m.y,m.z,0,-4,0,.4,0);}
+  autoComboTick(dt);
+}
+// ---------- admin module: auto wind combo (keeps an infinite wind-charge slot and juggles the nearest target) ----------
+let autoCombo=false, acSlot=-1, acAdded=false, acT=0;
+function setAutoCombo(v){
+  if(v===autoCombo)return;
+  if(v){
+    let i=-1; for(let k=0;k<9;k++)if(inv[k]&&inv[k].id===WIND_CHARGE){i=k;break;}
+    if(i<0){for(let k=0;k<9;k++)if(!inv[k]){i=k;break;} if(i<0){toast('Free a hotbar slot for wind charges first');return;} inv[i]={id:WIND_CHARGE,n:16};drawSlot(i);}
+    acSlot=i; acAdded=!infSlots.has(i); if(acAdded){infSlots.add(i);infSnap[i]={id:WIND_CHARGE,n:inv[i].n};infSave();}
+    autoCombo=true; toast('Auto wind combo on · slot '+(i+1)+' is infinite');
+  }else{
+    autoCombo=false; if(acAdded&&acSlot>=0){infSlots.delete(acSlot);delete infSnap[acSlot];infSave();} acSlot=-1; acAdded=false; toast('Auto wind combo off');
+  }
+}
+function acPick(){
+  const cur=wc.stage?wc.tgt:null; if(cur){const tp=wcPos(cur);if(tp&&Math.hypot(tp.x-P.x,tp.z-P.z)<14)return cur;}
+  let best=null,bd=10;
+  for(const m of mobs){if(m.passive||m.type==='dragon'||m.type==='dummy')continue;const d=Math.hypot(m.x-P.x,m.y-P.y,m.z-P.z);if(d<bd){bd=d;best={mob:m};}}
+  if(MP.connected&&pvpOn())for(const q of MP.peers.values()){if(!q.seen||q.hid)continue;const d=Math.hypot(q.x-P.x,q.y-P.y,q.z-P.z);if(d<bd){bd=d;best={peer:q};}}
+  return best;
+}
+function acThrow(t){
+  const tp=wcPos(t), s2=inv[acSlot]; if(!tp||!s2||s2.id!==WIND_CHARGE)return false;
+  const o=camera.position, d=new THREE.Vector3(tp.x-o.x,tp.y-o.y,tp.z-o.z), L=d.length()||1; d.multiplyScalar(1/L);
+  const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),new THREE.MeshBasicMaterial({color:0xd8f2ff,fog:false}));
+  m.position.set(o.x+d.x*.6,o.y+d.y*.6-.1,o.z+d.z*.6); scene.add(m); winds.push({m,vx:d.x*24,vy:d.y*24,vz:d.z*24,t:0,mine:true});
+  if(MP.connected)mpSend({t:'windt',x:+m.position.x.toFixed(2),y:+m.position.y.toFixed(2),z:+m.position.z.toFixed(2),vx:+(d.x*24).toFixed(2),vy:+(d.y*24).toFixed(2),vz:+(d.z*24).toFixed(2)});
+  if(GM.mode!=='creative'&&!infSlots.has(acSlot)){if(--s2.n<=0)inv[acSlot]=null;drawSlot(acSlot);}
+  swing(); return true;
+}
+function autoComboTick(dt){
+  if(!autoCombo)return;
+  if(!isAdmin()){setAutoCombo(false);return;}
+  if(dead||paused||riding||manning||bagOpen)return;
+  if(acSlot>=0&&!inv[acSlot]&&infSnap[acSlot]){inv[acSlot]={id:WIND_CHARGE,n:16};drawSlot(acSlot);}
+  acT-=dt; if(acT>0)return;
+  const t=acPick(); if(!t)return; const tp=wcPos(t), d=Math.hypot(tp.x-P.x,tp.y-(P.y+.9),tp.z-P.z);
+  if(wc.stage&&wcSame(wc.tgt,t)&&!onGround){ // mid-air: hit again to ride the updraft, keep it going near the top of each lift
+    if(d<8&&(wc.stage===1&&V.y<9||wc.stage===2&&wLiftMe<.35)&&P.y<H-10){if(acThrow(t))acT=.3;}
+  }else if(onGround&&d<6){if(acThrow(t))acT=.5;}
+}
 function updateWinds(dt){
+  wcTick(dt);
   for(let i=winds.length-1;i>=0;i--){
     const w=winds[i]; w.t+=dt; const p=w.m.position;
     const nx=p.x+w.vx*dt, ny=p.y+w.vy*dt, nz=p.z+w.vz*dt;
-    let hit=w.t>2.5||solid(getBlock(Math.floor(nx),Math.floor(ny),Math.floor(nz)));
-    if(!hit)for(const m of mobs)if(Math.abs(m.x-nx)<m.hw+.25&&Math.abs(m.z-nz)<m.hw+.25&&ny>m.y&&ny<m.y+m.h){hit=true;break;}
-    if(hit){windBurst(p.x,p.y,p.z);scene.remove(w.m);w.m.geometry.dispose();w.m.material.dispose();winds.splice(i,1);continue;}
+    let hit=w.t>2.5||solid(getBlock(Math.floor(nx),Math.floor(ny),Math.floor(nz))), who=null;
+    if(!hit)for(const m of mobs)if(Math.abs(m.x-nx)<m.hw+.25&&Math.abs(m.z-nz)<m.hw+.25&&ny>m.y&&ny<m.y+m.h){hit=true;who={mob:m};break;}
+    if(!hit&&w.mine&&MP.connected)for(const q of MP.peers.values())if(q.seen&&!q.hid&&Math.abs(q.x-nx)<.55&&Math.abs(q.z-nz)<.55&&ny>q.y&&ny<q.y+1.9){hit=true;who={peer:q};break;}
+    if(hit){windBurst(p.x,p.y,p.z); if(w.mine&&who)windComboHit(who);scene.remove(w.m);w.m.geometry.dispose();w.m.material.dispose();winds.splice(i,1);continue;}
     p.set(nx,ny,nz); w.m.rotation.x+=dt*12; w.m.rotation.y+=dt*9;
     if(Math.random()<.6)glowPart([220,240,255],nx,ny,nz,0,0,0,.25,0);
   }
@@ -9205,6 +9311,10 @@ function mpOnMsg(o){
     case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
     case 'wp': if(Array.isArray(o.l)){meta['#wp']=o.l.filter(w=>w&&typeof w.n==='string'&&typeof w.x==='number'&&typeof w.y==='number'&&typeof w.z==='number').slice(0,30).map(w=>({n:w.n.slice(0,24),x:w.x,y:w.y,z:w.z,h:(w.h|0)%360,by:String(w.by||'').slice(0,16)}));wpRef=null;saveSoon();} break;
     case 'windt': if([o.x,o.y,o.z,o.vx,o.vy,o.vz].every(v=>typeof v==='number'))remoteWind(o); break;
+    case 'wlift': if(o.to===MP.id&&!dead){wLiftMe=Math.min(2,Math.max(0,+o.d||1.4));wLiftVy=15;} break;
+    case 'wspike': if(o.to===MP.id&&!dead){wLiftMe=0;maceSafe=false;V.y=-30;} break;
+    case 'mlift': if(MP.isHost){const m=mobs.find(q=>q.nid===o.id);if(m)m.wlift=Math.min(2,Math.max(0,+o.d||1.4));} break;
+    case 'mspike': if(MP.isHost){const m=mobs.find(q=>q.nid===o.id);if(m){m.wlift=0;m.vy=-30;}} break;
     case 'crclear': clearCraters(); break;
     case 'nade': if([o.x,o.y,o.z,o.vx,o.vy,o.vz].every(v=>typeof v==='number'))spawnNade(o.k==='f'?'f':o.k==='l'?'l':o.k==='v'?'v':'g',o.x,o.y,o.z,o.vx,o.vy,o.vz,typeof o.by==='string'?o.by:o.s,false); break;
     case 'mgs': if(!MP.isHost&&o.s2&&typeof o.s2==='object')mgApply(o.s2); break;
