@@ -3419,9 +3419,10 @@ function tryAttack(){
   let dmg=(rb?base*(cr?1.5:1):cr===2?18:cr===1?base*1.5:base)*(modActive('glass')?2:1);
   const mace=!!(tool&&tool.kind==='mace'), rbm=mace&&!!DEF[inv[sel].id].rainbow;
   if(mace){const crm=rbm&&tierOf(inv[sel])===1, critNow=!onGround&&V.y<-.5, dive=(gliding||(!onGround&&wingTier()>=0))?Math.max(0,-V.y)*.35:0, fall=Math.max(airMaxY-P.y,dive,critNow?1:0);if((critNow||gliding||fall>1.5||(crm&&fall>.7))&&!onGround){const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));dmg+=sm*(rbm?2:1);maceSmash(m,sm,rbm,fall);}}
-  if(spr){const hs=Math.hypot(V.x,V.z);if(hs>5.5){const cb=Math.min(30,(hs-4)*.9);dmg+=cb;toast('CHARGE! +'+Math.round(cb));for(let i=0;i<12;i++)glowPart([255,255,255],m.x,m.y+1,m.z,(Math.random()-.5)*4,Math.random()*3,(Math.random()-.5)*4,.4,4);}}
+  if(spr){const hs=Math.hypot(V.x,V.z);if(hs>5.5){const cb=Math.min(30,(hs-4)*.9);dmg+=cb;toast('CHARGE! +'+Math.round(cb));cEvt('charge',{mob:m});for(let i=0;i<12;i++)glowPart([255,255,255],m.x,m.y+1,m.z,(Math.random()-.5)*4,Math.random()*3,(Math.random()-.5)*4,.4,4);}}
   critFx(cr,m.x,m.y+m.h-.9,m.z);
   if(!mace)falconOnHit({mob:m},cr);
+  cEvt('melee',{mob:m},{crouch:sneaking,grap:!!grap,crit:cr});
   const dx=m.x-P.x,dz=m.z-P.z,L=Math.hypot(dx,dz)||1, kb=rb?12:spr?9:7;
   atkCd=rb?.3:.45; swing(); if(tool)useTool(); mine.t=-.35; m.flash=.2;
   if(rb){bladeSlash();rainbowBurst(m.x,m.y+m.h*.5,m.z,30);}
@@ -3674,6 +3675,7 @@ function hitPeer(p){
   atkCd=.45; swing(); if(tool)useTool();
   if(cr)critFx(cr,p.x,p.y+.6,p.z); else burstC([220,60,60],p.x-.5,p.y+.6,p.z-.5,6);
   if(!(tool&&tool.kind==='mace'))falconOnHit({peer:p},cr);
+  cEvt('melee',{peer:p},{crouch:sneaking,grap:!!grap,crit:cr});
   return true;
 }
 function takePvpHit(o){
@@ -6536,9 +6538,10 @@ function fireOnce(id){
     if(hm){const head=end.y>hm.y+hm.h*.78, dmg=g.dmg*fall*(head?g.hs:1)*(fx.strength>0?1.3:1)*(modActive('glass')?2:1);
       burstC([170,20,20],end.x-.5,end.y-.5,end.z-.5,head?10:5); hitmark(head); if(head&&g.hs>=2&&p===0)toast('HEADSHOT');
       if(hm.type==='dummy'||g.dmg>=20)floatNum(end.x,end.y+.3,end.z,dmg,head?2:0);
+      if(p===0)cEvt('gun',{mob:hm},{head});
       if(hm.remote)mpSend({t:'mdmg',id:hm.nid,dmg,kx:+(d.x*.3).toFixed(2),kz:+(d.z*.3).toFixed(2)});
       else{hm.angry=true;hm.flash=.15;hm.hp-=dmg;hm.vx+=d.x*(g.dmg/6);hm.vz+=d.z*(g.dmg/6);if(hm.passive)hm.flee=4;if(hm.hp<=0)killMob(mobs.indexOf(hm),true);}}
-    else if(hp){const head=end.y>hp.y+1.45, dmg=Math.round(g.dmg*fall*(head?g.hs:1));mpSend({t:'hit',to:hp.id,dmg,kx:+(d.x*.25).toFixed(2),kz:+(d.z*.25).toFixed(2)});burstC([170,20,20],end.x-.5,end.y-.5,end.z-.5,6);hitmark(head);}
+    else if(hp){const head=end.y>hp.y+1.45, dmg=Math.round(g.dmg*fall*(head?g.hs:1));mpSend({t:'hit',to:hp.id,dmg,kx:+(d.x*.25).toFixed(2),kz:+(d.z*.25).toFixed(2)});burstC([170,20,20],end.x-.5,end.y-.5,end.z-.5,6);hitmark(head);if(p===0)cEvt('gun',{peer:hp},{head});}
     else if(bc){const pv=o.clone().addScaledVector(d,bt-.07), nx=Math.floor(pv.x)-bc[0], ny=Math.floor(pv.y)-bc[1], nz=Math.floor(pv.z)-bc[2];
       const id2=getBlock(bc[0],bc[1],bc[2]); impactFx(id2,end.x,end.y,end.z,nx,ny,nz,true);
       if(Math.abs(nx)+Math.abs(ny)+Math.abs(nz)===1&&gunMat(id2)!=='soft')addHole(end.x,end.y,end.z,nx,ny,nz);}
@@ -6646,6 +6649,7 @@ function updateArrows(dt){
       if(hit===-1)continue;
       if(hit){const sp=Math.hypot(a.vx,a.vy,a.vz), dmg=Math.max(1,sp*.22*(a.crit?1.5:1))*tierMul(inv.find(s=>s&&s.id===BOW)||null,2.2,1.6);
         if(hit.type==='dummy')floatNum(hit.x,hit.y+hit.h+.2,hit.z,dmg,a.crit?1:0); hitmark(false); burstC([170,20,20],nx-.5,ny-.5,nz-.5,5);
+        if(a.mine)cEvt('arrow',{mob:hit});
         if(hit.remote)mpSend({t:'mdmg',id:hit.nid,dmg,kx:+(a.vx/sp).toFixed(2),kz:+(a.vz/sp).toFixed(2)});
         else{hit.angry=true;hit.flash=.15;hit.hp-=dmg;hit.vx=a.vx/sp*5;hit.vz=a.vz/sp*5;hit.vy=4;if(hit.passive)hit.flee=4;if(hit.hp<=0)killMob(mobs.indexOf(hit),true);}
         scene.remove(a.g);arrows.splice(i,1);continue;}}
@@ -7323,7 +7327,7 @@ function updateStab(dt){
 // ---------- wind charges: throw, burst, launch ----------
 const winds=[];
 function throwWind(){
-  if(dead)return; camera.getWorldDirection(camDir); swing(); if(GM.mode!=='creative')takeSel();
+  if(dead)return; cEvt('throw',null); camera.getWorldDirection(camDir); swing(); if(GM.mode!=='creative')takeSel();
   const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),new THREE.MeshBasicMaterial({color:0xd8f2ff,fog:false}));
   const o=camera.position; m.position.set(o.x+camDir.x*.6,o.y+camDir.y*.6-.1,o.z+camDir.z*.6); scene.add(m);
   winds.push({m,vx:camDir.x*24,vy:camDir.y*24,vz:camDir.z*24,t:0,mine:true,home:homingWinds&&isAdmin()?homePick():wcAssist()});
@@ -7382,7 +7386,7 @@ function wcDamage(t,dmg){
 const cy={tgt:null,n:0,t:0}; let meteorArmed=false;
 function comboFirst(k){let f=false;try{f=localStorage.getItem('stackwild:combo:'+k)!=='1';localStorage.setItem('stackwild:combo:'+k,'1');}catch(e){}return f;}
 function windComboHit(who){
-  const tp=wcPos(who); if(!tp||dead)return;
+  const tp=wcPos(who); if(!tp||dead)return; cEvt('wind',who);
   const d=Math.hypot(tp.x-P.x,tp.y-(P.y+.9),tp.z-P.z);
   // from range while standing: three hits on the same target within 3 s spin up a Cyclone
   if(onGround&&wLiftMe<=0&&d>7&&d<26){
@@ -7456,7 +7460,7 @@ function wcTick(dt){
     if(Math.random()<dt*30)glowPart([220,240,255],P.x+(Math.random()-.5),P.y,P.z+(Math.random()-.5),0,-4,0,.4,0);
   }
   if(!MP.connected||MP.isHost)for(const m of mobs)if(m.wlift>0){m.wlift-=dt;if(m.y>H-6&&!autoCombo)m.wlift=0;m.vy=Math.max(m.vy||0,12);if(Math.random()<dt*20)glowPart([220,240,255],m.x,m.y,m.z,0,-4,0,.4,0);}
-  autoComboTick(dt); falconTick(dt);
+  autoComboTick(dt); falconTick(dt); styleTick(dt);
 }
 // Meteor: mace spike, then you crash down and the landing sends out a shockwave (hurts and throws, never breaks blocks)
 function meteorShock(x,y,z){
@@ -7526,6 +7530,76 @@ function falconStrike(t){
   if(t.mob){if(t.mob.remote)mpSend({t:'mdmg',id:t.mob.nid,dmg,kx:+(dx/L*.2).toFixed(2),kz:+(dz/L*.2).toFixed(2)});else hurtMob(t.mob,dmg,dx/L*.2,dz/L*.2);}
   else if(pvpOn())mpSend({t:'hit',to:t.peer.id,dmg,kx:+(dx/L*.2).toFixed(2),kz:+(dz/L*.2).toFixed(2)});
   swing(); critFx(1,tp.x,tp.y,tp.z); falconOnHit(t,1);
+}
+// ---------- combo engine: everything you do is logged for a few seconds, and sequences trigger combos ----------
+const cLog=[], cCd={}; let styleP=0, styleIdle=0, styleLast='';
+const COMBOS=[ // [key, name, how to do it]
+  ['sky','Sky Juggle','Wind-charge a target up close, then hit it again mid-air'],['king','Sky King','Reach ×5 in a Sky Juggle'],
+  ['spike','Spike','Melee your Sky Juggle target while you’re both in the air'],['meteor','Meteor','Spike while holding a mace'],
+  ['cyclone','Cyclone','Hit the same target with 3 wind charges from range'],['falcon','Falcon Chain','Falling crits that land in the gold timing band'],
+  ['falcon5','Falcon Storm','Falcon Chain ×5'],['falcon8','Skybreaker','Falcon Chain ×8'],
+  ['triple','Triple Strike','Melee the same target 3 times quickly'],['uppercut','Uppercut','Melee while crouching'],
+  ['gslam','Grapple Slam','Melee while you’re on the grappling hook'],['arrowstorm','Arrow Storm','Hit the same target with 3 arrows quickly'],
+  ['gale','Gale Pierce','Spear charge a target, then wind-charge it'],['kata','Gun Kata','Alternate melee and gun hits on one target: melee, shot, melee, shot'],
+  ['headhunter','Headhunter','3 gun headshots in a row'],['airshot','Air Shot','Shoot a target that’s been launched into the air'],
+  ['quake','Earthquake','Dash Strike, then Ground Slam straight after'],['whirl','Eye of the Storm','Whirlwind, then throw a wind charge'],
+];
+const comboKnown=k=>{try{return localStorage.getItem('stackwild:combo:'+k)==='1';}catch(e){return false;}};
+function cFling(who,vx,vy,vz){
+  if(who.mob){const m=who.mob;if(!MP.connected||MP.isHost){m.vx=vx;m.vy=vy;m.vz=vz;}else mpSend({t:'mfling',id:m.nid,vx,vy,vz});}
+  else mpSend({t:'wfling',to:who.peer.id,vx,vy,vz});
+}
+function cPop(k,name,sub){comboBanner(name,comboFirst(k)?'Secret combo discovered!':sub||'');styleAdd(20,'combo');sfxTwang(1.3);}
+function cEvt(type,who,x){
+  const now=performance.now()/1000; x=x||{};
+  cLog.push({type,who,t:now,x}); while(cLog.length&&now-cLog[0].t>5)cLog.shift();
+  styleAdd({melee:x.crit?10:6,gun:x.head?6:3,arrow:5,wind:6,charge:8,move:4,throw:1}[type]||2,type);
+  const same=e=>who&&e.who&&wcSame(e.who,who), recent=(sec,f)=>cLog.filter(e=>now-e.t<=sec&&!e.used&&f(e));
+  const tp=who?wcPos(who):null;
+  if(type==='melee'&&who&&tp){
+    if(x.grap&&!(cCd.gslam>now)){cCd.gslam=now+1.5;cFling(who,0,-26,0);wcDamage(who,8);cPop('gslam','GRAPPLE SLAM');burstC([200,200,210],tp.x-.5,tp.y-.5,tp.z-.5,16);}
+    else if(x.crouch&&!(cCd.up>now)){cCd.up=now+1.2;cFling(who,0,11,0);wcLiftTarget(who,.25);wcDamage(who,3);cPop('uppercut','UPPERCUT','Now wind-charge them!');}
+    const ms=recent(1.6,e=>e.type==='melee'&&same(e));
+    if(ms.length>=3){ms.forEach(e=>e.used=true);const dx=tp.x-P.x,dz=tp.z-P.z,L=Math.hypot(dx,dz)||1;cFling(who,dx/L*14,6,dz/L*14);wcDamage(who,6);cPop('triple','TRIPLE STRIKE');}
+  }
+  if(type==='gun'&&who&&tp){
+    const m=who.mob, up=m?(m.wlift>0||m.whang>0||m.cyc||(m.vy||0)>3):(who.peer.ty-who.peer.y>.4||tp.y-P.y>3);
+    if(up&&!(cCd.air>now)){cCd.air=now+.8;wcDamage(who,5);cPop('airshot','AIR SHOT');}
+    const g3=cLog.filter(e=>e.type==='gun'&&now-e.t<4&&!e.used).slice(-3);
+    if(g3.length===3&&g3.every(e=>e.x.head)){g3.forEach(e=>e.used=true);wcDamage(who,12);cPop('headhunter','HEADHUNTER');}
+  }
+  if((type==='gun'||type==='melee')&&who){
+    const seq=cLog.filter(e=>(e.type==='gun'||e.type==='melee')&&same(e)&&!e.used).slice(-4);
+    if(seq.length===4&&now-seq[0].t<3.2&&seq.every((e,i)=>i===0||(e.type!==seq[i-1].type&&e.t-seq[i-1].t<.9))){seq.forEach(e=>e.used=true);wcDamage(who,16);if(tp)cFling(who,0,8,0);cPop('kata','GUN KATA');}
+  }
+  if(type==='arrow'&&who&&tp){
+    const as=recent(3,e=>e.type==='arrow'&&same(e));
+    if(as.length>=3){as.forEach(e=>e.used=true);cPop('arrowstorm','ARROW STORM');
+      for(let i=0;i<10;i++)setTimeout(()=>{const q=wcPos(who)||tp,ax=q.x+(Math.random()-.5)*2.4,az=q.z+(Math.random()-.5)*2.4,ay=q.y+14;spawnArrow(ax,ay,az,0,-38,0,1,true);if(MP.connected)mpSend({t:'arw',x:+ax.toFixed(2),y:+ay.toFixed(2),z:+az.toFixed(2),vx:0,vy:-38,vz:0});},i*70);}
+  }
+  if(type==='wind'&&who&&tp){
+    if(recent(1.5,e=>e.type==='charge'&&same(e)).length){const dx=tp.x-P.x,dz=tp.z-P.z,L=Math.hypot(dx,dz)||1;cFling(who,dx/L*32,8,dz/L*32);wcDamage(who,8);cPop('gale','GALE PIERCE');}
+  }
+  if(type==='move'){
+    if(x.k==='slam'&&recent(1.2,e=>e.type==='move'&&e.x.k==='dash').length){setTimeout(()=>{falconStorm(P.x,P.y,P.z,7,12);for(let i=0;i<36;i++){const a=i/36*Math.PI*2;glowPart([255,180,90],P.x,P.y+.2,P.z,Math.cos(a)*16,1.5,Math.sin(a)*16,.7,3);}sfxClick(80,1,.4);},950);cPop('quake','EARTHQUAKE');}
+  }
+  if(type==='throw'&&recent(1,e=>e.type==='move'&&e.x.k==='spin').length&&!(cCd.whirl>now)){
+    const t=homePick(1.2,14); if(t){cCd.whirl=now+2;startCyclone(t);cPop('whirl','EYE OF THE STORM');}
+  }
+}
+// style meter: keep hitting, mix it up, and your rank climbs
+const RANKS=[[0,'D','Dull','#9aa0a6'],[15,'C','Cool','#7fc4ff'],[35,'B','Bold','#8fe38a'],[60,'A','Awesome','#ffd36a'],[90,'S','Stylish','#ffa94d'],[130,'SS','Smokin’','#ff6b6b'],[180,'SSS','Sky-high','#e08cff']];
+function styleAdd(n,type){styleP=Math.min(260,styleP+n*(type&&type!==styleLast?1.5:1));styleLast=type||styleLast;styleIdle=0;}
+function styleTick(dt){
+  styleIdle+=dt; if(styleIdle>1.5)styleP=Math.max(0,styleP-dt*(6+styleP*.08));
+  let el=document.getElementById('styleMeter');
+  if(styleP<8||dead){if(el&&!el.hidden)el.hidden=true;return;}
+  if(!el){el=document.createElement('div');el.id='styleMeter';el.style.cssText='position:fixed;right:16px;top:38%;z-index:31;pointer-events:none;text-align:right;font-family:var(--font-display);text-shadow:0 2px 0 rgba(0,0,0,.6)';
+    el.innerHTML='<div class="r" style="font-size:42px;line-height:1"></div><div class="w" style="font-size:14px;letter-spacing:.08em"></div><div style="width:90px;height:4px;margin:4px 0 0 auto;background:rgba(0,0,0,.4);border-radius:2px;overflow:hidden"><i style="display:block;height:100%"></i></div>';document.body.appendChild(el);}
+  el.hidden=false; let i=0; while(i<RANKS.length-1&&styleP>=RANKS[i+1][0])i++;
+  const r=RANKS[i], nx=RANKS[i+1], f=nx?(styleP-r[0])/(nx[0]-r[0]):1;
+  el.querySelector('.r').textContent=r[1]; el.querySelector('.r').style.color=r[3]; el.querySelector('.w').textContent=r[2].toUpperCase(); el.querySelector('.w').style.color=r[3];
+  el.querySelector('i').style.width=Math.round(f*100)+'%'; el.querySelector('i').style.background=r[3];
 }
 // ---------- admin module: auto wind combo (keeps an infinite wind-charge slot and juggles the nearest target) ----------
 let autoCombo=false, acSlot=-1, acAdded=false, acT=0;
@@ -8449,7 +8523,7 @@ function useMove(i){
   if(curMove){return;}
   if(moveCd[i]>0){if(mvBarEls){const b=mvBarEls[i];b.animate([{transform:'translateX(0)'},{transform:'translateX(-3px)'},{transform:'translateX(3px)'},{transform:'translateX(0)'}],{duration:180});}sfxClick(400,.3,.05);return;}
   camera.getWorldDirection(camDir); const fl=new THREE.Vector3(camDir.x,0,camDir.z); if(fl.lengthSq()<1e-4)fl.set(-Math.sin(yaw),0,-Math.cos(yaw)); fl.normalize();
-  curMove={k:M.k,i,t:0,dur:M.dur,dir:fl,aim:camDir.clone(),hit:new Set(),tick:0};
+  curMove={k:M.k,i,t:0,dur:M.dur,dir:fl,aim:camDir.clone(),hit:new Set(),tick:0}; cEvt('move',null,{k:M.k});
   moveCd[i]=M.cd; swStat.moves++; if(mvBarEls){const b=mvBarEls[i];b.classList.add('fire');setTimeout(()=>b.classList.remove('fire'),160);}
   swing(); airMaxY=P.y;
   if(M.k==='dash'){mvFovK=16;mvSfx('dash');}
@@ -8920,6 +8994,7 @@ function runCommand(line){
       if(isAdmin())say('Admin guns: /guns gives all '+GUN_IDS.length+' (incl. Desert Eagle, AK, bullpup, double barrel, lever action, anti-materiel rifle, crossbow, grenade launcher, flamethrower, laser rifle, Tommy gun, Golden Gun) · /infammo [on|off]');
       if(legacyAdmin())say('Legacy admin: /security gives Auto Turrets and Guards (Security mod) · /deadmin <player> [reason] removes their admin · /readmin <player> gives it back · /deadminlist');
       if(isAdmin())say('/dashboard opens the server dashboard (players, play time, sessions, top players, admin activity) powered by NuggetBase');
+      say('/combos lists the secret combos you’ve found');
       if(canGrantLegacy())say('/colegacy <name> makes someone a co-legacy admin (every legacy power except this one); /uncolegacy <name> undoes it; /colegacylist lists them');
       if(canLegacy())say('/void turns your Void gun upgrade off or on (/void off, /void on)');
       if(canLegacy())say('/legacy opens the legacy admin dashboard: every live server, join any of them secretly or normally, and manage players');
@@ -9097,6 +9172,8 @@ function runCommand(line){
       if(!canGrantLegacy()){say(canLegacy()?'Only original legacy admins can do that.':'Unknown command. Type /help.');break;}
       const t=resolvePlayer(a[0]); if(!t){say('No player called “'+(a[0]||'')+'” found. Use a name from /list or a player ID.');break;}
       const on=c==='colegacy'; if(setColeg(t,on))say(on?t.name+' is now a co-legacy admin.':t.name+' is no longer a co-legacy admin.'); break;}
+    case 'combos':{const all=isAdmin();let n=0;const lines=COMBOS.map(([k,nm,how])=>{const kn=comboKnown(k);if(kn)n++;return kn?'✓ '+nm+' — '+how:all?'· '+nm+' — '+how:'? ???';});
+      say('Combos found: '+n+'/'+COMBOS.length+(all?' (admins see them all)':' · keep experimenting!'));lines.forEach(l=>say(l));break;}
     case 'colegacylist':{if(!canLegacy()){say('Unknown command. Type /help.');break;}say(coleg.length?'Co-legacy admins: '+coleg.map(c=>c.n+(c.nc?' ('+c.nc+')':'')).join(', '):'No co-legacy admins.');break;}
     case 'deadminlist':{
       if(!legacyAdmin()){say('Only legacy admins can see that.');break;}
@@ -9456,6 +9533,8 @@ function mpOnMsg(o){
     case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
     case 'wp': if(Array.isArray(o.l)){meta['#wp']=o.l.filter(w=>w&&typeof w.n==='string'&&typeof w.x==='number'&&typeof w.y==='number'&&typeof w.z==='number').slice(0,30).map(w=>({n:w.n.slice(0,24),x:w.x,y:w.y,z:w.z,h:(w.h|0)%360,by:String(w.by||'').slice(0,16)}));wpRef=null;saveSoon();} break;
     case 'windt': if([o.x,o.y,o.z,o.vx,o.vy,o.vz].every(v=>typeof v==='number'))remoteWind(o); break;
+    case 'wfling': if(o.to===MP.id&&!dead&&[o.vx,o.vy,o.vz].every(v=>typeof v==='number')){V.x=Math.max(-40,Math.min(40,o.vx));V.y=Math.max(-40,Math.min(30,o.vy));V.z=Math.max(-40,Math.min(40,o.vz));if(o.vy>0)maceSafe=true;} break;
+    case 'mfling': if(MP.isHost&&[o.vx,o.vy,o.vz].every(v=>typeof v==='number')){const m=mobs.find(q=>q.nid===o.id);if(m){m.vx=o.vx;m.vy=o.vy;m.vz=o.vz;}} break;
     case 'wcyc': if(o.to===MP.id&&!dead&&typeof o.fx==='number'){myCyc={t:Math.min(3,+o.d||2.4),cx:P.x,cz:P.z,a:0,fx:o.fx,fz:o.fz};} break;
     case 'mcyc': if(MP.isHost&&typeof o.fx==='number'){const m=mobs.find(q=>q.nid===o.id);if(m&&!m.cyc)m.cyc={t:Math.min(3,+o.d||2.4),cx:m.x,cz:m.z,a:0,hit:0,fx:o.fx,fz:o.fz};} break;
     case 'wlift': if(o.to===MP.id&&!dead){wLiftMe=Math.min(2,Math.max(0,+o.d||.9));wLiftVy=12;} break;
