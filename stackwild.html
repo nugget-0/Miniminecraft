@@ -3421,6 +3421,7 @@ function tryAttack(){
   if(mace){const crm=rbm&&tierOf(inv[sel])===1, critNow=!onGround&&V.y<-.5, dive=(gliding||(!onGround&&wingTier()>=0))?Math.max(0,-V.y)*.35:0, fall=Math.max(airMaxY-P.y,dive,critNow?1:0);if((critNow||gliding||fall>1.5||(crm&&fall>.7))&&!onGround){const sm=Math.round(fall<=3?fall*4:12+(Math.min(fall,8)-3)*2+Math.max(0,fall-8));dmg+=sm*(rbm?2:1);maceSmash(m,sm,rbm,fall);}}
   if(spr){const hs=Math.hypot(V.x,V.z);if(hs>5.5){const cb=Math.min(30,(hs-4)*.9);dmg+=cb;toast('CHARGE! +'+Math.round(cb));for(let i=0;i<12;i++)glowPart([255,255,255],m.x,m.y+1,m.z,(Math.random()-.5)*4,Math.random()*3,(Math.random()-.5)*4,.4,4);}}
   critFx(cr,m.x,m.y+m.h-.9,m.z);
+  if(!mace)falconOnHit({mob:m},cr);
   const dx=m.x-P.x,dz=m.z-P.z,L=Math.hypot(dx,dz)||1, kb=rb?12:spr?9:7;
   atkCd=rb?.3:.45; swing(); if(tool)useTool(); mine.t=-.35; m.flash=.2;
   if(rb){bladeSlash();rainbowBurst(m.x,m.y+m.h*.5,m.z,30);}
@@ -3672,6 +3673,7 @@ function hitPeer(p){
   mpSend({t:'hit',to:p.id,dmg,kx:+(dx/L).toFixed(2),kz:+(dz/L).toFixed(2)});
   atkCd=.45; swing(); if(tool)useTool();
   if(cr)critFx(cr,p.x,p.y+.6,p.z); else burstC([220,60,60],p.x-.5,p.y+.6,p.z-.5,6);
+  if(!(tool&&tool.kind==='mace'))falconOnHit({peer:p},cr);
   return true;
 }
 function takePvpHit(o){
@@ -5498,6 +5500,7 @@ const AP_MODS=[
   ['Auto wind combo','Homing wind charges juggle the nearest target up forever (no height limit) until you turn it off; Cyclone from range. Makes a wind-charge slot infinite',()=>autoCombo,v=>setAutoCombo(v)],
   ['Auto spike','With auto combo: finishes each Sky Juggle at ×4 instead of juggling forever with a Spike (Meteor if you hold a mace)',()=>autoSpike,v=>{autoSpike=v;}],
   ['Combo players','Let the auto combo go for other players too (PvP must be on)',()=>acPlayers,v=>{acPlayers=v;}],
+  ['Auto falcon','Pogo-bounces on the nearest target with perfectly timed falling crits (Falcon Chain, Storm, Skybreaker)',()=>autoFalcon,v=>{autoFalcon=v;fc.n=0;}],
   ['Homing wind charges','Wind charges you throw curve onto whatever you’re aiming near',()=>homingWinds,v=>{homingWinds=v;}],
   ['Fullbright','Everything fully lit',()=>clientModOn('fullbright'),v=>setClientMod('fullbright',v)],
   ['Night Owl','Brighter nights and caves',()=>clientModOn('nightowl'),v=>setClientMod('nightowl',v)],
@@ -7323,13 +7326,14 @@ function throwWind(){
   if(dead)return; camera.getWorldDirection(camDir); swing(); if(GM.mode!=='creative')takeSel();
   const m=new THREE.Mesh(new THREE.BoxGeometry(.3,.3,.3),new THREE.MeshBasicMaterial({color:0xd8f2ff,fog:false}));
   const o=camera.position; m.position.set(o.x+camDir.x*.6,o.y+camDir.y*.6-.1,o.z+camDir.z*.6); scene.add(m);
-  winds.push({m,vx:camDir.x*24,vy:camDir.y*24,vz:camDir.z*24,t:0,mine:true,home:homingWinds&&isAdmin()?homePick():null});
+  winds.push({m,vx:camDir.x*24,vy:camDir.y*24,vz:camDir.z*24,t:0,mine:true,home:homingWinds&&isAdmin()?homePick():wcAssist()});
   if(MP.connected)mpSend({t:'windt',x:+m.position.x.toFixed(2),y:+m.position.y.toFixed(2),z:+m.position.z.toFixed(2),vx:+(camDir.x*24).toFixed(2),vy:+(camDir.y*24).toFixed(2),vz:+(camDir.z*24).toFixed(2)});
 }
 // the target closest to where you're looking (within ~30° and 24 blocks)
-function homePick(){
-  camera.getWorldDirection(camDir); const o=camera.position; let best=null,bs=Math.cos(.55);
-  const test=(x,y,z,ref)=>{const dx=x-o.x,dy=y-o.y,dz=z-o.z,L=Math.hypot(dx,dy,dz);if(L>24||L<.5)return;const c=(dx*camDir.x+dy*camDir.y+dz*camDir.z)/L;if(c>bs){bs=c;best=ref;}};
+function wcAssist(){const tp=wc.stage?wcPos(wc.tgt):null;if(tp&&Math.hypot(tp.x-P.x,tp.y-P.y,tp.z-P.z)<16)return wc.tgt;return homePick(.36,16);}
+function homePick(cone,range){
+  camera.getWorldDirection(camDir); const o=camera.position; let best=null,bs=Math.cos(cone||.55); range=range||24;
+  const test=(x,y,z,ref)=>{const dx=x-o.x,dy=y-o.y,dz=z-o.z,L=Math.hypot(dx,dy,dz);if(L>range||L<.5)return;const c=(dx*camDir.x+dy*camDir.y+dz*camDir.z)/L;if(c>bs){bs=c;best=ref;}};
   for(const m of mobs)if(m.type!=='dragon')test(m.x,m.y+m.h*.5,m.z,{mob:m});
   if(MP.connected&&pvpOn())for(const q of MP.peers.values())if(q.seen&&!q.hid)test(q.x,q.y+.9,q.z,{peer:q});
   return best;
@@ -7346,7 +7350,19 @@ function windBurst(x,y,z){
 // ---------- secret combo: Sky Juggle ----------
 // wind-charge something point blank and you both pop up; hit it again mid-air and you ride the updraft up together.
 // keep hitting it to climb higher; melee it while you're both up there to spike it into the ground.
-const wc={stage:0,t:0,tgt:null,n:0}; let wLiftMe=0, wLiftVy=15, comboBT=0;
+const wc={stage:0,t:0,tgt:null,n:0}; let wLiftMe=0, wLiftVy=15, comboBT=0, wHang=0;
+// small prompt under the crosshair while a juggle is going: what to do next and how long you have
+function comboHint(){
+  let el=document.getElementById('comboHint');
+  const on=wc.stage>0&&!dead&&!paused&&wcPos(wc.tgt);
+  if(!on){if(el&&!el.hidden)el.hidden=true;return;}
+  if(!el){el=document.createElement('div');el.id='comboHint';el.style.cssText='position:fixed;left:50%;top:58%;transform:translateX(-50%);z-index:32;pointer-events:none;font:600 13px var(--font-ui);color:#e8f6ff;text-shadow:0 1px 2px #000;text-align:center';
+    el.innerHTML='<div class="t"></div><div style="width:120px;height:4px;margin:4px auto 0;background:rgba(0,0,0,.45);border-radius:2px;overflow:hidden"><i style="display:block;height:100%;background:#8fd4ff"></i></div>';document.body.appendChild(el);}
+  el.hidden=false;
+  const held=inv[sel]&&inv[sel].id===WIND_CHARGE;
+  el.querySelector('.t').textContent=wc.stage===1?(held?'Throw again while you’re both in the air!':'Hold a wind charge and throw again!'):('×'+wc.n+(held?' · throw again to keep climbing':'')+(wc.n>=2?' · melee to SPIKE':''));
+  el.querySelector('i').style.width=Math.max(0,Math.min(1,wc.t/4))*100+'%';
+}
 function comboBanner(big,small){
   let el=document.getElementById('comboBanner'); if(!el){el=document.createElement('div');el.id='comboBanner';document.body.appendChild(el);}
   el.innerHTML=esc(big)+(small?'<small>'+esc(small)+'</small>':''); el.hidden=false; el.style.animation='none'; void el.offsetWidth; el.style.animation='';
@@ -7369,17 +7385,17 @@ function windComboHit(who){
   const tp=wcPos(who); if(!tp||dead)return;
   const d=Math.hypot(tp.x-P.x,tp.y-(P.y+.9),tp.z-P.z);
   // from range while standing: three hits on the same target within 3 s spin up a Cyclone
-  if(onGround&&wLiftMe<=0&&d>4.5&&d<26){
+  if(onGround&&wLiftMe<=0&&d>7&&d<26){
     if(cy.t>0&&wcSame(cy.tgt,who))cy.n++;else{cy.tgt=who;cy.n=1;} cy.t=3;
     if(cy.n>=3){cy.n=0;cy.t=0;startCyclone(who);} return;
   }
-  if(d>8)return;
+  if(d>12)return;
   if(wc.stage===0||!wcSame(wc.tgt,who)||wc.t<=0||onGround&&wLiftMe<=0){
     // opener: you both pop up
-    Object.assign(wc,{stage:1,t:2.6,tgt:who,n:1}); V.y=Math.max(V.y,13); airMaxY=P.y; maceSafe=true; gliding=false; wcLiftTarget(who,.35); return;
+    Object.assign(wc,{stage:1,t:4,tgt:who,n:1}); V.y=Math.max(V.y,13); airMaxY=P.y; maceSafe=true; gliding=false; wcLiftTarget(who,.35); return;
   }
   if(onGround)return;
-  wc.n++; wc.stage=2; wc.t=2.6; wLiftMe=.9; wLiftVy=12; airMaxY=P.y; maceSafe=true; gliding=false;
+  wc.n++; wc.stage=2; wc.t=4; wLiftMe=.9; wLiftVy=12; airMaxY=P.y; maceSafe=true; gliding=false;
   wcLiftTarget(who,.9); wcDamage(who,autoCombo?.5:1+wc.n);   // auto juggles barely hurt, so they can go on and on
   for(let i=0;i<20;i++){const a=i/20*Math.PI*2;glowPart(i%2?[255,255,255]:[150,215,255],tp.x+Math.cos(a)*.8,tp.y,tp.z+Math.sin(a)*.8,Math.cos(a)*3,8+Math.random()*4,Math.sin(a)*3,.6,-2);}
   if(wc.n>=5&&!autoCombo)wcDamage(who,wc.n);   // Sky King: big bonus damage from x5 up
@@ -7426,7 +7442,12 @@ function wcTick(dt){
   if(!MP.connected||MP.isHost)for(const m of mobs)if(m.cyc){const c=m.cyc;c.hit-=dt;if(c.hit<=0){c.hit=.5;m.hp-=1.5;m.flash=.12;}
     if(cycStep(c,dt,{y:()=>m.y+m.h*.5,move:(x,z,vy)=>{m.vx=(x-m.x)*12;m.vz=(z-m.z)*12;m.vy=vy;},fling:(vx,vy,vz)=>{m.vx=vx;m.vy=vy;m.vz=vz;}}))m.cyc=null;
     if(m.hp<=0){const i=mobs.indexOf(m);if(i>=0)killMob(i,true);}}
-  if(wc.stage){wc.t-=dt; if(wc.t<=0||(onGround&&wLiftMe<=0&&wc.t<2.3)){wc.stage=0;wc.n=0;wc.tgt=null;}}
+  if(wc.stage){wc.t-=dt; if(wc.t<=0||(onGround&&wLiftMe<=0&&wc.t<3.7)){wc.stage=0;wc.n=0;wc.tgt=null;}}
+  // hang time: at the top of each updraft you and the target float for a moment so the next throw is easy
+  if(wc.stage===2&&wLiftMe<=0&&wHang>0&&!onGround){wHang-=dt;V.y=Math.max(V.y,-1.2);maceSafe=true;airMaxY=P.y;}
+  if(wLiftMe>0)wHang=.8;
+  if(!MP.connected||MP.isHost)for(const m of mobs){if(m.wlift>0)m.whang=.8;else if(m.whang>0){m.whang-=dt;m.vy=Math.max(m.vy||0,-1.2);}}
+  comboHint();
   if(wLiftMe>0&&!dead){
     wLiftMe-=dt; if(P.y>H-6&&!autoCombo)wLiftMe=0;   // the auto combo has no ceiling
     V.y=Math.max(V.y,wLiftVy); airMaxY=P.y; maceSafe=true; gliding=false;
@@ -7435,7 +7456,7 @@ function wcTick(dt){
     if(Math.random()<dt*30)glowPart([220,240,255],P.x+(Math.random()-.5),P.y,P.z+(Math.random()-.5),0,-4,0,.4,0);
   }
   if(!MP.connected||MP.isHost)for(const m of mobs)if(m.wlift>0){m.wlift-=dt;if(m.y>H-6&&!autoCombo)m.wlift=0;m.vy=Math.max(m.vy||0,12);if(Math.random()<dt*20)glowPart([220,240,255],m.x,m.y,m.z,0,-4,0,.4,0);}
-  autoComboTick(dt);
+  autoComboTick(dt); falconTick(dt);
 }
 // Meteor: mace spike, then you crash down and the landing sends out a shockwave (hurts and throws, never breaks blocks)
 function meteorShock(x,y,z){
@@ -7445,6 +7466,66 @@ function meteorShock(x,y,z){
   for(const m of [...mobs]){if(m.type==='dragon')continue;const dx=m.x-x,dz=m.z-z,dd=Math.hypot(dx,m.y-y,dz);if(dd>R2)continue;const L=Math.hypot(dx,dz)||1,f=1-dd/R2;
     if(m.remote)mpSend({t:'mdmg',id:m.nid,dmg:Math.round(14*f+4),kx:+(dx/L).toFixed(2),kz:+(dz/L).toFixed(2)});else{hurtMob(m,Math.round(14*f+4),dx/L*1.6,dz/L*1.6);m.vy=9*f+4;}}
   if(MP.connected&&pvpOn())for(const q of MP.peers.values()){if(!q.seen||q.hid)continue;const dx=q.x-x,dz=q.z-z,dd=Math.hypot(dx,q.y-y,dz);if(dd>R2)continue;const L=Math.hypot(dx,dz)||1;mpSend({t:'hit',to:q.id,dmg:Math.round(12*(1-dd/R2)+3),kx:+(dx/L*1.5).toFixed(2),kz:+(dz/L*1.5).toFixed(2)});}
+}
+// ---------- secret combo: Falcon Chain (hard) ----------
+// a falling crit bounces you back up like a pogo. land the next crit inside the sweet spot of your fall
+// (falling between 5 and 11 blocks a second) to keep the chain; anything sloppier restarts it at x1.
+// x5 sends out a Falcon Storm shockwave, x8 is a Skybreaker. touch the ground and it's over.
+const fc={n:0,t:0,best:0}; let autoFalcon=false, afT=0;
+const FC_LO=-11, FC_HI=-5;
+function falconOnHit(who,cr){
+  if(!cr||onGround||dead)return;
+  const tp=wcPos(who); if(!tp)return;
+  const sweet=V.y>=FC_LO&&V.y<=FC_HI;
+  fc.n=fc.n>0&&fc.t>0?(sweet?fc.n+1:1):1; fc.t=2.2;
+  V.y=sweet?11.5:7.5; airMaxY=P.y; maceSafe=true; gliding=false;
+  if(fc.n>=2){const base=heldTool()?(heldTool().dmg||heldTool().tier+1):1;wcDamage(who,base*.3*(fc.n-1));}
+  for(let i=0;i<10;i++)glowPart(sweet?[255,215,90]:[255,255,255],P.x,P.y,P.z,(Math.random()-.5)*4,-2-Math.random()*3,(Math.random()-.5)*4,.4,4);
+  if(fc.n===5){falconStorm(tp.x,tp.y,tp.z,3.5,7);comboBanner('FALCON STORM ×5',comboFirst('falcon5')?'Secret combo discovered!':'');}
+  else if(fc.n>=8&&fc.n%4===0){meteorShock(tp.x,tp.y-.8,tp.z);comboBanner('SKYBREAKER ×'+fc.n,comboFirst('falcon8')?'Secret combo discovered! You’ve mastered it':'');}
+  else if(fc.n>=2)comboBanner('FALCON ×'+fc.n,fc.n===3&&comboFirst('falcon')?'Secret combo discovered!':sweet?'PERFECT':'');
+  else if(!sweet&&fc.best>=2)comboBanner('×1','Too early or too late: hit in the gold band');
+  fc.best=Math.max(fc.best,fc.n); sfxTwang(1+Math.min(fc.n,10)*.12);
+}
+function falconStorm(x,y,z,R2,dmg){
+  for(let i=0;i<28;i++){const a=i/28*Math.PI*2;glowPart([255,215,90],x,y,z,Math.cos(a)*10,1+Math.random()*2,Math.sin(a)*10,.45,2);}
+  for(const m of [...mobs]){if(m.type==='dragon')continue;const dx=m.x-x,dz=m.z-z,dd=Math.hypot(dx,m.y-y,dz);if(dd>R2)continue;const L=Math.hypot(dx,dz)||1;
+    if(m.remote)mpSend({t:'mdmg',id:m.nid,dmg,kx:+(dx/L).toFixed(2),kz:+(dz/L).toFixed(2)});else hurtMob(m,dmg,dx/L,dz/L);}
+  if(MP.connected&&pvpOn())for(const q of MP.peers.values()){if(!q.seen||q.hid)continue;const dx=q.x-x,dz=q.z-z;if(Math.hypot(dx,q.y-y,dz)>R2)continue;const L=Math.hypot(dx,dz)||1;mpSend({t:'hit',to:q.id,dmg,kx:+(dx/L).toFixed(2),kz:+(dz/L).toFixed(2)});}
+}
+// the timing meter: shows how fast you're falling and the gold band you need to hit in
+function falconMeter(){
+  let el=document.getElementById('falconMeter');
+  const on=fc.n>0&&fc.t>0&&!onGround&&!dead&&!paused;
+  if(!on){if(el&&!el.hidden)el.hidden=true;return;}
+  if(!el){el=document.createElement('div');el.id='falconMeter';el.style.cssText='position:fixed;left:calc(50% + 34px);top:calc(50% - 45px);width:8px;height:90px;z-index:32;pointer-events:none;background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.35);border-radius:3px';
+    el.innerHTML='<b style="position:absolute;left:0;right:0;background:rgba(255,205,70,.8)"></b><i style="position:absolute;left:-4px;right:-4px;height:3px;background:#fff;box-shadow:0 0 4px #000"></i><span style="position:absolute;left:14px;top:-3px;font:700 12px var(--font-ui);color:#ffd36a;text-shadow:0 1px 2px #000;white-space:nowrap"></span>';document.body.appendChild(el);}
+  el.hidden=false;
+  const top=12, bot=-16, f=v=>(top-v)/(top-bot)*90;   // V.y from +12 (top) to -16 (bottom)
+  const b=el.querySelector('b'); b.style.top=f(FC_HI)+'px'; b.style.height=(f(FC_LO)-f(FC_HI))+'px';
+  el.querySelector('i').style.top=Math.max(0,Math.min(88,f(V.y)))+'px';
+  el.querySelector('span').textContent='×'+fc.n;
+}
+function falconTick(dt){
+  if(fc.t>0){fc.t-=dt;if(onGround&&fc.t<2)fc.t=0;} if(fc.t<=0)fc.n=0;
+  falconMeter();
+  if(!autoFalcon)return;
+  if(!isAdmin()){autoFalcon=false;return;}
+  if(dead||paused||riding||manning||bagOpen)return;
+  afT-=dt;
+  const t=acPick(); if(!t)return; const tp=wcPos(t); if(!tp)return;
+  const dx=tp.x-P.x, dz=tp.z-P.z, hd=Math.hypot(dx,dz), d=Math.hypot(dx,tp.y-(P.y+.9),dz);
+  if(onGround){if(hd<4&&afT<=0){V.y=10;afT=.2;}return;}
+  {const k=Math.min(1,dt*8),want=Math.min(8,hd*4);V.x+=(dx/(hd||1)*want-V.x)*k;V.z+=(dz/(hd||1)*want-V.z)*k;}   // stay right above it
+  if(V.y>=FC_LO+1&&V.y<=FC_HI-1&&d<3.4&&afT<=0){falconStrike(t);afT=.15;}
+}
+// a melee hit on a given target with whatever you're holding (used by the auto module)
+function falconStrike(t){
+  const tp=wcPos(t); if(!tp)return; const tool=heldTool(), base=(tool?(tool.dmg||tool.tier+1):1)*(fx.strength>0?1.5:1), dmg=Math.round(base*1.5);
+  const dx=tp.x-P.x,dz=tp.z-P.z,L=Math.hypot(dx,dz)||1;
+  if(t.mob){if(t.mob.remote)mpSend({t:'mdmg',id:t.mob.nid,dmg,kx:+(dx/L*.2).toFixed(2),kz:+(dz/L*.2).toFixed(2)});else hurtMob(t.mob,dmg,dx/L*.2,dz/L*.2);}
+  else if(pvpOn())mpSend({t:'hit',to:t.peer.id,dmg,kx:+(dx/L*.2).toFixed(2),kz:+(dz/L*.2).toFixed(2)});
+  swing(); critFx(1,tp.x,tp.y,tp.z); falconOnHit(t,1);
 }
 // ---------- admin module: auto wind combo (keeps an infinite wind-charge slot and juggles the nearest target) ----------
 let autoCombo=false, acSlot=-1, acAdded=false, acT=0;
@@ -7490,7 +7571,7 @@ function autoComboTick(dt){
     return;
   }
   if(onGround&&wLiftMe<=0&&!myCyc){
-    if(d<=4.5){if(acThrow(t))acT=.25;}                        // point blank: Sky Juggle opener
+    if(d<=7){if(acThrow(t))acT=.25;}                          // close: Sky Juggle opener
     else if(d<22){if(acThrow(t))acT=.3;}                       // range: three hits spin up a Cyclone
   }
 }
