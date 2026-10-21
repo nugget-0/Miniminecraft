@@ -3369,7 +3369,13 @@ function isAdmin(){
   return adminCache;
 }
 // the NuggetCode gate skips its login screen for admins by the thing.admin flag or the nugget67 name pattern
-window.swLegacyAdmin=()=>{if(deadminned())return false;try{if(localStorage.getItem('thing.admin')==='true')return true;}catch(e){}return recentNames().some(adminName);};
+// original legacy admins (thing.admin / nugget67 names) can also grant co-legacy admin; co-legacy admins get every legacy power except granting
+window.swTrueLegacy=()=>{try{if(localStorage.getItem('thing.admin')==='true')return true;}catch(e){}return recentNames().some(adminName);};
+let coleg=[]; try{const c=JSON.parse(localStorage.getItem('stackwild:coleg')||'[]');if(Array.isArray(c))coleg=c.filter(x=>x&&typeof x.id==='string');}catch(e){}
+const colegOf=(pid,nc)=>coleg.find(c=>c.id===pid||(nc&&c.nc===nc));
+function amCoLegacy(){try{return !!colegOf(PID,window.NC_ID);}catch(e){return false;}} // PID is set further down; early calls just say no
+window.swLegacyAdmin=()=>{if(deadminned())return false;return window.swTrueLegacy()||amCoLegacy();};
+const canGrantLegacy=()=>!deadminned()&&window.swTrueLegacy();
 window.dispatchEvent(new Event('stackwild:ready'));
 function rollCrit(){if(!(!onGround&&V.y<-.5))return 0;return (isAdmin()&&perfectAll)||Math.random()<.01?2:1;}
 function critFx(cr,x,y,z){
@@ -8286,6 +8292,7 @@ function ldashAct(a,v){
   else if(a==='leave'){mpDisconnect();playServer(servers.find(x=>x.type!=='joined')||servers[0]);mpSetStatus('Left the server.');closeLegacyDash();}
   else if(a==='cmd'){runCommand(v);ldashRender();}
   else if(a==='ban')ldBan(v);
+  else if(a==='coleg'){const r=ldIds.data&&ldIds.data.find(x=>x.ncid===v);if(r){const on=!colegOf(r.pid,r.ncid);if(setColeg({pid:r.pid,nc:r.ncid,name:r.name},on))toast(on?(r.name||v)+' is now a co-legacy admin':(r.name||v)+' is no longer a co-legacy admin');ldashRender();}}
   else if(a==='idsr')ldashLoadIds();
 }
 // every NuggetCode ID that has logged in, with who's using it now; ban bans that player's device and the ID itself
@@ -8321,8 +8328,9 @@ function ldIdsHtml(){
   if(!rows.length)return h+'<p class="db-sub">'+(ldIds.data.length?'No IDs match.':'No one has logged in with an ID yet.')+'</p></div>';
   h+='<div style="overflow-x:auto"><table><thead><tr><th>NuggetCode ID</th><th>Player now</th><th>Role</th><th>Last seen</th><th>Logins</th><th></th></tr></thead><tbody>';
   for(const r of rows.slice(0,200)){const b=ldBanOf(r), me=r.pid===PID||r.ncid===window.NC_ID;
-    h+='<tr><td>'+esc(r.ncid)+'</td><td>'+(r.online?'<span title="Online now" style="color:#5fd068">● </span>':'')+esc(r.name||'?')+(b?' <span class="db-sub">(banned)</span>':'')+'</td><td>'+(r.role==='admin'?'admin':'user')+'</td><td>'+esc(dAgo(r.last))+'</td><td>'+(r.logins|0)+'</td><td>'
-      +(me?'<span class="db-sub">You</span>':b?btn('ban',r.ncid,'Unban','ghost'):btn('ban',r.ncid,'Ban','warn'))+'</td></tr>';}
+    const co=colegOf(r.pid,r.ncid);
+    h+='<tr><td>'+esc(r.ncid)+'</td><td>'+(r.online?'<span title="Online now" style="color:#5fd068">● </span>':'')+esc(r.name||'?')+(b?' <span class="db-sub">(banned)</span>':'')+'</td><td>'+(co?'co-legacy':r.role==='admin'?'admin':'user')+'</td><td>'+esc(dAgo(r.last))+'</td><td>'+(r.logins|0)+'</td><td style="white-space:nowrap">'
+      +(me?'<span class="db-sub">You</span>':(canGrantLegacy()?btn('coleg',r.ncid,co?'Remove co-legacy':'Make co-legacy','ghost')+' ':'')+(b?btn('ban',r.ncid,'Unban','ghost'):btn('ban',r.ncid,'Ban','warn')))+'</td></tr>';}
   return h+'</tbody></table></div>'+(rows.length>200?'<p class="db-sub">Showing the first 200. Search to narrow it down.</p>':'')+'</div>';
 }
 function ldashRender(){
@@ -8371,8 +8379,8 @@ function ldashRender(){
     if(!ps.length)h+='<p class="db-sub">Nobody else is on this server.</p>';
     else{
       h+='<table><tbody>';
-      for(const q of ps)h+='<tr><td>'+esc(q.n)+(q.hid?' <span class="db-sub">(hidden admin)</span>':'')+'</td><td style="text-align:right">'
-        +(q.hid?'':btn('cmd','/tp '+q.n,'TP','ghost')+' ')+btn('cmd','/kick '+q.n,'Kick','ghost')+' '+btn('cmd','/ban '+q.n,'Ban','warn')+'</td></tr>';
+      for(const q of ps){const co=q.pid&&colegOf(q.pid);h+='<tr><td>'+esc(q.n)+(q.hid?' <span class="db-sub">(hidden admin)</span>':'')+(co?' <span class="db-sub">(co-legacy)</span>':'')+'</td><td style="text-align:right">'
+        +(q.hid?'':btn('cmd','/tp '+q.n,'TP','ghost')+' ')+(canGrantLegacy()&&q.pid?btn('cmd',(co?'/uncolegacy ':'/colegacy ')+q.pid,co?'Remove co-legacy':'Make co-legacy','ghost')+' ':'')+btn('cmd','/kick '+q.n,'Kick','ghost')+' '+btn('cmd','/ban '+q.n,'Ban','warn')+'</td></tr>';}
       h+='</tbody></table>';
     }
   }
@@ -8569,6 +8577,7 @@ function runCommand(line){
       if(isAdmin())say('Admin guns: /guns gives all '+GUN_IDS.length+' (incl. Desert Eagle, AK, bullpup, double barrel, lever action, anti-materiel rifle, crossbow, grenade launcher, flamethrower, laser rifle, Tommy gun, Golden Gun) · /infammo [on|off]');
       if(legacyAdmin())say('Legacy admin: /security gives Auto Turrets and Guards (Security mod) · /deadmin <player> [reason] removes their admin · /readmin <player> gives it back · /deadminlist');
       if(isAdmin())say('/dashboard opens the server dashboard (players, play time, sessions, top players, admin activity) powered by NuggetBase');
+      if(canGrantLegacy())say('/colegacy <name> makes someone a co-legacy admin (every legacy power except this one); /uncolegacy <name> undoes it; /colegacylist lists them');
       if(canLegacy())say('/void turns your Void gun upgrade off or on (/void off, /void on)');
       if(canLegacy())say('/legacy opens the legacy admin dashboard: every live server, join any of them secretly or normally, and manage players');
       if(isAdmin())say('/guns gives the Admin Gun Box (every gun, never runs out) · /guns all gives them loose · Shulker Box: chest + 2 ender pearls, keeps its items when broken');
@@ -8741,6 +8750,11 @@ function runCommand(line){
       const v=(a[0]||'').toLowerCase(), off=v==='off'?true:v==='on'?false:!voidOff; setVoidOff(off);
       say(off?'Void guns OFF: your guns are normal (normal damage, bullets stop at blocks, ricochets work). /void to turn them back on.':'Void guns ON: 3× damage and bullets bore through anything.'); break;}
     case 'legacy': case 'ldash':{if(!canLegacy()){say('Unknown command. Type /help.');break;}openLegacyDash();break;}
+    case 'colegacy': case 'uncolegacy':{
+      if(!canGrantLegacy()){say(canLegacy()?'Only original legacy admins can do that.':'Unknown command. Type /help.');break;}
+      const t=resolvePlayer(a[0]); if(!t){say('No player called “'+(a[0]||'')+'” found. Use a name from /list or a player ID.');break;}
+      const on=c==='colegacy'; if(setColeg(t,on))say(on?t.name+' is now a co-legacy admin.':t.name+' is no longer a co-legacy admin.'); break;}
+    case 'colegacylist':{if(!canLegacy()){say('Unknown command. Type /help.');break;}say(coleg.length?'Co-legacy admins: '+coleg.map(c=>c.n+(c.nc?' ('+c.nc+')':'')).join(', '):'No co-legacy admins.');break;}
     case 'deadminlist':{
       if(!legacyAdmin()){say('Only legacy admins can see that.');break;}
       let list=[];try{list=JSON.parse(localStorage.getItem('stackwild:deadminned')||'[]')||[];}catch(e){}
@@ -8889,7 +8903,7 @@ function suggFor(){
     case 'speed': opts=idx===1?['1','2','5','10']:[]; break;
     case 'enchant': opts=idx===1?ENCH_N.slice(1).map(n=>n.toLowerCase().replace(/ /g,'_')):idx===2?['1','3','5','9']:[]; break;
     case 'pvp': case 'perfectcrit': opts=idx===1?['on','off']:[]; break;
-    case 'kick': case 'ban': case 'deadmin': case 'readmin': opts=idx===1?[...new Set([...visPeers().map(p=>p.n),...known.values()])]:[]; break;
+    case 'kick': case 'ban': case 'deadmin': case 'readmin': case 'colegacy': case 'uncolegacy': opts=idx===1?[...new Set([...visPeers().map(p=>p.n),...known.values()])]:[]; break;
     case 'unban': opts=idx===1?bans.map(b=>b.n):[]; break;
     case 'setblock': opts=idx<=3?['~']:idx===4?blockKeys():[]; break;
     case 'fill': opts=idx<=6?['~']:idx===7?blockKeys():[]; break;
@@ -9279,7 +9293,19 @@ window.addEventListener('pagehide',()=>{saveNow();if(MP.connected){if(MP.isHost)
 
 // ---------- admins, kicks and bans (global, over HiveMQ) ----------
 const PID=(()=>{let v=null;try{v=localStorage.getItem('stackwild:pid');}catch(e){}if(!v){v='u'+Math.random().toString(36).slice(2,10);try{localStorage.setItem('stackwild:pid',v);}catch(e){}}return v;})();
-const ADMIN_TOPIC='stackwild/v2/admin', BAN_TOPIC='stackwild/v2/bans';
+const ADMIN_TOPIC='stackwild/v2/admin', BAN_TOPIC='stackwild/v2/bans', COLEG_TOPIC='stackwild/v2/coleg';
+function pubColeg(){return lobbySendRaw(COLEG_TOPIC,{list:coleg,ts:Date.now()},true);}
+// make someone a co-legacy admin, or take it away; returns true when the change went out
+function setColeg(t,on){
+  if(!canGrantLegacy()){toast('Only original legacy admins can do that');return false;}
+  if(!t||(!t.pid&&!t.nc))return false; if(t.pid===PID){toast('You’re already a legacy admin');return false;}
+  const before=coleg, ex=colegOf(t.pid,t.nc);
+  if(on){if(ex)return true;coleg=[...coleg,{id:t.pid||('nc:'+t.nc),nc:t.nc||'',n:t.name||t.nc||t.pid,by:MP.name||mpName.value,ts:Date.now()}];}
+  else{if(!ex)return true;coleg=coleg.filter(c=>c!==ex);}
+  if(!pubColeg()){coleg=before;return false;}
+  try{localStorage.setItem('stackwild:coleg',JSON.stringify(coleg));}catch(e){}
+  swEvent(on?'colegacy':'uncolegacy',(t.name||'')+(t.nc?' · '+t.nc:'')); return true;
+}
 const known=new Map();
 let bans=[];
 function amBanned(){return bans.some(b=>b.id===PID||(b.nc&&window.NC_ID&&b.nc===window.NC_ID));}
@@ -9305,6 +9331,20 @@ function beKicked(msg){
   paused=true; menu.hidden=false; menuBtn.hidden=true; mpSetStatus(msg); chatSys(msg);
 }
 function onAdminMsg(topic,payload){
+  if(topic===COLEG_TOPIC){
+    const was=amCoLegacy();
+    try{const o=JSON.parse(payload||'{}');coleg=Array.isArray(o.list)?o.list.filter(c=>c&&typeof c.id==='string').slice(0,200):[];}catch(e){coleg=[];}
+    try{localStorage.setItem('stackwild:coleg',JSON.stringify(coleg));}catch(e){}
+    for(const c of coleg)if(c.id[0]==='u')known.set(c.id,c.n);
+    const now=amCoLegacy();
+    if(now!==was){
+      if(now){chatSys('You’re now a co-legacy admin. /legacy opens your dashboard.');toast('You’re a co-legacy admin');if(LOB.client)try{LOB.client.subscribe(PRIV_TOPIC+'+');}catch(e){}}
+      else{chatSys('Your co-legacy admin was removed.');toast('Co-legacy admin removed');if(typeof ldashOn==='function'&&ldashOn())closeLegacyDash();}
+      for(const k in voidStatCache)delete voidStatCache[k]; heldId=-1;
+      const bd=document.getElementById('ncHudBadge'); if(bd)bd.hidden=!(window.NC_ROLE==='admin'||window.swLegacyAdmin())||deadminned();
+    }
+    return;
+  }
   if(topic===BAN_TOPIC){
     try{const o=JSON.parse(payload||'{}');bans=Array.isArray(o.list)?o.list.filter(b=>b&&typeof b.id==='string').slice(0,500):[];}catch(e){bans=[];}
     for(const b of bans)known.set(b.id,b.n);
@@ -9346,14 +9386,14 @@ function lobbyConnect(){
   try{c=new window.Paho.Client('broker.hivemq.com',8884,'/mqtt','l'+Math.random().toString(36).slice(2,12));}catch(e){setLobby('offline',String(e.message||e));scheduleLobby();return;}
   c.onConnectionLost=r=>{LOB.client=null;setLobby('offline',r&&r.errorMessage);scheduleLobby();};
   c.onMessageArrived=m=>{
-    if(m.destinationName===ADMIN_TOPIC||m.destinationName===BAN_TOPIC){onAdminMsg(m.destinationName,m.payloadString);return;}
+    if(m.destinationName===ADMIN_TOPIC||m.destinationName===BAN_TOPIC||m.destinationName===COLEG_TOPIC){onAdminMsg(m.destinationName,m.payloadString);return;}
     const pv=m.destinationName.startsWith(PRIV_TOPIC), map=pv?LOB.priv:LOB.servers, code=m.destinationName.slice((pv?PRIV_TOPIC:LOB_TOPIC).length);
     if(pv&&!canLegacy())return;
     if(!m.payloadString){map.delete(code);if(!pv)renderPublic();return;}
     try{const o=JSON.parse(m.payloadString);if(o&&o.code===code&&typeof o.ts==='number'){map.set(code,o);if(!pv)renderPublic();}}catch(e){}
   };
   c.connect({useSSL:true,timeout:10,keepAliveInterval:30,cleanSession:true,
-    onSuccess:()=>{LOB.client=c;setLobby('online');c.subscribe(LOB_TOPIC+'+');if(canLegacy())c.subscribe(PRIV_TOPIC+'+');c.subscribe(ADMIN_TOPIC);c.subscribe(BAN_TOPIC);},
+    onSuccess:()=>{LOB.client=c;setLobby('online');c.subscribe(LOB_TOPIC+'+');if(canLegacy())c.subscribe(PRIV_TOPIC+'+');c.subscribe(ADMIN_TOPIC);c.subscribe(BAN_TOPIC);c.subscribe(COLEG_TOPIC);},
     onFailure:r=>{setLobby('offline',r&&r.errorMessage);scheduleLobby();}});
 }
 function scheduleLobby(){clearTimeout(LOB.retryT);LOB.retryT=setTimeout(lobbyConnect,8000);}

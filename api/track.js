@@ -3,7 +3,7 @@ const { nb, configured, ensureTables, findOne, cors } = require('./_nb');
 
 const str = (v, n) => String(v == null ? '' : v).slice(0, n);
 const num = (v, max) => Math.max(0, Math.min(max, Math.floor(+v || 0)));
-const EVENTS = new Set(['join', 'kick', 'ban', 'unban', 'deadmin', 'readmin', 'win', 'death']);
+const EVENTS = new Set(['join', 'kick', 'ban', 'unban', 'deadmin', 'readmin', 'colegacy', 'uncolegacy', 'win', 'death']);
 
 module.exports = async (req, res) => {
   cors(res);
