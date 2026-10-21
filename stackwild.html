@@ -5007,6 +5007,9 @@ function updateSky(dt){
 const vmScene=new THREE.Scene(), vmCam=new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,.01,10);
 window.addEventListener('resize',()=>{vmCam.aspect=window.innerWidth/window.innerHeight;vmCam.updateProjectionMatrix();});
 const vm=new THREE.Group(); vmScene.add(vm);
+// lights for the first-person gun: sky/ground fill, a warm key light, a cool rim, and a flash light at the muzzle
+const vmHemi=new THREE.HemisphereLight(0xe6eeff,0x40382c,.8), vmKey=new THREE.DirectionalLight(0xfff2dc,.75), vmRim=new THREE.DirectionalLight(0x9cc0ff,.35), vmMuz=new THREE.PointLight(0xffb05a,0,1.6,2);
+vmKey.position.set(1.2,2.2,1.4); vmRim.position.set(-2,1,-2.5); vmScene.add(vmHemi,vmKey,vmRim,vmMuz);
 const skinMat=new THREE.MeshBasicMaterial({color:0xd9a77c}), sleeveMat=new THREE.MeshBasicMaterial({color:0x3f6e94});
 const armG=new THREE.Group(); vm.add(armG);
 {const a=new THREE.Mesh(new THREE.BoxGeometry(.15,.15,.34),skinMat);a.position.set(0,0,-.17);armG.add(a);
@@ -5077,7 +5080,7 @@ function setHeld(id,tier){
   if(heldMesh){vm.remove(heldMesh);heldMesh.traverse(o=>{if(o.geometry&&o.geometry!==itemGeoCache[heldId])o.geometry.dispose();});heldMesh=null;}
   heldPix=null; heldHalo=null;
   heldId=id; heldTier=tier||0; heldGun=null; gunFlash=null; if(id<0)return;
-  if(DEF[id].gun){heldGun=gunStat(id);heldMesh=buildGunModel(heldGun);vm.add(heldMesh);gEquip=1;return;}
+  if(DEF[id].gun){heldGun=gunStat(id);heldMesh=buildGunModel(heldGun,true);vm.add(heldMesh);gEquip=1;return;}
   const d=DEF[id], matHeld=heldTier===1?matHeldC:heldTier===2?matHeldE:matHeldBase;
   if(!d.item&&!d.plant&&!d.flat){heldMesh=new THREE.Mesh(itemGeo(id),matHeld);heldMesh.scale.setScalar(.85);heldMesh.position.set(-.06,.1,-.36);heldMesh.rotation.set(.1,.75,0);}
   else{
@@ -5114,13 +5117,22 @@ function updateViewModel(dt){
     animGun(dt); const ap=gunAnimPose; vm.position.y+=ap.lift; vm.position.x-=ap.roll*.06+ap.side; vm.position.z-=ap.push;
     let iy=0,ir=0,ix=0; if(gInspect>0){const q=1-gInspect/2.4,a1=ease(q/.15)-ease((q-.45)/.12),a2=ease((q-.5)/.12)-ease((q-.88)/.12);iy=a1*.95-a2*.55;ir=a1*.35+a2*-.9;ix=a1*.12+a2*.25;vm.position.x-=(a1+a2)*.1;vm.position.y+=(a1+a2)*.06+Math.sin(q*18)*.003*(a1+a2);vm.position.z+=(a1+a2)*.05;}
     if(gBash>0){const q=1-gBash/.5,b=q<.3?ease(q/.3):1-ease((q-.3)/.7);vm.position.z-=b*.22;vm.position.x-=b*.12;vm.position.y+=b*.05;ix-=b*.25;iy+=b*.6;ir+=b*.7;}
-    vm.rotation.set(gunKick*.14*(1-ae*.6)+ap.tilt-gSprint*.32-eq*.8+gLagY+br*.006+gLand*.05, .05*(1-ae)+ap.roll*.25+ap.turn+gSprint*.75-gLagX+gKickY+iy, ap.roll*.55+Math.cos(bobPh)*.02*bb+gSprint*.2+gKickR+gLagX*.5+ir); vm.rotation.x+=ix;
+    vm.rotation.set(gunKick*.14*(1-ae*.6)+ap.tilt-gSprint*.32-eq*.8+gLagY+br*.006+gLand*.05, .05*(1-ae)+ap.roll*.25+ap.turn+gSprint*.75-gLagX+gKickY+iy+eq*.35, ap.roll*.55+Math.cos(bobPh)*.02*bb+gSprint*.2+gKickR+gLagX*.5+ir+eq*.6); vm.rotation.x+=ix;
+    // spring recoil: kicks back and up, overshoots a touch, settles
+    for(let k2=0;k2<2;k2++){const h=Math.min(dt,.05)/2,K=240,C=17;
+      gRcV.x+=(-K*gRc.x-C*gRcV.x)*h;gRc.x+=gRcV.x*h; gRcV.y+=(-K*gRc.y-C*gRcV.y)*h;gRc.y+=gRcV.y*h; gRcV.z+=(-K*gRc.z-C*gRcV.z)*h;gRc.z+=gRcV.z*h;}
+    {const dd=1-ae*.5; vm.position.z+=gRc.z*.05*dd; vm.position.y+=gRc.x*.01*dd; vm.rotation.x+=gRc.x*.07*dd; vm.rotation.y+=gRc.y*.04; vm.rotation.z+=gRc.y*.05;}
+    // lean into strafes, cant the gun when crouching
+    {const lat=V.x*Math.cos(yaw)-V.z*Math.sin(yaw); gStrafe+=(vClamp(lat/7,-1,1)-gStrafe)*Math.min(1,dt*7); vm.rotation.z-=gStrafe*.07*(1-ae*.7); vm.position.x-=gStrafe*.008*(1-ae);
+     gCrouch+=((sneaking&&onGround?1:0)-gCrouch)*Math.min(1,dt*8); const cq=gCrouch*(1-ae); vm.position.y-=cq*.012; vm.position.x-=cq*.025; vm.rotation.z+=cq*.14;}
     if(heldMesh&&heldMesh.userData.rainbow){const tt=performance.now()/1600;heldMesh.userData.rainbow.forEach(m=>m.color.setHSL((tt+m.userData.h)%1,.85,.55));}
     {const gh=GRIP_HAND[heldGun.k]||[0,-.06,.05];_gA.set(gh[0],gh[1],gh[2]);_gB.copy(GRIP_ELBOW).sub(_gA).normalize();armG.quaternion.setFromUnitVectors(_gN,_gB.clone().negate());armG.position.copy(_gA).addScaledVector(_gB,.34);}
     armG.visible=true; if(heldGun.scope&&a>.88)vm.visible=false;
     if(gunFlash)gunFlash.visible=gunFlashT>0;
   }else{armG.visible=true;armG.position.set(0,-.02,.05);armG.rotation.set(-.15,.25,0);}
   const b=Math.max(.35,curBright,heldGlow(inv[sel]?inv[sel].id:0)*.95);
+  vmHemi.intensity=.8*b; vmKey.intensity=.75*b; vmRim.intensity=.35*b;
+  if(heldGun&&gunFlash&&gunFlashT>0&&vm.visible){gunFlash.getWorldPosition(vmMuz.position);vmMuz.intensity=3;}else vmMuz.intensity=0;
   if(skinMat.userData.base)skinMat.color.copy(skinMat.userData.base).multiplyScalar(b);
   if(sleeveMat.userData.base)sleeveMat.color.copy(sleeveMat.userData.base).multiplyScalar(b);
   const hm=heldPix?matPix:matHeld;
@@ -5462,6 +5474,7 @@ function flameShot(g,id,mz){
 }
 function sfxPew(){const a=audio();if(!a)return;const t=a.currentTime,o=a.createOscillator(),gn=a.createGain();o.type='sawtooth';o.frequency.setValueAtTime(1800,t);o.frequency.exponentialRampToValueAtTime(220,t+.16);gn.gain.setValueAtTime(.12,t);gn.gain.exponentialRampToValueAtTime(.0001,t+.18);o.connect(gn);gn.connect(a.destination);o.start(t);o.stop(t+.2);}
 let gLagX=0, gLagY=0, gLastYaw=0, gLastPitch=0, gSprint=0, gLand=0, gWasGround=true, gFallV=0, gEquip=0, gKickR=0, gKickY=0;
+let gTrig=0, gHam=0, gStrafe=0, gCrouch=0; const gRc=new THREE.Vector3(), gRcV=new THREE.Vector3();
 const tracers=[], holes=[], rockets=[];
 const gunHeld=()=>!!(!riding&&!manning&&heldGun&&inv[sel]&&DEF[inv[sel].id].gun&&(worldMG==='gungame'||isAdmin()&&clientModOn('guns'))&&(!DEF[inv[sel].id].legacy||legacyAdmin()));
 const ATT_OPTS={
@@ -5501,19 +5514,83 @@ function gunStatBase(id){
 }
 const ammoOf=id=>gunAmmo[id]!==undefined?gunAmmo[id]:(gunAmmo[id]=gunStat(id).mag);
 function gunWantFov(){if(bowT>0)return 72-Math.min(1,bowT)*14;if(!gunHeld()||gunAds<.05)return 0;const g=gunStat(inv[sel].id);return 72+(g.fov-72)*gunAds;}
-function buildGunModel(g){
-  const G=new THREE.Group(), M=c=>{const m=new THREE.MeshBasicMaterial({color:c});m.userData.sk=1;return m;}, metal=M(0x2b2d31), dark=M(0x18191b), wood=M(0x6e4524), poly=M(0x3b3e35), tan=M(0x8f7b55), glass=M(0x1d3446);
+function gunMatLit(c){const r=c>>16&255,gg=c>>8&255,b=c&255,grey=Math.max(r,gg,b)-Math.min(r,gg,b)<26;
+  return new THREE.MeshPhongMaterial({color:c,shininess:grey?70:14,specular:grey?0x5a5a5a:0x161616});}
+let gunFlashTexC=null;
+function flashTex(){
+  if(gunFlashTexC)return gunFlashTexC;
+  const c=document.createElement('canvas');c.width=c.height=64;const x=c.getContext('2d'),gr=x.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(255,255,240,1)');gr.addColorStop(.25,'rgba(255,222,130,.95)');gr.addColorStop(.6,'rgba(255,140,40,.45)');gr.addColorStop(1,'rgba(255,90,20,0)');
+  x.fillStyle=gr;x.beginPath();for(let i=0;i<16;i++){const a=i/16*Math.PI*2,r=i%2?11:32;x.lineTo(32+Math.cos(a)*r,32+Math.sin(a)*r);}x.closePath();x.fill();
+  return gunFlashTexC=new THREE.CanvasTexture(c);
+}
+function buildGunModel(g,lit){
+  const G=new THREE.Group(), M=c=>{const m=lit?gunMatLit(c):new THREE.MeshBasicMaterial({color:c});m.userData.sk=1;return m;}, metal=M(0x2b2d31), dark=M(0x18191b), wood=M(0x6e4524), poly=M(0x3b3e35), tan=M(0x8f7b55), glass=M(0x1d3446);
   const bx=(w,h,d,x,y,z,m,rx)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);if(rx)o.rotation.x=rx;G.add(o);return o;};
-  const cyl=(r,l,x,y,z,m)=>{const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,10),m);o.rotation.x=Math.PI/2;o.position.set(x,y,z);G.add(o);return o;};
+  const cyl=(r,l,x,y,z,m)=>{const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,16),m);o.rotation.x=Math.PI/2;o.position.set(x,y,z);G.add(o);return o;};
+  const steel=M(0x5c6068), blk=M(0x0f1012);
+  // detail helpers: parts parented to a moving piece (slide, mag, pump) ride along with it
+  const ch=(par,w,h,d,x,y,z,m,rx)=>{const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);if(rx)o.rotation.x=rx;par.add(o);return o;};
+  const cz=(par,r,l,x,y,z,m)=>{const o=new THREE.Mesh(new THREE.CylinderGeometry(r,r,l,16),m);o.rotation.x=Math.PI/2;o.position.set(x,y,z);par.add(o);return o;};
+  const serr=(par,n,w,h,z0,step)=>{for(let i=0;i<n;i++)ch(par,w,h,.005,0,0,z0+i*step,blk);};
+  const rail=(y,z0,z1,w)=>{w=w||.03;bx(w,.008,z1-z0,0,y,(z0+z1)/2,dark);for(let z=z0+.01;z<z1-.004;z+=.02)bx(w+.006,.006,.008,0,y+.006,z,dark);};
+  const tguard=(y,z,len)=>{bx(.01,.008,len,0,y,z,dark);bx(.01,.042,.008,0,y+.019,z-len/2,dark);
+    const tg=new THREE.Group();tg.position.set(0,y+.038,z+.005);const t=new THREE.Mesh(new THREE.BoxGeometry(.007,.03,.009),steel);t.position.y=-.016;tg.add(t);G.add(tg);G.userData.trig=tg;};
+  const hammer=(y,z,m)=>{const hg=new THREE.Group();hg.position.set(0,y,z);const hm=new THREE.Mesh(new THREE.BoxGeometry(.018,.03,.014),m);hm.position.y=.012;hg.add(hm);G.add(hg);G.userData.ham=hg;};
   let mz=-.4;
   switch(g.k){
-    case 'pistol': G.userData.slide=bx(.055,.065,.3,0,.06,-.12,metal); G.userData.mag=bx(.04,.1,.05,0,-.09,.02,M(0x232427),.22); bx(.05,.045,.26,0,.015,-.1,dark); bx(.05,.13,.075,0,-.05,.0,dark,.22); bx(.012,.02,.012,0,.1,-.25,dark); bx(.03,.02,.012,0,.1,.02,dark); bx(.008,.03,.04,0,-.01,-.06,dark); mz=-.28; break;
+    case 'pistol':{
+      const sl=G.userData.slide=bx(.055,.065,.3,0,.06,-.12,metal);
+      serr(sl,6,.058,.05,.08,.012); serr(sl,3,.058,.05,-.125,.012);
+      ch(sl,.028,.012,.07,.013,.028,-.01,blk);                                   // ejection port
+      ch(sl,.01,.014,.012,0,.039,-.135,dark); ch(sl,.004,.004,.003,0,.044,-.142,M(0xf0f0e0)); // front sight + dot
+      ch(sl,.012,.016,.012,-.013,.04,.135,dark); ch(sl,.012,.016,.012,.013,.04,.135,dark);  // rear sight notch
+      cz(sl,.011,.012,0,-.006,-.151,blk);                                        // muzzle
+      bx(.05,.045,.26,0,.015,-.1,dark); for(let i=0;i<3;i++)bx(.052,.006,.012,0,-.008,-.16-i*.025,blk); // frame + accessory rail
+      bx(.05,.13,.075,0,-.05,0,dark,.22); bx(.053,.075,.05,0,-.06,.005,M(0x26282c),.22); bx(.048,.02,.035,0,.012,.05,dark,-.3); // grip, stippling, beavertail
+      bx(.004,.008,.035,-.027,.035,-.055,dark);                                  // slide stop
+      const mg=G.userData.mag=bx(.04,.1,.05,0,-.09,.02,M(0x232427),.22); ch(mg,.046,.012,.058,0,-.05,0,blk);
+      tguard(-.04,-.05,.075); mz=-.28; break;}
     case 'smg': bx(.065,.085,.36,0,.05,-.14,metal); cyl(.016,.14,0,.06,-.38,dark); G.userData.mag=bx(.04,.17,.05,0,-.07,-.13,dark,.08); bx(.045,.12,.06,0,-.04,.03,poly,.25); bx(.04,.05,.18,0,.04,.14,dark); G.userData.slide=bx(.012,.02,.03,.038,.07,-.06,metal); bx(.012,.03,.012,0,.105,-.3,dark); bx(.035,.025,.03,0,.105,.0,dark); mz=-.45; break;
-    case 'rifle': bx(.065,.095,.42,0,.05,-.12,metal); bx(.072,.075,.3,0,.05,-.46,poly); cyl(.013,.22,0,.055,-.71,dark); G.userData.mag=bx(.045,.17,.07,0,-.08,-.17,dark,.25); G.userData.slide=bx(.012,.018,.035,.038,.075,-.02,metal); bx(.045,.12,.06,0,-.04,.04,poly,.25); bx(.055,.095,.26,0,.03,.21,poly);
-      bx(.048,.05,.09,0,.125,-.12,dark); {const dot=new THREE.Mesh(new THREE.BoxGeometry(.006,.006,.002),new THREE.MeshBasicMaterial({color:0xff2020}));dot.position.set(0,.135,-.075);G.add(dot);} bx(.042,.04,.002,0,.135,-.166,glass); mz=-.83; break;
-    case 'shotgun': bx(.07,.095,.3,0,.05,-.05,metal); cyl(.022,.58,0,.075,-.48,dark); G.userData.pump=cyl(.026,.24,0,.025,-.42,wood); bx(.06,.11,.3,0,.02,.24,wood,-.08); bx(.045,.1,.06,0,-.04,.07,wood,.3); bx(.01,.012,.01,0,.098,-.76,M(0xddddcc)); mz=-.78; break;
-    case 'sniper': bx(.065,.085,.45,0,.05,-.05,metal); cyl(.016,.62,0,.055,-.58,dark); bx(.07,.13,.36,0,.02,.32,tan,-.05); bx(.05,.11,.07,0,-.05,.08,tan,.3); G.userData.mag=bx(.04,.09,.06,0,-.04,-.05,dark);
-      cyl(.028,.36,0,.15,-.06,dark); cyl(.036,.06,0,.15,-.26,dark); cyl(.034,.05,0,.15,.12,dark); bx(.02,.05,.02,0,.11,-.1,dark); bx(.02,.05,.02,0,.11,.04,dark); {const bg=new THREE.Group();bg.position.set(.02,.07,.06);G.add(bg);const h=new THREE.Mesh(new THREE.BoxGeometry(.06,.012,.012),metal);h.position.x=.03;bg.add(h);const k=new THREE.Mesh(new THREE.SphereGeometry(.013,6,5),dark);k.position.x=.062;bg.add(k);G.userData.bolt=bg;} mz=-.9; break;
+    case 'rifle':{
+      bx(.065,.095,.42,0,.05,-.12,metal); bx(.067,.004,.4,0,.045,-.12,blk);      // receiver + upper/lower seam
+      bx(.072,.075,.3,0,.05,-.46,poly); for(let i=0;i<4;i++)bx(.074,.014,.032,0,.05,-.365-i*.06,blk); // handguard + slots
+      rail(.1,-.34,.0); rail(.091,-.6,-.32,.034); bx(.012,.035,.015,0,.11,-.585,dark); // top rails, flip-up front sight
+      cyl(.012,.16,0,.055,-.68,dark); cyl(.02,.03,0,.055,-.62,metal);            // barrel, gas block
+      cyl(.018,.07,0,.055,-.795,blk); for(let i=0;i<3;i++){const a=i/3*Math.PI*2+.5;bx(.005,.005,.045,Math.cos(a)*.0175,.055+Math.sin(a)*.0175,-.805,M(0x050505));} // flash hider
+      bx(.004,.026,.075,.0335,.062,-.08,blk); cyl(.011,.035,.04,.072,0,dark);    // ejection port, forward assist
+      bx(.004,.02,.016,-.034,.03,-.06,dark); bx(.004,.012,.022,-.034,.062,.025,steel); // bolt catch, selector
+      bx(.055,.03,.085,0,-.005,-.17,metal);                                      // mag well
+      const mg=G.userData.mag=bx(.045,.17,.07,0,-.08,-.17,dark,.25); ch(mg,.05,.012,.078,0,-.085,0,blk); ch(mg,.047,.005,.072,0,-.03,0,M(0x26282c)); ch(mg,.047,.005,.072,0,.01,0,M(0x26282c));
+      G.userData.slide=bx(.012,.018,.035,.038,.075,-.02,metal);
+      bx(.045,.12,.06,0,-.04,.04,poly,.25); bx(.047,.07,.035,0,-.05,.045,M(0x2f322b),.25); // grip + texture
+      bx(.055,.095,.26,0,.03,.21,poly); bx(.058,.1,.022,0,.03,.345,blk); bx(.02,.02,.06,0,-.025,.22,dark); // stock, butt pad, lever
+      bx(.048,.05,.09,0,.125,-.12,dark); {const dot=new THREE.Mesh(new THREE.BoxGeometry(.006,.006,.002),new THREE.MeshBasicMaterial({color:0xff2020}));dot.position.set(0,.135,-.075);G.add(dot);} bx(.042,.04,.002,0,.135,-.166,glass);
+      tguard(-.02,-.04,.08); mz=-.83; break;}
+    case 'shotgun':{
+      bx(.07,.095,.3,0,.05,-.05,metal); bx(.004,.03,.08,.036,.065,-.06,blk); bx(.04,.004,.09,0,.0,-.06,blk); // receiver, ejection + loading ports
+      cyl(.022,.58,0,.075,-.48,dark); bx(.012,.006,.56,0,.1,-.48,blk); for(let i=0;i<8;i++)bx(.006,.008,.006,0,.096,-.22-i*.07,blk); // barrel + vent rib
+      cyl(.017,.5,0,.025,-.45,dark); cyl(.019,.02,0,.025,-.71,metal);            // magazine tube + cap
+      const pm=G.userData.pump=cyl(.026,.24,0,.025,-.42,wood);
+      for(let i=0;i<7;i++){const r=new THREE.Mesh(new THREE.CylinderGeometry(.0275,.0275,.008,16),M(0x4a2e16));r.position.y=-.09+i*.03;pm.add(r);}
+      bx(.06,.11,.3,0,.02,.24,wood,-.08); bx(.064,.115,.025,0,.008,.39,M(0x161616),-.08); // stock + recoil pad
+      bx(.045,.1,.06,0,-.04,.07,wood,.3); bx(.01,.012,.01,0,.105,-.76,M(0xddddcc));
+      {const sb=new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.074,10),steel);sb.rotation.z=Math.PI/2;sb.position.set(0,.02,.04);G.add(sb);} // safety
+      tguard(-.02,0,.075); mz=-.78; break;}
+    case 'sniper':{
+      bx(.065,.085,.45,0,.05,-.05,metal); bx(.004,.026,.09,.0335,.065,0,blk);    // receiver + port
+      cyl(.017,.6,0,.055,-.57,dark); for(const [fx,fy] of [[.016,0],[-.016,0],[0,.016],[0,-.016]])bx(fx?.004:.006,fx?.006:.004,.4,fx,.055+fy,-.55,blk); // fluted barrel
+      bx(.042,.036,.08,0,.055,-.9,metal); for(const sx of [-1,1])for(let i=0;i<3;i++)bx(.004,.022,.012,sx*.0215,.055,-.875-i*.022,blk); // muzzle brake
+      bx(.07,.13,.36,0,.02,.32,tan,-.05); bx(.052,.028,.16,0,.095,.3,tan); bx(.074,.14,.022,0,.012,.5,M(0x151515),-.05); // stock, cheek riser, pad
+      bx(.07,.07,.36,0,.02,-.3,tan); bx(.05,.11,.07,0,-.05,.08,tan,.3);          // forend, grip
+      G.userData.mag=bx(.04,.09,.06,0,-.04,-.05,dark);
+      cyl(.028,.36,0,.15,-.06,dark); cyl(.036,.06,0,.15,-.26,dark); cyl(.034,.05,0,.15,.12,dark); // scope
+      {const ln=new THREE.Mesh(new THREE.CylinderGeometry(.031,.031,.004,20),new THREE.MeshBasicMaterial({color:0x2c5a86}));ln.rotation.x=Math.PI/2;ln.position.set(0,.15,-.291);G.add(ln);}
+      {const t1=new THREE.Mesh(new THREE.CylinderGeometry(.014,.014,.03,14),dark);t1.position.set(0,.188,-.06);G.add(t1);const t2=new THREE.Mesh(new THREE.CylinderGeometry(.013,.013,.03,14),dark);t2.rotation.z=Math.PI/2;t2.position.set(.042,.15,-.06);G.add(t2);} // turrets
+      for(const z of [-.14,.04]){bx(.02,.05,.02,0,.11,z,dark);cyl(.033,.022,0,.15,z,dark);} // rings
+      for(const sx of [-1,1])bx(.008,.008,.17,sx*.016,.03,-.56,blk);              // folded bipod
+      {const bg=new THREE.Group();bg.position.set(.02,.07,.06);G.add(bg);const h=new THREE.Mesh(new THREE.BoxGeometry(.06,.012,.012),steel);h.position.x=.03;bg.add(h);const k=new THREE.Mesh(new THREE.SphereGeometry(.013,10,8),dark);k.position.x=.062;bg.add(k);G.userData.bolt=bg;}
+      tguard(-.03,0,.075); mz=-.94; break;}
     case 'revolver': bx(.05,.06,.26,0,.07,-.14,metal); G.userData.cyl=cyl(.034,.08,0,.06,-.02,dark); for(let k=0;k<6;k++){const a=k/6*Math.PI*2,c=new THREE.Mesh(new THREE.BoxGeometry(.012,.012,.082),metal);c.position.set(Math.cos(a)*.022,Math.sin(a)*.022+.06,-.02);G.add(c);(G.userData.chambers=G.userData.chambers||[]).push(c);} bx(.045,.13,.07,0,-.04,.06,wood,.3); bx(.01,.02,.01,0,.105,-.26,dark); mz=-.28; break;
     case 'mpistol': G.userData.slide=bx(.055,.065,.28,0,.06,-.1,dark); G.userData.mag=bx(.045,.22,.05,0,-.07,.0,dark,.15); bx(.012,.02,.012,0,.1,-.22,dark); mz=-.25; break;
     case 'burst': bx(.07,.1,.44,0,.05,-.12,M(0x56524a)); cyl(.014,.2,0,.055,-.44,dark); G.userData.mag=bx(.045,.17,.07,0,-.08,-.16,dark,.2); G.userData.slide=bx(.012,.018,.035,.04,.075,-.02,metal); bx(.045,.12,.06,0,-.04,.05,poly,.25); bx(.06,.1,.24,0,.03,.22,M(0x56524a));
@@ -5525,12 +5602,29 @@ function buildGunModel(g){
       cyl(.06,.06,0,.06,-.62,metal); bx(.13,.13,.3,0,.04,.08,M(0x55585e)); bx(.04,.12,.05,0,-.06,.08,dark,.2); G.userData.mag=bx(.1,.12,.14,-.1,-.02,.06,M(0x4a5038)); bx(.03,.1,.03,0,.15,.05,dark); G.userData.spin=rot; mz=-.72; break;}
     case 'railgun': bx(.06,.08,.6,0,.06,-.2,M(0xdde3ea)); bx(.02,.02,.5,.035,.06,-.25,M(0x4fc8ff)); bx(.02,.02,.5,-.035,.06,-.25,M(0x4fc8ff)); for(let k=0;k<4;k++){const r=new THREE.Mesh(new THREE.TorusGeometry(.05,.01,6,14),new THREE.MeshBasicMaterial({color:0x4fc8ff}));r.position.set(0,.06,-.15-k*.13);G.add(r);}
       bx(.045,.12,.06,0,-.04,.05,dark,.25); bx(.055,.09,.22,0,.04,.22,M(0xdde3ea)); G.userData.mag=bx(.04,.04,.1,0,.13,-.1,M(0x4fc8ff)); mz=-.52; break;
-    case 'deagle': case 'golden': {const sc=g.k==='golden'?M(0xe0b23a):M(0xa6abb3), fr=g.k==='golden'?M(0xb88a20):dark;
-      G.userData.slide=bx(.062,.078,.33,0,.066,-.13,sc); G.userData.mag=bx(.044,.1,.05,0,-.09,.02,fr,.22); bx(.057,.05,.29,0,.015,-.11,fr); bx(.057,.14,.08,0,-.05,0,fr,.22); bx(.012,.022,.012,0,.112,-.27,fr); bx(.032,.022,.012,0,.112,.02,fr); bx(.008,.03,.04,0,-.01,-.06,fr); mz=-.31; break;}
+    case 'deagle': case 'golden': {const gold=g.k==='golden', sc=gold?M(0xe0b23a):M(0xa6abb3), fr=gold?M(0xb88a20):dark, gp=gold?M(0xf3ead2):M(0x1a1a1c);
+      const sl=G.userData.slide=bx(.062,.078,.33,0,.066,-.13,sc);
+      serr(sl,7,.065,.06,.07,.011); ch(sl,.03,.014,.08,.016,.034,-.03,blk); ch(sl,.02,.008,.3,0,.042,-.01,sc); // serrations, port, top rib
+      ch(sl,.012,.018,.012,0,.05,-.15,fr); ch(sl,.012,.016,.012,-.014,.048,.15,fr); ch(sl,.012,.016,.012,.014,.048,.15,fr); // sights
+      cz(sl,.014,.012,0,-.008,-.166,blk);
+      bx(.057,.05,.29,0,.015,-.11,fr); bx(.057,.14,.08,0,-.05,0,fr,.22); bx(.06,.09,.055,0,-.06,.005,gp,.22); // frame, grip, panels
+      hammer(.06,.04,fr);
+      const mg=G.userData.mag=bx(.044,.1,.05,0,-.09,.02,fr,.22); ch(mg,.05,.012,.058,0,-.05,0,blk);
+      tguard(-.042,-.05,.08); mz=-.31; break;}
     case 'uzi': bx(.07,.09,.28,0,.05,-.1,dark); cyl(.014,.08,0,.055,-.28,dark); G.userData.mag=bx(.042,.2,.05,0,-.08,.0,M(0x232427),.05); G.userData.slide=bx(.022,.02,.035,0,.105,-.12,metal);
       bx(.008,.008,.22,.03,.05,.13,metal); bx(.008,.008,.22,-.03,.05,.13,metal); bx(.07,.04,.008,0,.05,.24,metal); bx(.012,.02,.012,0,.105,-.22,dark); mz=-.33; break;
-    case 'ak': bx(.065,.09,.4,0,.05,-.1,metal); bx(.07,.07,.24,0,.04,-.42,wood); bx(.03,.03,.3,0,.095,-.42,metal); cyl(.012,.24,0,.05,-.66,dark); G.userData.mag=bx(.045,.18,.07,0,-.09,-.15,M(0x8a4a22),.35);
-      bx(.055,.09,.28,0,.02,.22,wood,-.1); bx(.045,.11,.055,0,-.04,.05,wood,.3); G.userData.slide=bx(.012,.018,.035,.04,.075,-.04,metal); bx(.012,.03,.012,0,.105,-.72,dark); bx(.03,.02,.04,0,.105,-.25,dark); mz=-.8; break;
+    case 'ak':{
+      bx(.065,.09,.4,0,.05,-.1,metal); bx(.062,.014,.32,0,.1,-.06,steel); for(let i=0;i<4;i++)bx(.064,.004,.006,0,.108,.02+i*.02,dark); // receiver, ribbed dust cover
+      for(const [rx,rz] of [[.0335,-.26],[.0335,.06],[-.0335,-.26],[-.0335,.06]])bx(.004,.008,.008,rx,.02,rz,blk); // rivets
+      bx(.004,.024,.085,.0335,.06,-.1,blk); {const sf=bx(.004,.014,.15,.035,.07,-.03,steel);sf.rotation.x=.08;} // ejection port, safety lever
+      bx(.07,.07,.24,0,.04,-.42,wood); for(let i=0;i<3;i++)bx(.072,.004,.2,0,.022+i*.016,-.42,M(0x4e2f16)); // lower handguard + grooves
+      bx(.032,.03,.18,0,.095,-.39,wood); bx(.03,.03,.14,0,.095,-.55,metal); bx(.034,.05,.03,0,.085,-.64,metal); // upper handguard, gas tube, gas block
+      cyl(.012,.22,0,.05,-.67,dark); bx(.03,.055,.025,0,.1,-.73,metal); bx(.006,.03,.006,0,.12,-.73,dark); cyl(.016,.05,0,.05,-.8,blk); // barrel, front sight, brake
+      {const mg=new THREE.Group();mg.position.set(0,-.02,-.15);G.add(mg);G.userData.mag=mg;const mc=M(0x8a4a22),rb=M(0x6a3818); // curved bakelite mag
+       for(const [yy,zz,r] of [[-.02,0,.15],[-.088,-.016,.35],[-.152,-.045,.55]]){ch(mg,.045,.075,.07,0,yy,zz,mc,r);ch(mg,.047,.006,.072,0,yy+.025,zz,rb,r);}}
+      bx(.055,.09,.28,0,.02,.22,wood,-.1); bx(.058,.1,.02,0,.006,.36,dark,-.1); bx(.045,.11,.055,0,-.04,.05,wood,.3); // stock, buttplate, grip
+      G.userData.slide=bx(.012,.018,.035,.04,.075,-.04,metal); bx(.03,.02,.04,0,.105,-.25,dark); bx(.012,.006,.03,0,.117,-.25,dark); // charging handle, rear sight
+      tguard(-.02,-.03,.07); mz=-.83; break;}
     case 'bullpup': bx(.075,.13,.6,0,.04,-.05,M(0x3a3f33)); G.userData.mag=bx(.045,.15,.07,0,-.09,.13,dark,.15); bx(.045,.11,.055,0,-.06,-.12,dark,.25); cyl(.013,.14,0,.06,-.42,dark);
       cyl(.022,.22,0,.15,-.08,dark); bx(.02,.03,.02,0,.115,-.15,dark); bx(.02,.03,.02,0,.115,0,dark); G.userData.slide=bx(.012,.018,.035,.042,.08,-.12,metal); bx(.08,.05,.12,0,-.01,-.28,M(0x3a3f33)); mz=-.5; break;
     case 'dbarrel': case 'sawed': {const brk=new THREE.Group(), BL=g.k==='sawed'?.32:.6;brk.position.set(0,.04,-.06);G.add(brk);G.userData.brk=brk;
@@ -5582,6 +5676,9 @@ function buildGunModel(g){
       bx(.04,.1,.05,0,-.04,-.38,wood,.1); bx(.045,.11,.06,0,-.04,.05,wood,.3); bx(.055,.1,.3,0,.02,.24,wood,-.08); G.userData.slide=bx(.015,.02,.03,0,.105,-.05,metal); bx(.012,.02,.012,0,.105,-.52,dark); mz=-.57; break;
     case 'rpg': cyl(.065,.95,0,.07,-.15,M(0x4a5a3c)); {const c=new THREE.Mesh(new THREE.ConeGeometry(.07,.2,10),M(0x5c5f52));c.rotation.x=-Math.PI/2;c.position.set(0,.07,-.72);G.add(c);G.userData.mag=c;} bx(.04,.11,.05,0,-.04,-.05,dark,.2); bx(.04,.1,.05,0,-.04,-.3,dark,.2); bx(.04,.05,.06,-.07,.15,-.1,dark); mz=-.82; break;
   }
+  if(!G.userData.trig&&['smg','burst','lmg','dmr','ashotgun','uzi','bullpup','tommy','vector','battle','scout','mpistol','amr','revolver','railgun','laser','plasma','dbarrel','sawed','musket','glauncher','flamer'].includes(g.k)){
+    const gh=GRIP_HAND[g.k]||[0,-.06,.05]; tguard(gh[1]+.035,gh[2]-.07,.075);}
+  if(g.k==='revolver')hammer(.085,.015,metal);
   if(g.att&&!g.rocket&&!g.noatt){const a=g.att, sy=g.sh-.035, fy=g.k==='shotgun'?.075:.055;
     if(a.sight==='reddot'){bx(.045,.045,.07,0,sy+.022,-.1,dark);const d0=new THREE.Mesh(new THREE.BoxGeometry(.006,.006,.002),new THREE.MeshBasicMaterial({color:0xff2020}));d0.position.set(0,g.sh,-.07);G.add(d0);}
     else if(a.sight==='holo'){bx(.055,.012,.06,0,sy+.006,-.1,dark);bx(.006,.05,.012,-.026,sy+.03,-.1,dark);bx(.006,.05,.012,.026,sy+.03,-.1,dark);bx(.058,.006,.012,0,sy+.055,-.1,dark);const r0=new THREE.Mesh(new THREE.TorusGeometry(.009,.0015,4,14),new THREE.MeshBasicMaterial({color:0x40ff60}));r0.position.set(0,g.sh,-.1);G.add(r0);}
@@ -5599,10 +5696,10 @@ function buildGunModel(g){
    fa.position.z=.12; sl.position.z=.36; hg.add(fa,sl);
    const r=HAND_REST[g.k]||[0,0,-.3]; hg.position.set(r[0],r[1],r[2]); G.add(hg); G.userData.hand=hg;}
   if(g.shell||BRK(g)||g.k==='crossbow'){const sh2=new THREE.Mesh(g.k==='crossbow'?new THREE.BoxGeometry(.012,.012,.3):new THREE.CylinderGeometry(g.k==='glauncher'?.024:.013,g.k==='glauncher'?.024:.013,g.k==='lever'?.045:.06,8),new THREE.MeshBasicMaterial({color:g.k==='lever'?0xc9a040:g.k==='glauncher'?0x46603a:g.k==='crossbow'?0x7a5530:0xc02828}));sh2.position.set(0,-.02,-.06);sh2.visible=false;G.add(sh2);G.userData.shell=sh2;}
-  for(const k of ['slide','mag','mag2','pump','bolt','cyl','lid','shell','ch','string','lever'])if(G.userData[k]){const o=G.userData[k];o.userData.bp=o.position.clone();o.userData.br=o.rotation.clone();}
+  for(const k of ['slide','mag','mag2','pump','bolt','cyl','lid','shell','ch','string','lever','trig','ham'])if(G.userData[k]){const o=G.userData[k];o.userData.bp=o.position.clone();o.userData.br=o.rotation.clone();}
   gunSkin(G,g.att&&g.att.skin);
-  gunFlash=new THREE.Group(); const fm=new THREE.MeshBasicMaterial({color:0xffd27a,transparent:true,opacity:.95});
-  gunFlash.add(new THREE.Mesh(new THREE.BoxGeometry(.09,.012,.09),fm)); {const v=new THREE.Mesh(new THREE.BoxGeometry(.012,.09,.09),fm);gunFlash.add(v);} {const c=new THREE.Mesh(new THREE.BoxGeometry(.04,.04,.14),new THREE.MeshBasicMaterial({color:0xffffff}));c.position.z=-.03;gunFlash.add(c);}
+  gunFlash=new THREE.Group(); const fm=new THREE.MeshBasicMaterial({map:flashTex(),color:g.tc||0xffffff,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide,fog:false});
+  {const f=new THREE.Mesh(new THREE.PlaneGeometry(.22,.22),fm);gunFlash.add(f);const a=new THREE.Mesh(new THREE.PlaneGeometry(.3,.11),fm);a.rotation.y=Math.PI/2;a.position.z=-.1;gunFlash.add(a);const b=new THREE.Mesh(new THREE.PlaneGeometry(.11,.3),fm);b.rotation.x=Math.PI/2;b.position.z=-.1;gunFlash.add(b);}
   gunFlash.position.set(0,g.k==='rpg'?.07:g.k==='shotgun'?.075:.055,mz-.04); gunFlash.visible=false; G.add(gunFlash);
   return G;
 }
@@ -5720,6 +5817,9 @@ function animGun(dt){
     const H=U.hand; H.position.lerp(_hT,Math.min(1,dt*(hand?20:14)));
     _hD.copy(HAND_ELBOW).sub(H.position).normalize(); H.quaternion.setFromUnitVectors(_hZ,_hD);
   }
+  // trigger follows your finger; the hammer falls on the shot and gets re-cocked
+  gTrig+=((gunTrigPrev?1:0)-gTrig)*Math.min(1,dt*30); if(U.trig)U.trig.rotation.x=U.trig.userData.br.x-gTrig*.45;
+  gHam=Math.max(0,gHam-dt*6); if(U.ham)U.ham.rotation.x=U.ham.userData.br.x+.7*(1-gHam);
   gunAnimPose={tilt,roll,lift,side,turn,push};
 }
 // ---------- dropped magazines: fall, bounce once, lie on the floor for a while ----------
@@ -5903,7 +6003,9 @@ function fireOnce(id){
   if(!g.rocket&&!g.pierce&&!g.bolt&&!g.noej&&g.k!=='shotgun'&&g.k!=='revolver')ejectShell(g.k==='ashotgun'?1:0);
   if(g.smoke){for(let i=0;i<18;i++)glowPart([200,200,200],mz.x,mz.y,mz.z,camDir.x*(2+Math.random()*3)+(Math.random()-.5),camDir.y*2+Math.random()*.8,camDir.z*(2+Math.random()*3)+(Math.random()-.5),1.2+Math.random(),-.4);}
   for(let i=0;i<3;i++)glowPart([255,220,150],mz.x,mz.y,mz.z,camDir.x*3+(Math.random()-.5),camDir.y*3+(Math.random()-.5),camDir.z*3+(Math.random()-.5),.06,0);
-  gunFlashT=g.quiet||g.flame||g.arrow||g.freeze||g.orbital?0:.045; gunActStart(g); gInspect=0; gunKick=Math.min(1.4,gunKick+g.recoil*.18); gKickR+=(Math.random()-.5)*g.recoil*.035; gKickY+=(Math.random()-.5)*g.recoil*.014; gunBloom=Math.min(g.spread*2.5,gunBloom+g.spread*.35);
+  gunFlashT=g.quiet||g.flame||g.arrow||g.freeze||g.orbital?0:.045; gunActStart(g);
+  if(gunFlash){gunFlash.rotation.z=Math.random()*6.28;gunFlash.scale.setScalar(.75+Math.random()*.6);}
+  {const rr=Math.min(6,g.recoil)/3*(1-gunAds*.4);gRcV.z+=rr*9;gRcV.x+=rr*14;gRcV.y+=(Math.random()-.5)*rr*10;gHam=1;} gInspect=0; gunKick=Math.min(1.4,gunKick+g.recoil*.18); gKickR+=(Math.random()-.5)*g.recoil*.035; gKickY+=(Math.random()-.5)*g.recoil*.014; gunBloom=Math.min(g.spread*2.5,gunBloom+g.spread*.35);
   const rk=g.recoil*.0105*(sneaking?(g.bipod?.4:.75):1)*(gunAds>.8?.8:1); recoilP+=rk; swayY+=(Math.random()-.5)*g.recoil*.006;
   sfxShot(g,g.quiet?.45:g.flame?.35:1); if(g.pew)sfxPew(); if(g.bolt)setTimeout(()=>{sfxClick(900,.5,.09);setTimeout(()=>sfxClick(1400,.5,.07),180);},380); if(g.k==='shotgun')setTimeout(()=>{sfxClick(700,.6,.1);setTimeout(()=>sfxClick(1100,.6,.08),150);},300);
 }
