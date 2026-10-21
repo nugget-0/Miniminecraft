@@ -696,7 +696,7 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
       <div id="srvList" class="srv-list"></div>
       <div class="row">
         <input id="srvName" maxlength="24" placeholder="New world name" aria-label="New world name">
-        <select id="srvType" aria-label="World type"><option value="private">Private</option><option value="multi">Multiplayer</option></select>
+        <select id="srvType" aria-label="World type"><option value="private">Private (admins can join)</option><option value="multi">Multiplayer</option></select>
       </div>
       <div class="row" style="margin-top:8px">
         <select id="srvGame" aria-label="Minigame"><option value="">Normal world</option><option value="spleef">Spleef</option><option value="gungame">Gun Game</option><option value="ctf">Capture the Flag</option><option value="koth">King of the Hill</option><option value="bedwars">Bed Wars</option><option value="wings">Wings Race</option></select>
@@ -4313,6 +4313,7 @@ const SYS_INFO=[
   ['Redstone tips','Wire powers the block under it and the block it points into; that block then powers things next to it. Repeaters, comparators and observers only output from their arrow/back. Use (E) on repeaters, comparators, note blocks, clocks, sensors and transmitters to change their setting; crouch + E with a block in hand places against them instead.'],
   ['Doors, ladders, slabs, stairs','Doors open with E. Ladders: walk forward or jump to climb, C to hold still. Two slabs make a full block. You step up slabs and stairs automatically.'],
   ['Multiplayer','Create a Multiplayer world to host, or join with a code / from Public servers. Chests, drops, mobs and blocks sync; PvP can be turned off.'],
+  ['Private worlds','Private worlds aren’t on the public server list and other players can’t join them, but Stackwild admins can (to keep things safe). An admin may join without a message appearing. The world itself is still saved only on your device.'],
   ['Mods','Install mods from the Mods page. Server mods (like The Corruption) run on worlds you host; client mods only change your screen.'],
   ['The Corruption (mod)','A corrupted sword spreads corruption from near spawn. Inside it you take damage and demons spawn. Hold an Ender item or a Totem of Revival, use the sword, and survive 30 seconds next to it to pull it free.'],
   ['Game modes','Survival (Peaceful–Hard), Hardcore (one life) and Creative (fly with double-tap Space).'],
@@ -5213,7 +5214,7 @@ function updateLocator(){
   wpSync();
   for(const g of wpMeshes.values()){g.userData.core.rotation.y+=.03;g.visible=Math.hypot(g.position.x-P.x,g.position.z-P.z)<400;}
   const dimNow=dimOf(P.x), wps=wpList().filter(w=>dimOf(w.x)===dimNow);
-  const on=((MP.connected&&MP.peers.size>0)||wps.length>0)&&!dead; locbar.hidden=!on;
+  const on=((MP.connected&&visPeers().length>0)||wps.length>0)&&!dead; locbar.hidden=!on;
   if(!on){for(const d of locDots.values())d.remove();locDots.clear();return;}
   {
     const fx0=-Math.sin(yaw), fz0=-Math.cos(yaw), rx0=Math.cos(yaw), rz0=-Math.sin(yaw);
@@ -7699,7 +7700,7 @@ const swOn=()=>location.protocol.startsWith('http');
 function swBase(){return{pid:PID,name:String((mpPrefs&&mpPrefs.name)||MP.name||'Player').slice(0,16)};}
 function swHeartbeat(beacon){
   if(!swOn()||swActive<1)return;
-  const body=Object.assign(swBase(),{type:'hb',sid:SW_SID,dt:Math.round(Math.min(130,swActive)),d:Object.assign({},swStat),mode:GM.mode,mg:worldMG||'',mp:!!MP.connected,device:window.matchMedia&&matchMedia('(pointer: coarse)').matches?'touch':'desktop',admin:isAdmin()});
+  const body=Object.assign(swBase(),{type:'hb',sid:SW_SID,dt:Math.round(Math.min(130,swActive)),d:Object.assign({},swStat),mode:GM.mode,mg:worldMG||'',mp:!!MP.connected&&!MP.priv,device:window.matchMedia&&matchMedia('(pointer: coarse)').matches?'touch':'desktop',admin:isAdmin()});
   swActive=0; for(const k in swStat)swStat[k]=0;
   const txt=JSON.stringify(body);
   if(beacon&&navigator.sendBeacon){navigator.sendBeacon('/api/track',txt);return;}
@@ -7745,7 +7746,7 @@ function ldashRender(){
   const btn=(a,v,t,cls)=>'<button class="btn small'+(cls?' '+cls:'')+'" data-ld="'+a+'" data-v="'+esc(v)+'">'+esc(t)+'</button>';
   const joined=MP.connected&&!MP.isHost;
   let h='<div class="card"><div class="db-head"><div><h2 style="margin:0">Legacy admin dashboard</h2><div class="db-sub">Every live multiplayer server · refreshes every 3 s · only legacy admins can open this</div></div><button class="btn ghost small" data-ld="close">Close</button></div>';
-  h+='<div class="db-tiles">'+tile('Servers live',list.length)+tile('Players online',list.reduce((n,o)=>n+(o.players|0),0))
+  h+='<div class="db-tiles">'+tile('Servers live',list.length)+tile('Private worlds',[...LOB.priv.values()].filter(o=>Math.abs(now-o.ts)<45000).length)+tile('Players online',list.reduce((n,o)=>n+(o.players|0),0))
     +tile('You',!MP.connected?'Offline':MP.isHost?'Hosting':MP.vanish?'Hidden':'Visible',MP.connected?'code '+MP.room:'')+tile('Banned',bans.length)+'</div>';
   if(joined){
     h+='<div class="db-box" style="margin-bottom:12px"><h3>You’re in “'+esc(current&&current.name||MP.room)+'” · code '+esc(MP.room)+'</h3><p class="db-sub" style="margin:0 0 8px">'
@@ -7764,6 +7765,16 @@ function ldashRender(){
     }
     h+='</tbody></table></div>';
   }
+  const pl=[...LOB.priv.values()].filter(o=>Math.abs(now-o.ts)<45000).sort((a,b)=>(b.ts|0)-(a.ts|0));
+  h+='<h3 style="margin-top:14px">Private worlds</h3>';
+  if(!pl.length)h+='<p class="db-sub">Nobody is playing a private world right now.</p>';
+  else{
+    h+='<div style="overflow-x:auto"><table><thead><tr><th>World</th><th>Player</th><th>Mode</th><th></th></tr></thead><tbody>';
+    for(const o of pl){const code=String(o.code).slice(0,14), here=MP.connected&&MP.room===o.code;
+      h+='<tr><td>'+esc(String(o.name||'World').slice(0,24))+'</td><td>'+esc(String(o.host||'?').slice(0,16))+'</td><td>'+esc(String(o.mode||'').slice(0,20))+'</td><td>'
+        +(here?'<span class="db-sub">'+(MP.isHost?'Yours':'You’re here')+'</span>':btn('sjoin',code,'Join secretly')+' '+btn('join',code,'Join','ghost'))+'</td></tr>';}
+    h+='</tbody></table></div>';
+  }
   h+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center"><input id="ldCode" placeholder="Server code" aria-label="Server code" style="flex:1;min-width:120px">'
     +btn('scode','','Join secretly')+btn('code','','Join','ghost')+'</div></div>';
   h+='<div class="db-box"><h3>Players here</h3>';
@@ -7778,7 +7789,7 @@ function ldashRender(){
       h+='</tbody></table>';
     }
   }
-  h+='<p class="db-sub" style="margin:10px 0 0">Private worlds are offline and only on the player’s own device, so they never show up here.</p></div></div></div>';
+  h+='<p class="db-sub" style="margin:10px 0 0">Private worlds tell their players that admins can join. They never appear on the public list, and only legacy admins get let in.</p></div></div></div>';
   el.innerHTML=h;
   const ni=document.getElementById('ldCode'); if(ni){ni.value=typed;if(hadFocus){ni.focus();ni.setSelectionRange(typed.length,typed.length);}}
 }
@@ -8368,21 +8379,30 @@ function loadWorld(key,forcedSeed,opts){
   paused=true; menu.hidden=false; menuBtn.hidden=true;
 }
 function playerName(){const n=mpName.value.trim().slice(0,16)||'Player';rememberName(n);mpPrefs.name=n;try{localStorage.setItem('stackwild:mp',JSON.stringify(mpPrefs));}catch(e){}return n;}
-function mpOpen(code,onReady){
+function mpOpen(code,onReady,quiet){
   if(amBanned()&&!isAdmin()){mpSetStatus('You’re banned from multiplayer servers.');return;}
   if(!window.Paho||!window.Paho.Client){mpSetStatus('The multiplayer library didn’t load. Check your connection and reload.');return;}
-  MP.name=playerName(); mpJoin.disabled=true; mpSetStatus('Connecting to HiveMQ…');
+  MP.name=playerName(); MP.priv=false; if(!quiet){mpJoin.disabled=true;mpSetStatus('Connecting to HiveMQ…');}
   const c=new window.Paho.Client('broker.hivemq.com',8884,'/mqtt',MP.id+Date.now().toString(36).slice(-4));
   c.onConnectionLost=()=>{
     if(!MP.connected)return;
     MP.connected=false; MP.isHost=false; for(const id of [...MP.peers.keys()])removePeer(id);
     mpJoin.disabled=false; mpJoin.textContent='Join'; renderServers();
+    if(quiet)return;
     mpSetStatus('Lost connection to HiveMQ. Press Play on the world again to reconnect.'); chatSys('Disconnected');
   };
   c.onMessageArrived=m=>{try{mpOnMsg(JSON.parse(m.payloadString));}catch(e){}};
   c.connect({useSSL:true,timeout:8,keepAliveInterval:30,cleanSession:true,
     onSuccess:()=>{MP.client=c;MP.connected=true;MP.room=code;MP.topic='stackwild/v2/'+code;MP.jt=Date.now();c.subscribe(MP.topic);mpJoin.disabled=false;onReady();},
-    onFailure:r=>{mpJoin.disabled=false;mpSetStatus('Couldn’t reach HiveMQ'+(r&&r.errorMessage?' ('+r.errorMessage+')':'')+'. Multiplayer works in the downloaded file or on your own site; this preview blocks live connections.');}});
+    onFailure:r=>{mpJoin.disabled=false;if(quiet)return;mpSetStatus('Couldn’t reach HiveMQ'+(r&&r.errorMessage?' ('+r.errorMessage+')':'')+'. Multiplayer works in the downloaded file or on your own site; this preview blocks live connections.');}});
+}
+// private worlds go online quietly on their own code; they're announced on an admin-only list, never the public one
+const PRIV_TOPIC='stackwild/v2/priv/';
+function privHost(s){
+  if(!s.pcode){s.pcode='p'+Math.random().toString(36).slice(2,12);saveReg();}
+  mpSetStatus('Playing “'+s.name+'”. Private: not on the public list. Admins can join.');
+  if(amBanned()||!window.Paho||!window.Paho.Client)return;
+  mpOpen(s.pcode,()=>{if(current!==s){mpDisconnect();return;}MP.isHost=true;MP.priv=true;MP.allow=new Set();mpAnnounce();MP.annT=10;},true);
 }
 function mpHost(s){
   mpOpen(s.code,()=>{MP.isHost=true;renderServers();mpAnnounce();MP.annT=10;renderPublic();mpSetStatus('Hosting “'+s.name+'”. Share code '+s.code+' so friends can join. The world saves on this device.');chatSys('Server open · code '+s.code);});
@@ -8396,7 +8416,7 @@ function mpJoinCode(code,secret){
   mpOpen(code,()=>{
     MP.isHost=false; MP.gotWorld=false;
     mpSetStatus('Connected. Waiting for the host to send the world…');
-    mpSend({t:'hi',n:MP.name,jt:MP.jt,pid:PID,v:MP.vanish?1:undefined});
+    mpSend({t:'hi',n:MP.name,jt:MP.jt,pid:PID,v:MP.vanish?1:undefined,la:canLegacy()?1:undefined});
     clearTimeout(MP.waitT);
     MP.waitT=setTimeout(()=>{if(!MP.gotWorld){mpDisconnect();mpSetStatus('No host answered on code '+code+'. The world lives on the host’s device, so they need to have it open.');}},7000);
   });
@@ -8415,7 +8435,7 @@ function joinedWorld(o){
 function mpDisconnect(){
   clearTimeout(MP.waitT);
   if(MP.connected){if(MP.isHost)mpAnnounce(true);mpSend({t:'bye',h:MP.isHost?1:0});try{MP.client.disconnect();}catch(e){}}
-  MP.connected=false; MP.isHost=false; MP.client=null; MP.vanish=false; for(const id of [...MP.peers.keys()])removePeer(id);
+  MP.connected=false; MP.isHost=false; MP.client=null; MP.vanish=false; MP.priv=false; for(const id of [...MP.peers.keys()])removePeer(id);
   mpJoin.textContent='Join';
 }
 mpJoin.addEventListener('click',()=>{
@@ -8456,6 +8476,7 @@ function applyRemoteBlock(o){
 }
 function mpOnMsg(o){
   if(!o||o.s===MP.id)return;
+  if(MP.priv&&MP.isHost&&!MP.allow.has(o.s)){if(o.t==='hi'&&o.la)MP.allow.add(o.s);else return;}
   switch(o.t){
     case 'hi': peerUpdate(o.s,o); if(!o.v)chatSys((o.n||'Someone')+' joined'); if(MP.isHost)mpSendWorld(o.s); break;
     case 'p': peerUpdate(o.s,o); break;
@@ -8703,13 +8724,14 @@ function onAdminMsg(topic,payload){
 
 // ---------- public server list (lobby) ----------
 const LOB_TOPIC='stackwild/v2/lobby/';
-const LOB={client:null,state:'connecting',servers:new Map(),retryT:0};
+const LOB={client:null,state:'connecting',servers:new Map(),priv:new Map(),retryT:0};
 const pubList=document.getElementById('pubList'), lobbyStatus=document.getElementById('lobbyStatus');
 function mpAnnounce(clear){
-  if(!MP.client||!MP.connected||!MP.isHost||!current||!current.code)return;
+  const code=MP.priv?current&&current.pcode:current&&current.code;
+  if(!MP.client||!MP.connected||!MP.isHost||!code)return;
   try{
-    const m=new window.Paho.Message(clear?'':JSON.stringify({code:current.code,name:current.name,host:MP.name,players:visPeers().length+1,mode:modeLabelFor(GM),ts:Date.now()}));
-    m.destinationName=LOB_TOPIC+current.code; m.retained=true; m.qos=0; MP.client.send(m);
+    const m=new window.Paho.Message(clear?'':JSON.stringify({code,name:current.name,host:MP.name,players:visPeers().length+1,mode:modeLabelFor(GM),ts:Date.now()}));
+    m.destinationName=(MP.priv?PRIV_TOPIC:LOB_TOPIC)+code; m.retained=true; m.qos=0; MP.client.send(m);
   }catch(e){}
 }
 function setLobby(st,msg){
@@ -8729,12 +8751,13 @@ function lobbyConnect(){
   c.onConnectionLost=r=>{LOB.client=null;setLobby('offline',r&&r.errorMessage);scheduleLobby();};
   c.onMessageArrived=m=>{
     if(m.destinationName===ADMIN_TOPIC||m.destinationName===BAN_TOPIC){onAdminMsg(m.destinationName,m.payloadString);return;}
-    const code=m.destinationName.slice(LOB_TOPIC.length);
-    if(!m.payloadString){LOB.servers.delete(code);renderPublic();return;}
-    try{const o=JSON.parse(m.payloadString);if(o&&o.code===code&&typeof o.ts==='number'){LOB.servers.set(code,o);renderPublic();}}catch(e){}
+    const pv=m.destinationName.startsWith(PRIV_TOPIC), map=pv?LOB.priv:LOB.servers, code=m.destinationName.slice((pv?PRIV_TOPIC:LOB_TOPIC).length);
+    if(pv&&!canLegacy())return;
+    if(!m.payloadString){map.delete(code);if(!pv)renderPublic();return;}
+    try{const o=JSON.parse(m.payloadString);if(o&&o.code===code&&typeof o.ts==='number'){map.set(code,o);if(!pv)renderPublic();}}catch(e){}
   };
   c.connect({useSSL:true,timeout:10,keepAliveInterval:30,cleanSession:true,
-    onSuccess:()=>{LOB.client=c;setLobby('online');c.subscribe(LOB_TOPIC+'+');c.subscribe(ADMIN_TOPIC);c.subscribe(BAN_TOPIC);},
+    onSuccess:()=>{LOB.client=c;setLobby('online');c.subscribe(LOB_TOPIC+'+');if(canLegacy())c.subscribe(PRIV_TOPIC+'+');c.subscribe(ADMIN_TOPIC);c.subscribe(BAN_TOPIC);},
     onFailure:r=>{setLobby('offline',r&&r.errorMessage);scheduleLobby();}});
 }
 function scheduleLobby(){clearTimeout(LOB.retryT);LOB.retryT=setTimeout(lobbyConnect,8000);}
@@ -8783,7 +8806,7 @@ function renderServers(){
     const info=document.createElement('div'); info.style.minWidth='0';
     const nm=document.createElement('div'); nm.className='srv-name'; nm.textContent=s.name;
     const sub=document.createElement('div'); sub.className='srv-sub';
-    sub.textContent=s.type==='private'?'Private · only you · saved on this device'
+    sub.textContent=s.type==='private'?'Private · admins can join · saved on this device'
       :s.type==='multi'?'Multiplayer · code '+s.code+' · saved on this device (you host)'
       :'Joined · code '+s.code+' · saved on the host’s device';
     sub.textContent=modeLabelFor(s)+' · '+sub.textContent;
@@ -8824,7 +8847,7 @@ function playServer(s){
   if(MP.connected)mpDisconnect();
   current=s; s.last=Date.now(); saveReg(); setLast(s.id); setGM(s);
   if(activeKey!==s.key)loadWorld(s.key,s.seed);
-  if(s.type==='multi')mpHost(s); else mpSetStatus('Playing “'+s.name+'”. Private, only on this device.');
+  if(s.type==='multi')mpHost(s); else privHost(s);
   renderServers();
 }
 // export / import worlds as a .json file holding the save as base64
@@ -8885,7 +8908,7 @@ document.getElementById('srvCreate').addEventListener('click',()=>{
 if(current.over)current=servers.find(s=>!s.over&&s.type!=='joined')||current;
 saveReg(); setGM(current);
 if(current.key!==activeKey)loadWorld(current.key,current.seed);
-if(current.type==='multi')mpHost(current); else mpSetStatus('Playing “'+current.name+'”. Private, only on this device.');
+if(current.type==='multi')mpHost(current); else privHost(current);
 renderServers();
 document.addEventListener('visibilitychange',()=>{if(document.hidden)saveNow();});
 // ---------- auto update: when the hosted file changes, save and reload ----------
