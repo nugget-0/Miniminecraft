@@ -3168,7 +3168,16 @@ function floatNum(x,y,z,n,cr){
 }
 function updateFloats(dt){for(let i=floats.length-1;i>=0;i--){const f=floats[i];f.t-=dt;f.sp.position.y+=dt*1.1;f.sp.material.opacity=Math.min(1,f.t*2);if(f.t<=0){scene.remove(f.sp);f.sp.material.map.dispose();f.sp.material.dispose();floats.splice(i,1);}}}
 function dummyTick(m,dt){
-  m.vx=m.vz=0; if(m.vy>0)m.vy=0; m.vy-=30*dt; m.vy=Math.max(m.vy,-40); m.ground=false; entAxis(m,'y',m.vy*dt); m.flee=0;
+  // dummies can be knocked back, launched and juggled like any mob, then slide back to where they were placed
+  if(m.hx===undefined){m.hx=m.x;m.hz=m.z;}
+  const fr=Math.pow(m.ground?.0005:.5,dt); m.vx*=fr; m.vz*=fr;
+  m.vy-=30*dt; m.vy=Math.max(m.vy,-40); m.ground=false;
+  entAxis(m,'x',m.vx*dt); entAxis(m,'z',m.vz*dt); entAxis(m,'y',m.vy*dt); m.flee=0;
+  if(m.ground&&Math.hypot(m.vx,m.vz)<.5&&!m.cyc&&!(m.wlift>0)){const dx=m.hx-m.x,dz=m.hz-m.z,dd=Math.hypot(dx,dz);
+    m.homeT=(m.homeT||0)+dt;
+    if(dd>3&&m.homeT>1.2){burstC([200,190,160],m.x-.5,m.y+.5,m.z-.5,10);m.x=m.hx;m.z=m.hz;let yy=Math.floor(m.y)+8;while(yy>1&&!solid(getBlock(Math.floor(m.x),yy-1,Math.floor(m.z))))yy--;m.y=yy+.02;m.homeT=0;burstC([200,190,160],m.x-.5,m.y+.5,m.z-.5,10);}
+    else if(dd>.05&&dd<=3){const st=Math.min(dd,dt*(1.5+dd));entAxis(m,'x',dx/dd*st);entAxis(m,'z',dz/dd*st);}}
+  else m.homeT=0;
   m.v.g.position.set(m.x,m.y,m.z); m.v.g.rotation.y=m.yaw; m.v.g.rotation.z=m.flash>0?Math.sin(performance.now()/30)*.12*m.flash/.2:0;
   animMob(m,dt,0); dummyTag(m);
 }
@@ -3745,7 +3754,7 @@ function updateMobs(dt){
   if(admFreeze){for(const m of mobs){m.vx=m.vz=0;}return;}
   spawnT-=dt;
   if(worldMG){spawnT=9;animalT=9;mgBots(dt);}
-  if(GM.diff===0)for(let i=mobs.length-1;i>=0;i--)if(!mobs[i].passive)removeMob(i);
+  if(GM.diff===0)for(let i=mobs.length-1;i>=0;i--)if(!mobs[i].passive&&!mobs[i].summoned)removeMob(i);   // summoned mobs stay even on Peaceful
   if(GM.diff>0&&spawnT<=0){const mm=modActive('mayhem');spawnT=mm?1.1:2.5;if(mobs.filter(m=>!m.passive).length<[0,6,10,14][GM.diff]*(mm?2:1))trySpawn();}
   animalT-=dt; if(animalT<=0){animalT=3;trySpawnAnimal();spawnVillagers();}
   maybeSpawnDragon(dt);
@@ -9241,19 +9250,18 @@ function runCommand(line){
       for(let i=0;i<n;i++){
         const ang=i*2.39996, rad=Math.sqrt(i)*1.1, bx=Math.floor(cx+Math.cos(ang)*rad), bz=Math.floor(cz+Math.sin(ang)*rad);
         let by=Math.floor(P.y)+6; while(by>1&&!solid(getBlock(bx,by-1,bz)))by--;
-        if(t==='tnt'||t==='megatnt'){if(getBlock(bx,by,bz)===AIR&&setBlock(bx,by,bz,t==='tnt'?TNT:MEGA_TNT,{noSync:true})){igniteTNT(bx,by,bz,3+i*.05);made++;}}
-        else{spawnMob(t,bx+.5,by+.02,bz+.5,Math.floor(Math.random()*3));made++;}
+        if(summonAt(t,bx+.5,by+.02,bz+.5,Math.floor(Math.random()*3),3+i*.05))made++;
       }
-      say('Summoned '+made+' × '+t+(t.includes('tnt')?'. RUN!':GM.diff===0&&!['cow','pig','sheep','chicken','villager','dummy'].includes(t)?' (they vanish on Peaceful).':'.'));
+      say('Summoned '+made+' × '+t+(t.includes('tnt')?'. RUN!':MP.connected&&!MP.isHost?' (the host’s game spawns them).':'.'));
       break;
     }
     case 'summon':{
       if(!canCheat())break;
       camera.getWorldDirection(camDir);
       const x=P.x+camDir.x*3, z=P.z+camDir.z*3, y=P.y+.5, t=(a[0]||'').toLowerCase();
-      if(MOB_TYPES.includes(t)){spawnMob(t,x,y,z,Math.floor(Math.random()*3));say('Summoned a '+t+(GM.diff===0?' (it will vanish on Peaceful).':'.'));}
-      else if(t==='tnt'){const bx=Math.floor(x),by=Math.floor(y),bz=Math.floor(z);if(setBlock(bx,by,bz,TNT,{noSync:true}))igniteTNT(bx,by,bz,3);say('Lit TNT! Run.');}
-      else if(t==='megatnt'){const bx=Math.floor(x),by=Math.floor(y),bz=Math.floor(z);if(setBlock(bx,by,bz,MEGA_TNT,{noSync:true}))igniteTNT(bx,by,bz,3);say('Lit MEGA TNT! RUN FAR.');}
+      const away=MP.connected&&!MP.isHost;
+      if(MOB_TYPES.includes(t)){summonAt(t,x,y,z,Math.floor(Math.random()*3));say('Summoned a '+t+(away?' (the host’s game spawns it).':'.'));}
+      else if(t==='tnt'||t==='megatnt'){summonAt(t,x,y,z,0,3);say(t==='tnt'?'Lit TNT! Run.':'Lit MEGA TNT! RUN FAR.');}
       else say('Usage: /summon <'+MOB_TYPES.join('|')+'|tnt>');
       break;
     }
@@ -9270,7 +9278,7 @@ function runCommand(line){
       const hp=Math.max(1,Math.min(1000000,parseInt(a[0]||'20',10)||20));
       camera.getWorldDirection(camDir);
       const x=Math.floor(P.x+camDir.x*3), z=Math.floor(P.z+camDir.z*3); let y=Math.floor(P.y)+3; while(y>1&&!solid(getBlock(x,y-1,z)))y--;
-      spawnMob('dummy',x+.5,y+.02,z+.5,hp); const d=mobs[mobs.length-1]; d.yaw=Math.atan2(P.x-d.x,P.z-d.z)+Math.PI;
+      summonAt('dummy',x+.5,y+.02,z+.5,hp);
       say('Placed a training dummy with '+hp+' HP. Hit it to see your damage.'); break;
     }
     case 'locate':{
@@ -9533,6 +9541,10 @@ function mpOnMsg(o){
     case 'mods': if(!MP.isHost&&Array.isArray(o.l)){remoteMods=o.l.filter(x=>typeof x==='string');if(typeof o.b==='number')meta['#bd']=o.b;} break;
     case 'wp': if(Array.isArray(o.l)){meta['#wp']=o.l.filter(w=>w&&typeof w.n==='string'&&typeof w.x==='number'&&typeof w.y==='number'&&typeof w.z==='number').slice(0,30).map(w=>({n:w.n.slice(0,24),x:w.x,y:w.y,z:w.z,h:(w.h|0)%360,by:String(w.by||'').slice(0,16)}));wpRef=null;saveSoon();} break;
     case 'windt': if([o.x,o.y,o.z,o.vx,o.vy,o.vz].every(v=>typeof v==='number'))remoteWind(o); break;
+    case 'sumreq': if(MP.isHost&&(o.la||o.ad)&&typeof o.m==='string'&&[o.x,o.y,o.z].every(v=>typeof v==='number'&&isFinite(v))){
+        const t=o.m.slice(0,16), sp=MP.peers.get(o.s); if(sp&&Math.hypot(o.x-sp.x,o.z-sp.z)>80)break;   // only near the person asking
+        if(t==='dummy')summonAt(t,o.x,o.y,o.z,Math.max(1,Math.min(1e6,o.p|0||20)));else summonAt(t,o.x,o.y,o.z,Math.max(0,Math.min(2,o.p|0)),Math.max(.5,Math.min(30,+o.f||3)));}
+      break;
     case 'wfling': if(o.to===MP.id&&!dead&&[o.vx,o.vy,o.vz].every(v=>typeof v==='number')){V.x=Math.max(-40,Math.min(40,o.vx));V.y=Math.max(-40,Math.min(30,o.vy));V.z=Math.max(-40,Math.min(40,o.vz));if(o.vy>0)maceSafe=true;} break;
     case 'mfling': if(MP.isHost&&[o.vx,o.vy,o.vz].every(v=>typeof v==='number')){const m=mobs.find(q=>q.nid===o.id);if(m){m.vx=o.vx;m.vy=o.vy;m.vz=o.vz;}} break;
     case 'wcyc': if(o.to===MP.id&&!dead&&typeof o.fx==='number'){myCyc={t:Math.min(3,+o.d||2.4),cx:P.x,cz:P.z,a:0,fx:o.fx,fz:o.fz};} break;
@@ -9737,6 +9749,14 @@ function setColeg(t,on){
 const known=new Map();
 let bans=[];
 function amBanned(){return bans.some(b=>b.id===PID||(b.nc&&window.NC_ID&&b.nc===window.NC_ID));}
+// mobs only live on the host's game, so a summon in someone else's world is sent to the host to do
+function summonAt(t,x,y,z,prof,fuse){
+  if(MP.connected&&!MP.isHost){mpSend({t:'sumreq',m:t,x:+x.toFixed(2),y:+y.toFixed(2),z:+z.toFixed(2),p:prof|0,f:+(fuse||3).toFixed(2),la:canLegacy()?1:0,ad:isAdmin()?1:0});return true;}
+  if(t==='tnt'||t==='megatnt'){const bx=Math.floor(x),by=Math.floor(y),bz=Math.floor(z);if(getBlock(bx,by,bz)!==AIR&&getBlock(bx,by,bz)!==WATER)return false;
+    if(!setBlock(bx,by,bz,t==='tnt'?TNT:MEGA_TNT))return false;igniteTNT(bx,by,bz,fuse||3);if(MP.connected)mpSend({t:'ign',x:bx,y:by,z:bz});return true;}
+  if(!MOB_TYPES.includes(t))return false;
+  spawnMob(t,x,y,z,prof); {const sm=mobs[mobs.length-1];if(sm)sm.summoned=true;} if(t==='dummy'){const d=mobs[mobs.length-1];if(d)d.yaw=Math.atan2(P.x-d.x,P.z-d.z)+Math.PI;} return true;
+}
 function resolvePlayer(q){
   if(!q)return null; const lq=q.toLowerCase();
   for(const p of MP.peers.values())if(p.pid&&p.n.toLowerCase()===lq)return{pid:p.pid,name:p.n};
