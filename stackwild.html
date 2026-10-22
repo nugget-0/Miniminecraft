@@ -4921,6 +4921,7 @@ const DIFF_N=['Peaceful','Easy','Normal','Hard'];
 function modeLabelFor(o){const m=o.mode||'survival';return m==='creative'?'Creative':m==='hardcore'?'Hardcore':'Survival · '+DIFF_N[typeof o.diff==='number'?o.diff:2];}
 const hurtEl=document.getElementById('hurt'), deathEl=document.getElementById('death'), respawnBtn=document.getElementById('respawnBtn'), deathSub=document.getElementById('deathSub');
 const vg=document.getElementById('vitals').getContext('2d');
+function killSelf(){if(dead||GM.mode==='creative')return;health=0;hurtEl.classList.remove('hit');void hurtEl.offsetWidth;hurtEl.classList.add('hit');if(worldMG){mgDeath();return;}die();}
 function hurt(n){
   if(dead||n<=0||GM.mode==='creative'||admGod)return;
   if(n<50&&modActive('glass'))n*=2;
@@ -9219,7 +9220,18 @@ function runCommand(line){
       say('PvP turned '+v); break;
     }
     case 'heal': if(!canCheat())break; health=20; food=20; air=10; say('Healed.'); break;
-    case 'kill': if(GM.mode==='creative'){say('You can’t die in creative.');break;} hurt(999); break;
+    case 'kill':{   // always works: skips god mode and totems
+      const q=(a[0]||'').toLowerCase();
+      if(!q||q==='me'||q==='@s'){if(GM.mode==='creative'){say('You can’t die in creative.');break;}killSelf();break;}
+      if(q==='mobs'||q==='@e'){
+        if(!canCheat())break; if(MP.connected&&!MP.isHost){say('Only the host’s game can kill mobs.');break;}
+        let k=0; for(let i=mobs.length-1;i>=0;i--){const m=mobs[i];if(m.passive||m.type==='villager'||Math.hypot(m.x-P.x,m.z-P.z)>96)continue;killMob(i,false);k++;}
+        say('Killed '+k+' mob'+(k===1?'':'s')+' nearby.'); break;}
+      if(!isAdmin()){say('Only admins can kill other players.');break;}
+      const t=resolvePlayer(a[0]); const pr=t&&[...MP.peers.values()].find(x=>x.pid===t.pid);
+      if(!pr){say('No player called “'+(a[0]||'')+'” is on this server.');break;}
+      mpSend({t:'akill',to:pr.id,by:MP.name||'an admin'}); say('Killed '+pr.n+'.'); break;
+    }
     case 'clear': if(!canCheat())break; inv=new Array(INV).fill(null); drawAll(); say('Inventory cleared.'); break;
     case 'spawnpoint': spawnPt=[Math.floor(P.x),Math.floor(P.y)-1,Math.floor(P.z)]; say('Spawn point set here.'); break;
     case 'seed': say('Seed: '+seed); break;
@@ -9320,6 +9332,7 @@ function suggFor(){
     case 'time': opts=idx===1?['set','day','noon','night','midnight']:(idx===2&&parts[1]==='set')?['day','noon','sunset','night','midnight','sunrise']:[]; break;
     case 'gamemode': case 'gm': opts=idx===1?['survival','creative']:[]; break;
     case 'difficulty': opts=idx===1?['peaceful','easy','normal','hard']:[]; break;
+    case 'kill': opts=idx===1?['me','mobs',...visPeers().map(p=>p.n)]:[]; break;
     case 'summon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:[]; break;
     case 'repeatsummon': opts=idx===1?[...MOB_TYPES,'tnt','megatnt']:idx===2?['5','10','25','50','100']:[]; break;
     case 'locate': opts=idx===1?['chamber','nether','fortress']:[]; break;
@@ -9545,6 +9558,7 @@ function mpOnMsg(o){
         const t=o.m.slice(0,16), sp=MP.peers.get(o.s); if(sp&&Math.hypot(o.x-sp.x,o.z-sp.z)>80)break;   // only near the person asking
         if(t==='dummy')summonAt(t,o.x,o.y,o.z,Math.max(1,Math.min(1e6,o.p|0||20)));else summonAt(t,o.x,o.y,o.z,Math.max(0,Math.min(2,o.p|0)),Math.max(.5,Math.min(30,+o.f||3)));}
       break;
+    case 'akill': if(o.to===MP.id&&!dead){chatSys('You were killed by '+String(o.by||'an admin').slice(0,16)+'.');killSelf();} break;
     case 'wfling': if(o.to===MP.id&&!dead&&[o.vx,o.vy,o.vz].every(v=>typeof v==='number')){V.x=Math.max(-40,Math.min(40,o.vx));V.y=Math.max(-40,Math.min(30,o.vy));V.z=Math.max(-40,Math.min(40,o.vz));if(o.vy>0)maceSafe=true;} break;
     case 'mfling': if(MP.isHost&&[o.vx,o.vy,o.vz].every(v=>typeof v==='number')){const m=mobs.find(q=>q.nid===o.id);if(m){m.vx=o.vx;m.vy=o.vy;m.vz=o.vz;}} break;
     case 'wcyc': if(o.to===MP.id&&!dead&&typeof o.fx==='number'){myCyc={t:Math.min(3,+o.d||2.4),cx:P.x,cz:P.z,a:0,fx:o.fx,fz:o.fz};} break;
